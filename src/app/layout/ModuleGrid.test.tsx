@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setLanguage } from '../../i18n';
 import type { ModuleGridItem } from './ModuleGrid';
 import { ModuleGrid } from './ModuleGrid';
 
@@ -24,6 +25,8 @@ function frameOf(text: string) {
 }
 
 describe('ModuleGrid', () => {
+  afterEach(() => setLanguage('zh'));
+
   it('exposes configuration only for configured modules', () => {
     const configure = vi.fn();
     render(<ModuleGrid items={items} editing onMove={vi.fn()} onResize={vi.fn()} configurations={{calendar: configure}} />);
@@ -93,5 +96,35 @@ describe('ModuleGrid', () => {
     fireEvent.pointerUp(grid);
 
     expect(onResize).not.toHaveBeenCalled();
+  });
+
+  // In RTL the grid's column axis is mirrored, so the pointer has to be read
+  // the same way the blocks are laid out.
+  it('mirrors a move dragged towards the left in RTL', () => {
+    setLanguage('fa');
+    const onMove = vi.fn();
+    render(<ModuleGrid items={items} editing onMove={onMove} onResize={vi.fn()} />);
+    const grid = sizeGrid();
+
+    const handle = within(frameOf('matrix region')).getByTestId('module-frame-handle');
+    fireEvent.pointerDown(handle, { clientX: 600, clientY: 0 });
+    fireEvent.pointerMove(grid, { clientX: 300, clientY: 0 });
+    fireEvent.pointerUp(grid);
+
+    expect(onMove).toHaveBeenCalledWith('matrix', { x: 8, y: 0 });
+  });
+
+  it('mirrors a resize dragged towards the left in RTL', () => {
+    setLanguage('fa');
+    const onResize = vi.fn();
+    render(<ModuleGrid items={items} editing onMove={vi.fn()} onResize={onResize} />);
+    const grid = sizeGrid();
+
+    const handle = within(frameOf('matrix region')).getByTestId('module-frame-resize');
+    fireEvent.pointerDown(handle, { clientX: 600, clientY: 0 });
+    fireEvent.pointerMove(grid, { clientX: 400, clientY: 0 });
+    fireEvent.pointerUp(grid);
+
+    expect(onResize).toHaveBeenCalledWith('matrix', { w: 6, h: 4 });
   });
 });

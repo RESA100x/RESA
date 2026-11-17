@@ -174,3 +174,45 @@ test('rejects a move that would overlap another module', async ({ page }) => {
   await expect(notes).toHaveCSS('grid-column-start', '8');
   await expect.poll(async () => (await storedRect(page, 'notes'))?.x).toBe(7);
 });
+
+// In a right-to-left layout the grid's column axis runs right-to-left, so the
+// pointer has to be mirrored: a drag towards the right must move the module
+// towards the right (a lower column index), and the resize handle — mirrored to
+// the frame's bottom-left — must grow the module when dragged towards the left.
+test('follows the pointer in a right-to-left layout', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('nowly.language', 'fa'));
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.locator('[data-guide="edit-layout"]').click();
+
+  const stride = await cellStride(page);
+
+  // Calendar starts at the right edge (0,0,7x8). Dragging its handle 2 columns
+  // to the right and 4 rows up shrinks it to 5x4.
+  const calendarHandle = frame(page, 'calendar').getByTestId('module-frame-resize');
+  const calendarStart = (await calendarHandle.boundingBox())!;
+  await page.mouse.move(calendarStart.x + calendarStart.width / 2, calendarStart.y + calendarStart.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    calendarStart.x + calendarStart.width / 2 + stride.col * 2,
+    calendarStart.y + calendarStart.height / 2 - stride.row * 4,
+    { steps: 12 }
+  );
+  await page.mouse.up();
+  await expect.poll(async () => await storedRect(page, 'calendar')).toMatchObject({ x: 0, w: 5, h: 4 });
+
+  // Notes (7,5,5x3) fits the freed right-hand area, so dragging its handle 7
+  // columns to the right must land it on column 0.
+  const notesHandle = frame(page, 'notes').getByTestId('module-frame-handle');
+  const notesStart = (await notesHandle.boundingBox())!;
+  await page.mouse.move(notesStart.x + notesStart.width / 2, notesStart.y + notesStart.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    notesStart.x + notesStart.width / 2 + stride.col * 7,
+    notesStart.y + notesStart.height / 2,
+    { steps: 20 }
+  );
+  await page.mouse.up();
+
+  await expect.poll(async () => (await storedRect(page, 'notes'))?.x).toBe(0);
+});

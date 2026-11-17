@@ -1,4 +1,5 @@
 import { LayoutEditingContext } from '../../widgets/LayoutEditingContext';
+import { isRtl } from '../../i18n';
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import {
   GRID_COLS,
@@ -35,6 +36,9 @@ type DragMode = 'move' | 'resize';
 type DragState = {
   mode: DragMode;
   id: WidgetId;
+  // Captured when the drag starts: with `dir="rtl"` the grid's inline axis runs
+  // right-to-left, so pointer movement along the columns is mirrored.
+  rtl: boolean;
   startX: number;
   startY: number;
   origin: Rect;
@@ -80,6 +84,7 @@ export function ModuleGrid({
     setDrag({
       mode,
       id,
+      rtl: isRtl(),
       startX: event.clientX,
       startY: event.clientY,
       origin: item.rect,
@@ -92,7 +97,12 @@ export function ModuleGrid({
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     if (!drag) return;
     const stride = cellStride();
-    const deltaCol = Math.round((event.clientX - drag.startX) / stride.col);
+    // The grid places column 1 at the inline start, so in RTL the leftmost
+    // column has the highest index: a pointer move to the left must advance the
+    // column index, and a resize that grows leftwards must grow the span. Rows
+    // are unaffected by the document direction.
+    const columns = (event.clientX - drag.startX) / stride.col;
+    const deltaCol = Math.round(drag.rtl ? -columns : columns);
     const deltaRow = Math.round((event.clientY - drag.startY) / stride.row);
     const definition = getWidgetDefinition(drag.id, definitions);
     const minW = definition?.minW ?? 1;
