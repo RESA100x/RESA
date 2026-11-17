@@ -15,17 +15,19 @@ async function temporary(callback) {
   try { await callback(output); } finally { await fs.rm(output, { recursive: true, force: true }); }
 }
 
-test('builds Chinese, English and legacy Chinese pages with real internal links', async () => {
+test('builds Chinese, English, Persian and legacy Chinese pages with real internal links', async () => {
   const { buildSite, validateOutput } = await builder();
   await temporary(async output => {
     await buildSite({ output });
-    for (const prefix of ['', 'en/', 'zh-CN/']) {
+    for (const prefix of ['', 'en/', 'fa/', 'zh-CN/']) {
       for (const name of ['index', 'download', 'guide', 'support', 'privacy', 'terms', 'data-deletion', 'calendar', 'tasks', 'notes', 'time', 'desktop', 'capture', 'connections']) {
         const html = await fs.readFile(path.join(output, prefix, `${name}.html`), 'utf8');
-        assert.match(html, new RegExp(`<html lang="${prefix === 'en/' ? 'en' : 'zh-CN'}">`));
+        const [lang, dir] = prefix === 'en/' ? ['en', 'ltr'] : prefix === 'fa/' ? ['fa', 'rtl'] : ['zh-CN', 'ltr'];
+        assert.match(html, new RegExp(`<html lang="${lang}" dir="${dir}">`));
         assert.match(html, /rel="canonical"/);
         assert.match(html, /hreflang="en"/);
         assert.match(html, /hreflang="zh-CN"/);
+        assert.match(html, /hreflang="fa"/);
         assert.doesNotMatch(html, /\{\{[\w]+\}\}/);
       }
     }
@@ -36,8 +38,8 @@ test('builds Chinese, English and legacy Chinese pages with real internal links'
     assert.match(home, /<script type="module" src="assets\/showcase.js"><\/script>/);
     assert.match(home, /aria-label="模块截图展示"/);
     assert.match(home, /screenshots\/zh\/kanban\.png/);
-    for (const prefix of ['', 'en', 'zh-CN']) {
-      const language = prefix === 'en' ? 'en' : 'zh';
+    for (const prefix of ['', 'en', 'fa', 'zh-CN']) {
+      const language = prefix === 'en' ? 'en' : prefix === 'fa' ? 'fa' : 'zh';
       const localized = await fs.readFile(path.join(output, prefix, 'index.html'), 'utf8');
       assert.equal([...localized.matchAll(/data-slide /g)].length, 8);
       assert.match(localized, new RegExp(`src="(?:\\.\\./)?assets/screenshots/${language}/workspace\\.png"`));
@@ -47,6 +49,10 @@ test('builds Chinese, English and legacy Chinese pages with real internal links'
       }
       assert.doesNotMatch(localized, new RegExp(`screenshots/${language === 'en' ? 'zh' : 'en'}/`));
     }
+    const persian = await fs.readFile(path.join(output, 'fa', 'index.html'), 'utf8');
+    assert.match(persian, /فضای کاری شخصی شما در ویندوز/);
+    assert.match(persian, /dir="rtl"/);
+    assert.match(persian, /lang="fa"/);
     assert.doesNotMatch(home, /<script(?! type="module" src="assets\/(?:showcase|motion).js"><\/script>)|<iframe|REPLACE_BEFORE_DEPLOY|review@example|testAccount|videoUrl/);
     for (const scene of ['workspace', 'kanban', 'notes', 'time', 'focus', 'stickers', 'project', 'study']) {
       const chineseImage = await fs.readFile(path.join(output, 'assets', 'screenshots', 'zh', `${scene}.png`));

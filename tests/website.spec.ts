@@ -72,9 +72,9 @@ test('all eight screenshots load, wrap around and retain a stable layout', async
 });
 
 test('language navigation switches the first image and all eight candidates', async ({ page }) => {
-  for (const prefix of ['', 'en/', 'zh-CN/']) {
+  for (const prefix of ['', 'en/', 'fa/', 'zh-CN/']) {
     await page.goto(`/${prefix}index.html`);
-    const language = prefix === 'en/' ? 'en' : 'zh';
+    const language = prefix === 'en/' ? 'en' : prefix === 'fa/' ? 'fa' : 'zh';
     await expect(page.locator('.hero__image')).toHaveAttribute('src', new RegExp(`screenshots/${language}/workspace\\.png$`));
     const buttons = page.locator('[data-slide]');
     await expect(buttons).toHaveCount(8);
@@ -89,16 +89,20 @@ test('language navigation switches the first image and all eight candidates', as
   await expect(page.locator('.hero__image')).toHaveAttribute('src', /screenshots\/en\/workspace\.png$/);
   await page.getByRole('link', { name: '简体中文', exact: true }).click();
   await expect(page.locator('.hero__image')).toHaveAttribute('src', /screenshots\/zh\/workspace\.png$/);
+  await page.getByRole('link', { name: 'فارسی', exact: true }).click();
+  await expect(page.locator('.hero__image')).toHaveAttribute('src', /screenshots\/fa\/workspace\.png$/);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 });
 
 test('homepage retains its first screenshot without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   try {
     const page = await context.newPage();
-    for (const prefix of ['', 'en/']) {
+  for (const prefix of ['', 'en/', 'fa/']) {
       await page.goto(`/${prefix}index.html`);
       await expect(page.locator('.hero__image')).toBeVisible();
-      await expect(page.locator('.hero__image')).toHaveAttribute('src', new RegExp(`screenshots/${prefix ? 'en' : 'zh'}/workspace\\.png$`));
+    const language = prefix === 'en/' ? 'en' : prefix === 'fa/' ? 'fa' : 'zh';
+    await expect(page.locator('.hero__image')).toHaveAttribute('src', new RegExp(`screenshots/${language}/workspace\\.png$`));
       await expect(page.locator('.hero__controls')).toBeHidden();
     }
   } finally { await context.close(); }
@@ -122,11 +126,11 @@ const pages = ['index', 'download', 'guide', 'support', 'privacy', 'terms', 'dat
 test('all languages, legal compatibility and narrow layouts work without remote assets', async ({ page }) => {
   const remote: string[] = [];
   page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:4174')) remote.push(request.url()); });
-  for (const prefix of ['', 'en/', 'zh-CN/']) {
+  for (const prefix of ['', 'en/', 'fa/', 'zh-CN/']) {
     for (const name of pages) {
       const response = await page.goto(`/${prefix}${name}.html`);
       expect(response?.ok()).toBe(true);
-      await expect(page.locator('html')).toHaveAttribute('lang', prefix === 'en/' ? 'en' : 'zh-CN');
+      await expect(page.locator('html')).toHaveAttribute('lang', prefix === 'en/' ? 'en' : prefix === 'fa/' ? 'fa' : 'zh-CN');
       await expect(page.locator('h1')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await page.locator('body').evaluate(element => getComputedStyle(element).fontSize)).toBe('13px');

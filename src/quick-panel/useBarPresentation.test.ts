@@ -21,7 +21,7 @@ describe('Bar presentation errors', () => {
     const { result } = renderHook(() => useBarPresentation(false));
     act(() => result.current.failed(error));
     expect(result.current.error).toBe(t('nativeError.system_error'));
-    expect(log).toHaveBeenCalledWith('Failed to update Nowly Bar presentation', error);
+    expect(log).toHaveBeenCalledWith('Failed to update RESA Bar presentation', error);
   });
 
   it('does not render raw IPC rejection strings', () => {

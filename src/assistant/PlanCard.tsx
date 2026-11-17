@@ -5,6 +5,7 @@ import { DatePicker } from '../components/DatePicker';
 import { TimePicker } from '../components/TimePicker';
 import { Select } from '../components/Select';
 import type { Action, Change, Fields, Plan } from './types';
+import { formatIsoDisplay } from '../lib/calendar-system';
 
 export const kinds: Record<Action['kind'], string> = {
   createEvent: 'assistant.kind.createEvent', updateEvent: 'assistant.kind.updateEvent', deleteEvent: 'assistant.kind.deleteEvent',
@@ -31,6 +32,11 @@ export function displayField(key: string, value: unknown, plan?: Plan): string {
   if (key === 'category') return ({ work: t('assistant.text72'), personal: t('assistant.text73'), important: t('assistant.text74'), learning: t('assistant.text75') } as Record<string, string>)[String(value)] ?? String(value);
   if (key === 'views' && Array.isArray(value)) return value.map(v => ({ kanban: t('assistant.text76'), matrix: t('assistant.field.priority'), calendar: t('assistant.text77') } as Record<string, string>)[v] ?? v).join(t('assistant.separator')) || t('assistant.text69');
   if (typeof value === 'boolean') return value ? t('assistant.text78') : t('assistant.text79');
+  if ((key === 'startAt' || key === 'endAt' || key === 'dueDate') && typeof value === 'string') {
+    const [datePart, timePart = ''] = value.split('T');
+    const dateLabel = formatIsoDisplay(datePart);
+    return timePart ? `${dateLabel} ${timePart.slice(0, 5)}` : dateLabel;
+  }
   return String(value).replace('T', ' ');
 }
 // The plan preview as it appears in the Nowly Bar. An event's color is left out

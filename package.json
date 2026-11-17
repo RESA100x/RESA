@@ -1,9 +1,9 @@
 {
-  "name": "nowly",
+  "name": "resa",
   "version": "0.1.5",
   "private": true,
   "type": "module",
-  "description": "Nowly (此刻) — your local-first personal workspace for Windows, bringing schedules, tasks, notes, time and desktop tools together.",
+  "description": "RESA — your local-first personal workspace for Windows, bringing schedules, tasks, notes, time and desktop tools together.",
   "keywords": [
     "personal-workspace",
     "productivity",

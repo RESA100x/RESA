@@ -43,6 +43,10 @@ const listeners = new Set<() => void>();
 function updateDocumentLanguage(): void {
   if (typeof document === 'undefined') return;
   document.documentElement.lang = LOCALES[current].lang;
+  // Right-to-left locales flip the whole shell; CSS uses logical properties
+  // plus a small set of `[dir="rtl"]` overrides for the remaining physical
+  // offsets.
+  document.documentElement.dir = LOCALES[current].dir;
 }
 
 updateDocumentLanguage();
@@ -82,6 +86,14 @@ export function setLanguage(next: Language): void {
 
 export function getLocale(): string {
   return LOCALES[current].locale;
+}
+
+export function getDirection(): 'ltr' | 'rtl' {
+  return LOCALES[current].dir;
+}
+
+export function isRtl(): boolean {
+  return LOCALES[current].dir === 'rtl';
 }
 
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {

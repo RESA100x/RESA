@@ -33,7 +33,7 @@ describe('Bar function menu', () => {
   it('hides the AI entry even when an existing preference enables it', async () => {
     render(<BarMenuPanel active items={[{ id: 'assistant', visible: true }]} />);
     expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
-    expect(screen.getByText('暂无显示的功能，请在设置 → Nowly Bar 中启用。')).toBeVisible();
+    expect(screen.getByText('暂无显示的功能，请在设置 → RESA Bar 中启用。')).toBeVisible();
     expect(invokeMock).not.toHaveBeenCalledWith('toggle_nowly_panel');
   });
 
@@ -131,7 +131,7 @@ describe('Bar function menu', () => {
   it('allows all entries to be hidden and explains where to enable them', () => {
     render(<BarMenuPanel active items={DEFAULT_BAR_MENU.map(item => ({ ...item, visible: false }))} />);
     expect(screen.queryByRole('menuitem')).toBeNull();
-    expect(screen.getByText('暂无显示的功能，请在设置 → Nowly Bar 中启用。')).toBeVisible();
+    expect(screen.getByText('暂无显示的功能，请在设置 → RESA Bar 中启用。')).toBeVisible();
   });
 
   it('preserves keyboard selection across snapshots and repairs focus when an entry is hidden', async () => {

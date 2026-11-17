@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SHOWCASE_SLIDES, screenshotPath } from './showcase-scenes.mjs';
-import { CAPTURE_TIME, CAPTURE_TIMEZONE, createShowcaseFixture, createFixtureBackend } from './showcase-fixtures.mjs';
+import { CAPTURE_TIME, captureTimezone, createShowcaseFixture, createFixtureBackend } from './showcase-fixtures.mjs';
 
 const assets = fileURLToPath(new URL('../assets/', import.meta.url));
 const url = process.env.NOWLY_CAPTURE_URL ?? 'http://127.0.0.1:1420';
@@ -29,13 +29,16 @@ async function assertSceneReady(page, fixture) {
         await expect(frame.getByText(card.title, { exact: true }).first()).toBeVisible();
       }
     } else if (id === 'notes') {
-      await expect(frame.getByText(fixture.notes[0].title, { exact: true }).first()).toBeVisible();
+      // Notes derive their visible title from the first line of the rich-text body.
+      const firstLine = fixture.notes[0].content.split(/\r?\n/).map(line => line.trim()).find(Boolean);
+      await expect(frame.getByText(firstLine, { exact: true }).first()).toBeVisible();
       await expect(frame.getByTestId('notes-scroll')).toBeVisible();
     } else if (id === 'time') {
       await expect(frame.getByTestId('time-module')).toHaveAttribute('data-display-content', fixture.timeSettings.displayContent);
       if (fixture.sceneId === 'focus') {
         await expect(frame.getByRole('timer')).toHaveText('18:42');
-        await expect(frame.getByRole('button', { name: fixture.language === 'en' ? 'Pause' : '暂停', exact: true })).toBeVisible();
+        const pauseLabel = fixture.language === 'en' ? 'Pause' : fixture.language === 'fa' ? 'توقف' : '暂停';
+        await expect(frame.getByRole('button', { name: pauseLabel, exact: true })).toBeVisible();
       } else {
         await expect(frame.getByTestId('time-clock')).toHaveCount(3);
         for (const clock of fixture.timeSettings.clocks) await expect(frame.getByText(clock.label, { exact: true })).toBeVisible();
@@ -50,17 +53,24 @@ async function assertSceneReady(page, fixture) {
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('nowly.language'))).toBe(fixture.language);
   if (fixture.language === 'en') expect(await page.locator('body').innerText()).not.toMatch(/[\u3400-\u9fff]/);
+  if (fixture.language === 'fa') {
+    expect(await page.locator('body').innerText()).not.toMatch(/[\u3400-\u9fff]/);
+    expect(await page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+  }
   await page.evaluate(() => document.fonts.ready);
 }
 
-const browser = await chromium.launch();
+// Allow pointing at an already-installed Chromium build when the bundled
+// headless shell is unavailable (offline or restricted networks).
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+const browser = await chromium.launch(executablePath ? { executablePath } : {});
 try {
-  for (const language of ['zh', 'en']) {
+  for (const language of ['zh', 'en', 'fa']) {
     await mkdir(path.join(assets, 'screenshots', language), { recursive: true });
     for (const [sceneId] of SHOWCASE_SLIDES) {
       const fixture = createShowcaseFixture(sceneId, language);
       fixture.logoBytes = [...await readFile(new URL('../../public/logo.png', import.meta.url))];
-      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, locale: language === 'zh' ? 'zh-CN' : 'en-US', timezoneId: CAPTURE_TIMEZONE, colorScheme: 'light', reducedMotion: 'reduce' });
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, locale: language === 'zh' ? 'zh-CN' : language === 'fa' ? 'fa-IR' : 'en-US', timezoneId: captureTimezone(language), colorScheme: 'light', reducedMotion: 'reduce' });
       const errors = [];
       try {
         // Only the local application and its bundled resources may load.

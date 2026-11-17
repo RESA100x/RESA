@@ -9,9 +9,9 @@ const ids = ['workspace', 'kanban', 'notes', 'time', 'focus', 'stickers', 'proje
 test('exports eight stable scene IDs, existing captions and safe localized paths', async () => {
   assert.ok(Array.isArray(scenes.SHOWCASE_SLIDES), 'SHOWCASE_SLIDES must be exported');
   assert.deepEqual(scenes.SHOWCASE_SLIDES.map(slide => slide[0]), ids);
-  assert.deepEqual(scenes.SHOWCASE_SLIDES[0], ['workspace', '工作桌面', 'Workspace', '日历、四象限与便签，一起安排今天。', 'Plan your day with calendar, priorities and notes.']);
-  assert.ok(scenes.SHOWCASE_SLIDES.every(slide => slide.length === 5 && slide.every(value => typeof value === 'string' && value.length > 0)));
-  for (const id of ids) for (const language of ['zh', 'en']) {
+  assert.deepEqual(scenes.SHOWCASE_SLIDES[0], ['workspace', '工作桌面', 'Workspace', '日历、四象限与便签，一起安排今天。', 'Plan your day with calendar, priorities and notes.', 'میزکار', 'تقویم، اولویت‌ها و یادداشت‌ها، همه برای برنامه‌ریزی امروز.']);
+  assert.ok(scenes.SHOWCASE_SLIDES.every(slide => slide.length === 7 && slide.every(value => typeof value === 'string' && value.length > 0)));
+  for (const id of ids) for (const language of ['zh', 'en', 'fa']) {
     assert.equal(scenes.screenshotPath(id, language), `screenshots/${language}/${id}.png`);
   }
   assert.throws(() => scenes.screenshotPath('../secret', 'en'));
@@ -41,7 +41,7 @@ test('layouts fit the real grid without overlaps and preserve approved combinati
   assert.equal(scenes.getSceneLayout('project')[0].w, 5);
 });
 
-for (const language of ['zh', 'en']) test(`${language} fixtures use rich, isolated, valid app contracts`, () => {
+for (const language of ['zh', 'en', 'fa']) test(`${language} fixtures use rich, isolated, valid app contracts`, () => {
   assert.equal(typeof fixtures.createShowcaseFixture, 'function');
   for (const scene of ids) {
     const data = fixtures.createShowcaseFixture(scene, language);
@@ -54,11 +54,11 @@ for (const language of ['zh', 'en']) test(`${language} fixtures use rich, isolat
     }
     const workspace = data.taskWorkspace;
     for (const priority of ['important_urgent', 'important_not_urgent', 'not_important_urgent', 'not_important_not_urgent']) {
-      const tasks = workspace.tasks.filter(task => task.views.includes('matrix') && task.priority === priority);
+      const tasks = workspace.tasks.filter(task => task.priority === priority);
       assert.ok(tasks.length >= 2 && tasks.length <= 3);
     }
     for (const lane of workspace.lanes) {
-      const cards = workspace.tasks.filter(task => task.views.includes('kanban') && task.laneId === lane.id);
+      const cards = workspace.tasks.filter(task => task.laneId === lane.id);
       assert.ok(cards.length >= 3 && cards.length <= 4);
       for (const card of cards) {
         assert.ok(card.tagIds.length && card.tagIds.every(id => workspace.tags.some(tag => tag.id === id)));
@@ -71,6 +71,10 @@ for (const language of ['zh', 'en']) test(`${language} fixtures use rich, isolat
     if (language === 'en') {
       assert.equal(data.timeSettings.appearance.showDate, false, 'App clock date formatter is Chinese-only');
       assert.equal(data.timeSettings.appearance.showDifference, false, 'App offset formatter is Chinese-only');
+    }
+    if (language === 'fa') {
+      assert.equal(data.timeSettings.appearance.showDate, true, 'Persian clocks show a Jalali date');
+      assert.equal(data.settings.weekStart, 'saturday', 'Persian weeks start on Saturday');
     }
     assert.equal(data.timeSettings.displayContent, scene === 'focus' ? 'focus' : 'clocks');
     assert.equal(data.focusSnapshot.status, scene === 'focus' ? 'running' : 'idle');
@@ -89,7 +93,7 @@ for (const language of ['zh', 'en']) test(`${language} fixtures use rich, isolat
       assert.ok(object.x + object.width <= 800 && object.y + object.height <= 600);
       if (object.kind === 'text') assert.ok(object.height >= object.fontSize * 1.5, 'Sticker must fit the actual text line height');
     }
-    if (language === 'en') assert.doesNotMatch(JSON.stringify(data), /[\u3400-\u9fff]/);
+    if (language !== 'zh') assert.doesNotMatch(JSON.stringify(data), /[\u3400-\u9fff]/);
     data.notes[0].title = 'modified';
     assert.notEqual(fixtures.createShowcaseFixture(scene, language).notes[0].title, 'modified');
   }
@@ -98,7 +102,7 @@ for (const language of ['zh', 'en']) test(`${language} fixtures use rich, isolat
 
 test('capture uses scene metadata, isolated contexts, fixed timezone and localized output', async () => {
   const source = await readFile(new URL('./capture-workspace.mjs', import.meta.url), 'utf8');
-  for (const token of ['SHOWCASE_SLIDES', 'screenshotPath', 'createShowcaseFixture', 'createFixtureBackend', 'browser.newContext', 'timezoneId: CAPTURE_TIMEZONE', 'mkdir', 'assertSceneReady', "['zh', 'en']"]) assert.ok(source.includes(token), `Capture must use ${token}`);
+  for (const token of ['SHOWCASE_SLIDES', 'screenshotPath', 'createShowcaseFixture', 'createFixtureBackend', 'browser.newContext', 'timezoneId: captureTimezone(language)', 'mkdir', 'assertSceneReady', "['zh', 'en', 'fa']"]) assert.ok(source.includes(token), `Capture must use ${token}`);
   assert.ok(!source.includes('browser.newPage'));
 });
 

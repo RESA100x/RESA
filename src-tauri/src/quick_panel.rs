@@ -1502,7 +1502,7 @@ pub fn toggle_status_island_details(
 pub fn open_history_panel<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let controller = app.state::<PanelController>();
     if !controller.is_enabled() {
-        return Err("请先启用 Nowly Bar。".to_owned());
+        return Err("请先启用 RESA Bar。".to_owned());
     }
     let handle = app.get_webview_window("quick-panel-handle")
         .ok_or_else(|| "quick-panel-handle window not found".to_owned())?;
@@ -2442,7 +2442,7 @@ mod tests {
             "bar-style-regression",
             tauri::WebviewUrl::App("index.html".into()),
         )
-        .title("Nowly Bar")
+        .title("RESA Bar")
         .visible(false)
         .decorations(false)
         .shadow(false)

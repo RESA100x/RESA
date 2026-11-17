@@ -39,6 +39,8 @@ import { OnboardingGuide, type GuideStep } from './onboarding/OnboardingGuide';
 import { useOnboarding } from './onboarding/useOnboarding';
 import type { NativeStatusIslandSnapshot } from '../quick-panel/useStatusIslandSnapshot';
 import { RECORDS_CHANGED_EVENT, recordsChangedKind, type RecordsChangedKind } from '../quick-create/events';
+import { effectiveWeekStart } from '../lib/date';
+import { formatDisplayDate } from '../lib/calendar-system';
 
 type WindowMode = 'wallpaper' | 'foreground';
 
@@ -57,7 +59,8 @@ function AppContent() {
   useTranslation();
   const repository = useNowlyRepository();
   const settingsFeature = useSettings();
-  const eventsFeature = useEvents({ weekStart: settingsFeature.settings.data.weekStart });
+  const weekStart = effectiveWeekStart(settingsFeature.settings.data.weekStart);
+  const eventsFeature = useEvents({ weekStart });
   const categoriesFeature = useCategories();
   const tasksFeature = useWorkspaceTasks();
   const { refresh: refreshWorkspace } = useTaskWorkspace();
@@ -173,7 +176,7 @@ function AppContent() {
         onResizeEvent={(event, endIsoDate) => void eventsFeature.resizeEvent(event, endIsoDate)}
         onResizeEventToHour={(event, endHour) => void eventsFeature.resizeEventToHour(event, endHour)}
         calendarSettings={{
-          weekStart: settingsFeature.settings.data.weekStart,
+          weekStart,
           dateFormat: settingsFeature.settings.data.dateFormat,
           showWeekends: settingsFeature.settings.data.showWeekends
         }}
@@ -343,7 +346,7 @@ function AppContent() {
       <DesktopShell
         mode={windowMode}
         time={new Intl.DateTimeFormat(localeTag(), { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}
-        dateText={new Intl.DateTimeFormat(localeTag(), { calendar: 'gregory', dateStyle: 'full' }).format(now)}
+        dateText={formatDisplayDate(now, 'full')}
         summary={summary}
         modules={modules}
         definitions={definitions}

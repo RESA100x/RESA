@@ -45,7 +45,7 @@ export type AppSettings = {
   launchAtLogin: boolean;
   targetMonitorId: string | null;
   density: 'compact' | 'balanced' | 'comfortable';
-  weekStart: 'monday' | 'sunday';
+  weekStart: 'monday' | 'sunday' | 'saturday';
   dateFormat: 'localized' | 'iso';
   showWeekends: boolean;
   // Icon drawing style shared by every icon in the app.

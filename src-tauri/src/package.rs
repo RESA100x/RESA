@@ -68,7 +68,7 @@ pub fn startup_state(enable: Option<bool>) -> Result<bool, String> {
         if enable == Some(true) && state != StartupTaskState::Enabled {
             return Err(windows::core::Error::new(
                 windows::core::HRESULT(0x80070005u32 as i32),
-                "Windows has disabled Nowly startup. Enable it in Settings > Apps > Startup.",
+                "Windows has disabled RESA startup. Enable it in Settings > Apps > Startup.",
             ));
         }
         Ok(state == StartupTaskState::Enabled)

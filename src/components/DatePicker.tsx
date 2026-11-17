@@ -1,7 +1,16 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from '../components/icons';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { buildMonthGrid, formatChineseDate, toIsoDate } from '../lib/date';
+import { buildMonthGrid, effectiveWeekStart, formatChineseDate, toIsoDate } from '../lib/date';
 import { t, formatNumber } from '../i18n';
+import {
+  addDisplayMonths,
+  displayMonthLength,
+  displayMonthName,
+  displayMonthOf,
+  displayMonthStart,
+  usesJalaliCalendar
+} from '../lib/calendar-system';
+import { formatJalali } from '../lib/jalali';
 
 function weekdayHeadingsList() {
   return t('datePicker.weekdays').split(',');
@@ -29,7 +38,15 @@ function parseIsoDate(value: string, fallback: Date) {
 function displayDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return t('datePicker.placeholder');
+  if (usesJalaliCalendar()) {
+    return formatJalali(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])), 'long');
+  }
   return t('datePicker.value', { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) });
+}
+
+function monthHeading(year: number, monthIndex: number) {
+  if (usesJalaliCalendar()) return `${displayMonthName(monthIndex)} ${formatNumber(year, { useGrouping: false })}`;
+  return t('datePicker.header', { year, month: monthIndex + 1 });
 }
 
 export function DatePicker({
@@ -47,15 +64,12 @@ export function DatePicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const initialDate = parseIsoDate(value, today);
-  const [visibleMonth, setVisibleMonth] = useState({
-    year: initialDate.getFullYear(),
-    monthIndex: initialDate.getMonth()
-  });
+  const [visibleMonth, setVisibleMonth] = useState(() => displayMonthOf(initialDate));
   const [cursorDate, setCursorDate] = useState(initialDate);
   const cursorDateRef = useRef(initialDate);
   const shouldRestoreFocusRef = useRef(false);
 
-  const days = buildMonthGrid(visibleMonth.year, visibleMonth.monthIndex, today);
+  const days = buildMonthGrid(visibleMonth.year, visibleMonth.monthIndex, today, effectiveWeekStart('monday'));
   const dialogId = `${id}-dialog`;
 
   useEffect(() => {
@@ -63,7 +77,7 @@ export function DatePicker({
     const selected = parseIsoDate(value, today);
     cursorDateRef.current = selected;
     setCursorDate(selected);
-    setVisibleMonth({ year: selected.getFullYear(), monthIndex: selected.getMonth() });
+    setVisibleMonth(displayMonthOf(selected));
     requestAnimationFrame(() => {
       rootRef.current?.querySelector<HTMLElement>(`[data-date="${toIsoDate(selected)}"]`)?.focus();
     });
@@ -105,15 +119,14 @@ export function DatePicker({
   function moveCursor(nextDate: Date) {
     cursorDateRef.current = nextDate;
     setCursorDate(nextDate);
-    setVisibleMonth({ year: nextDate.getFullYear(), monthIndex: nextDate.getMonth() });
+    setVisibleMonth(displayMonthOf(nextDate));
     requestAnimationFrame(() => {
       rootRef.current?.querySelector<HTMLElement>(`[data-date="${toIsoDate(nextDate)}"]`)?.focus();
     });
   }
 
   function changeVisibleMonth(offset: number) {
-    const date = new Date(visibleMonth.year, visibleMonth.monthIndex + offset, 1);
-    setVisibleMonth({ year: date.getFullYear(), monthIndex: date.getMonth() });
+    setVisibleMonth(addDisplayMonths(visibleMonth.year, visibleMonth.monthIndex, offset));
   }
 
   function handleDateKeyDown(event: KeyboardEvent<HTMLButtonElement>, date: Date) {
@@ -123,8 +136,13 @@ export function DatePicker({
     if (event.key === 'ArrowRight') nextDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
     if (event.key === 'ArrowUp') nextDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7);
     if (event.key === 'ArrowDown') nextDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7);
-    if (event.key === 'PageUp') nextDate = new Date(cursor.getFullYear(), cursor.getMonth() - 1, cursor.getDate());
-    if (event.key === 'PageDown') nextDate = new Date(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const month = displayMonthOf(cursor);
+      const target = addDisplayMonths(month.year, month.monthIndex, event.key === 'PageUp' ? -1 : 1);
+      const start = displayMonthStart(target.year, target.monthIndex);
+      const day = Math.min(cursor.getDate(), displayMonthLength(target.year, target.monthIndex));
+      nextDate = new Date(start.getFullYear(), start.getMonth(), day);
+    }
     if (nextDate) {
       event.preventDefault();
       moveCursor(nextDate);
@@ -157,10 +175,10 @@ export function DatePicker({
         <div id={dialogId} role="dialog" aria-label={t('datePicker.select', { label })} className="date-picker__popup">
           <div className="date-picker__header">
             <button type="button" aria-label={t('datePicker.prevMonth')} onClick={() => changeVisibleMonth(-1)}><ChevronLeft aria-hidden="true" /></button>
-            <strong>{t('datePicker.header', { year: visibleMonth.year, month: visibleMonth.monthIndex + 1 })}</strong>
+            <strong>{monthHeading(visibleMonth.year, visibleMonth.monthIndex)}</strong>
             <button type="button" aria-label={t('datePicker.nextMonth')} onClick={() => changeVisibleMonth(1)}><ChevronRight aria-hidden="true" /></button>
           </div>
-          <div role="grid" aria-label={t('datePicker.grid', { year: visibleMonth.year, month: visibleMonth.monthIndex + 1 })} className="date-picker__calendar">
+          <div role="grid" aria-label={monthHeading(visibleMonth.year, visibleMonth.monthIndex)} className="date-picker__calendar">
             <div role="row" className="date-picker__weekdays">
               {weekdayHeadingsList().map((heading) => <span role="columnheader" key={heading}>{heading}</span>)}
             </div>

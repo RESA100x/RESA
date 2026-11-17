@@ -2,7 +2,7 @@
 name = "nowly"
 version = "0.1.5"
 description = "Desktop wallpaper calendar"
-authors = ["Nowly"]
+authors = ["RESA"]
 edition = "2021"
 
 [build-dependencies]

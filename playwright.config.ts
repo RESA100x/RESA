@@ -5,6 +5,9 @@ const runtimeEnv = (globalThis as unknown as {
 }).process?.env ?? {};
 const testPort = runtimeEnv.PW_PORT ?? '1420';
 const reuseExistingServer = runtimeEnv.PW_REUSE_SERVER === 'true';
+// Offline or restricted machines may only have a system Chromium build; point
+// the runner at it instead of the bundled headless shell.
+const browserExecutable = runtimeEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 
 export default defineConfig({
   testDir: './tests',
@@ -20,6 +23,7 @@ export default defineConfig({
     // pin the browser locale to zh-CN; otherwise Playwright reports en-US and
     // the app renders English, breaking every text-based assertion.
     locale: 'zh-CN',
+    ...(browserExecutable ? { launchOptions: { executablePath: browserExecutable } } : {}),
     ...devices['Desktop Chrome']
   },
   projects: [

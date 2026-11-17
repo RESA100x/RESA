@@ -92,7 +92,7 @@ pub(crate) fn validate(settings: &AppSettings) -> Result<(), rusqlite::Error> {
             "quickPanelShortcut".into(),
         ));
     }
-    if !matches!(settings.week_start.as_str(), "monday" | "sunday") {
+    if !matches!(settings.week_start.as_str(), "monday" | "saturday" | "sunday") {
         return Err(rusqlite::Error::InvalidParameterName("weekStart".into()));
     }
     if !matches!(settings.date_format.as_str(), "localized" | "iso") {

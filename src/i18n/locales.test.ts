@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { normalizeLanguage, setLanguage, getLanguage, SUPPORTED_LANGUAGES } from './store';
 import { translations } from './translations';
 
-const languages = ['zh', 'en', 'fr', 'es', 'ja', 'ko', 'zh-Hant'] as const;
+const languages = ['zh', 'en', 'fa', 'fr', 'es', 'ja', 'ko', 'zh-Hant'] as const;
 afterEach(() => setLanguage('zh'));
 
 describe('seven-language support', () => {
@@ -13,7 +13,8 @@ describe('seven-language support', () => {
     ['fr-CA', 'fr'], ['es-MX', 'es'], ['ja-JP', 'ja'],
     ['ko-KR', 'ko'], ['zh-TW', 'zh-Hant'], ['zh-HK', 'zh-Hant'],
     ['zh-MO', 'zh-Hant'], ['zh-Hant-CN', 'zh-Hant'], ['zh-Hans-HK', 'zh'],
-    ['zh-SG', 'zh'], ['zh_CN', 'zh'], [' FR-fr ', 'fr'], ['ar-SA', 'en'], ['ar', 'en'], ['unknown', 'en']
+    ['zh-SG', 'zh'], ['zh_CN', 'zh'], [' FR-fr ', 'fr'], ['fa-IR', 'fa'], ['fa_AF', 'fa'], ['fa', 'fa'],
+    ['ar-SA', 'en'], ['ar', 'en'], ['unknown', 'en']
   ])('normalizes %s to %s', (tag, expected) => {
     expect(normalizeLanguage(tag)).toBe(expected);
   });

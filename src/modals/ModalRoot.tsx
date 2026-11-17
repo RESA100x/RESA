@@ -14,6 +14,7 @@ import { useTaskWorkspace } from '../tasks/TaskWorkspaceContext';
 import { UnifiedTaskDialog } from '../tasks/UnifiedTaskDialog';
 import { TaskSettingsDialog } from '../tasks/TaskSettingsDialog';
 import { isEventWritable } from '../calendar/calendar-model';
+import { effectiveWeekStart } from '../lib/date';
 
 type Props = {
   modal: ModalState;
@@ -139,7 +140,7 @@ export function ModalRoot({
     ) : null}
     {modal.type === 'calendar-settings' ? (
       <CalendarSettingsDialog
-        settings={{ weekStart: settings.weekStart, dateFormat: settings.dateFormat, showWeekends: settings.showWeekends }}
+        settings={{ weekStart: effectiveWeekStart(settings.weekStart), dateFormat: settings.dateFormat, showWeekends: settings.showWeekends }}
         onChange={(next) => void saveSettings({ ...settings, ...next })}
         subscriptions={subscriptions}
         restoreFocusRef={{ current: modal.trigger }}

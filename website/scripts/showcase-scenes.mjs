@@ -1,12 +1,12 @@
 export const SHOWCASE_SLIDES = [
-  ['workspace', '工作桌面', 'Workspace', '日历、四象限与便签，一起安排今天。', 'Plan your day with calendar, priorities and notes.'],
-  ['kanban', '看板', 'Kanban', '按进度整理任务，让下一步一目了然。', 'Organize tasks by progress and see what comes next.'],
-  ['notes', '笔记', 'Notes', '记录计划、想法与随手灵感。', 'Keep plans, ideas and inspiration close at hand.'],
-  ['time', '世界时钟', 'World clocks', '把不同时区的时间放在同一个桌面。', 'Keep multiple time zones on one workspace.'],
-  ['focus', '专注时段', 'Focus', '留出一段时间，专心完成重要的事。', 'Make time for what matters with a focus session.'],
-  ['stickers', '贴纸', 'Stickers', '用文字贴纸，布置属于自己的工作桌面。', 'Make the workspace yours with text stickers.'],
-  ['project', '项目协作', 'Project planning', '日程、看板与笔记，汇聚项目的下一步。', 'Bring project milestones, tasks and decisions together.'],
-  ['study', '学习桌面', 'Study workspace', '安排学习重点，记录思考，留出专注时间。', 'Prioritize learning, collect ideas and make room to focus.']
+  ['workspace', '工作桌面', 'Workspace', '日历、四象限与便签，一起安排今天。', 'Plan your day with calendar, priorities and notes.', 'میزکار', 'تقویم، اولویت‌ها و یادداشت‌ها، همه برای برنامه‌ریزی امروز.'],
+  ['kanban', '看板', 'Kanban', '按进度整理任务，让下一步一目了然。', 'Organize tasks by progress and see what comes next.', 'کانبان', 'کارها را بر اساس پیشرفت مرتب کنید و قدم بعدی را ببینید.'],
+  ['notes', '笔记', 'Notes', '记录计划、想法与随手灵感。', 'Keep plans, ideas and inspiration close at hand.', 'یادداشت‌ها', 'برنامه‌ها، ایده‌ها و الهام‌های روزانه را نزدیک نگه دارید.'],
+  ['time', '世界时钟', 'World clocks', '把不同时区的时间放在同一个桌面。', 'Keep multiple time zones on one workspace.', 'ساعت‌های جهانی', 'چند منطقهٔ زمانی را در یک میزکار داشته باشید.'],
+  ['focus', '专注时段', 'Focus', '留出一段时间，专心完成重要的事。', 'Make time for what matters with a focus session.', 'تمرکز', 'با یک جلسهٔ تمرکز برای کارهای مهم وقت بگذارید.'],
+  ['stickers', '贴纸', 'Stickers', '用文字贴纸，布置属于自己的工作桌面。', 'Make the workspace yours with text stickers.', 'استیکرها', 'با استیکرهای متنی میزکار را از خودتان کنید.'],
+  ['project', '项目协作', 'Project planning', '日程、看板与笔记，汇聚项目的下一步。', 'Bring project milestones, tasks and decisions together.', 'برنامه‌ریزی پروژه', 'نقاط عطف، وظایف و تصمیم‌ها را کنار هم بیاورید.'],
+  ['study', '学习桌面', 'Study workspace', '安排学习重点，记录思考，留出专注时间。', 'Prioritize learning, collect ideas and make room to focus.', 'میزکار مطالعه', 'اولویت‌های یادگیری را مرتب کنید و برای تمرکز جا باز کنید.']
 ];
 
 const cell = (id, x, y, w, h) => ({ id, x, y, w, h });
@@ -28,6 +28,6 @@ export function getSceneLayout(sceneId) {
 
 export function screenshotPath(sceneId, language) {
   getSceneLayout(sceneId);
-  if (!['zh', 'en'].includes(language)) throw new Error(`Unsupported showcase language: ${language}`);
+  if (!['zh', 'en', 'fa'].includes(language)) throw new Error(`Unsupported showcase language: ${language}`);
   return `screenshots/${language}/${sceneId}.png`;
 }

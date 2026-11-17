@@ -108,15 +108,15 @@ describe('screen status island windows', () => {
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
     await emitPanelEvent('status-island-presentation', { generation: 1, strip: true });
-    const strip = screen.getByRole('button', { name: '显示 Nowly Bar' });
+    const strip = screen.getByRole('button', { name: '显示 RESA Bar' });
     expect(strip).toHaveAttribute('aria-expanded', 'false');
     expect(document.querySelector('.status-rail')).toHaveAttribute('data-strip', 'true');
-    expect(screen.queryByRole('button', { name: 'Nowly' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'RESA' })).not.toBeInTheDocument();
     fireEvent.pointerEnter(strip);
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('set_status_island_presence', { surface: 'island', present: true }));
     expect(invocations('toggle_status_island_details')).toHaveLength(0);
     await emitPanelEvent('status-island-presentation', { generation: 2, strip: false });
-    expect(screen.getByRole('button', { name: 'Nowly' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'RESA' })).toBeVisible();
     expect(invocations('acknowledge_status_island_reminder')).toHaveLength(0);
   });
 
@@ -153,7 +153,7 @@ describe('screen status island windows', () => {
     });
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.pointerEnter(screen.getByRole('button', { name: '显示 Nowly Bar' }));
+    fireEvent.pointerEnter(screen.getByRole('button', { name: '显示 RESA Bar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Region update failed');
     expect(logged).toHaveBeenCalled();
     logged.mockRestore();
@@ -166,7 +166,7 @@ describe('screen status island windows', () => {
     respondWith(snapshotWith({ notificationMode: 'notification' }));
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.pointerEnter(screen.getByRole('button', { name: '显示 Nowly Bar' }));
+    fireEvent.pointerEnter(screen.getByRole('button', { name: '显示 RESA Bar' }));
     expect(invocations('set_status_island_presence')).toHaveLength(0);
   });
 
@@ -188,7 +188,7 @@ describe('screen status island windows', () => {
     await emitPanelEvent('status-island-details-open', { generation: 1, source: 'island', identity: null });
     await emitPanelEvent('status-island-details-close', { generation: 2 });
     await emitPanelEvent('status-island-details-closed', { generation: 2 });
-    fireEvent.focus(screen.getByRole('button', { name: 'Nowly' }));
+    fireEvent.focus(screen.getByRole('button', { name: 'RESA' }));
     expect(invokeMock).toHaveBeenCalledWith('set_status_island_presence', { surface: 'keyboard', present: true });
     expect(document.querySelector('.status-rail')).toHaveAttribute('data-strip', 'false');
     invokeMock.mockClear();
@@ -306,7 +306,7 @@ describe('screen status island windows', () => {
   it('opens the function menu from the only Logo entry rather than opening AI directly', async () => {
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.click(screen.getByRole('button', { name: 'Nowly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'RESA' }));
     expect(invocations('toggle_bar_menu')).toHaveLength(1);
     expect(invocations('toggle_nowly_panel')).toHaveLength(0);
     expect(document.querySelector('.status-rail__app-button')).toBeNull();
@@ -353,7 +353,7 @@ describe('screen status island windows', () => {
     expect(screen.getAllByRole('menuitem')[0]).toHaveFocus();
     await emitPanelEvent('status-island-details-close', { generation: 2 });
     await emitPanelEvent('status-island-details-closed', { generation: 2 });
-    expect(screen.getByRole('button', { name: 'Nowly' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'RESA' })).toHaveFocus();
   });
 
   it('keeps the capsule and says the day is empty when there is no business state', async () => {
@@ -373,7 +373,7 @@ describe('screen status island windows', () => {
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
 
-    expect(screen.getByRole('button', { name: 'Nowly' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'RESA' })).toHaveAttribute('aria-expanded', 'false');
     expect(invocations('hover_nowly_panel')).toHaveLength(0);
     expect(invocations('toggle_nowly_panel')).toHaveLength(0);
     expect(invocations('toggle_status_island_details')).toHaveLength(0);
@@ -522,7 +522,7 @@ describe('screen status island windows', () => {
     });
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    const root = screen.getByLabelText('Nowly Bar');
+    const root = screen.getByLabelText('RESA Bar');
 
     act(() => openPanel?.({ payload: { source: 'island', identity: null, hovered: true } }));
     fireEvent.mouseLeave(root);
@@ -544,7 +544,7 @@ describe('screen status island windows', () => {
     });
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    const root = screen.getByLabelText('Nowly Bar');
+    const root = screen.getByLabelText('RESA Bar');
 
     fireEvent.mouseEnter(root);
     fireEvent.mouseLeave(root);
@@ -1430,7 +1430,7 @@ describe('the sheet inside the rail', () => {
     expect(document.querySelector('.status-rail__status-presence')).toHaveAttribute('data-anim', 'grow');
     expect(document.querySelector('.status-rail__assistant')).not.toHaveAttribute('data-anim');
     expect(document.querySelector('.status-rail__assistant')).toHaveAttribute('inert');
-    expect(screen.queryByRole('textbox', { name: '告诉 Nowly 你想做什么' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '告诉 RESA 你想做什么' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '收起' })).toHaveAttribute('data-owner', 'status');
     await emitPanelEvent('status-island-details-close', { generation: 1 });
     expect(document.querySelector('.status-rail')).toHaveAttribute('data-status-open', 'true');
@@ -1439,7 +1439,7 @@ describe('the sheet inside the rail', () => {
   it('ignores status hover while the AI panel is opening', async () => {
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.click(screen.getByRole('button', { name: 'Nowly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'RESA' }));
     fireEvent.mouseEnter(document.querySelector('.status-island__trigger')!);
     expect(invocations('hover_status_island_details')).toHaveLength(0);
   });
@@ -1569,19 +1569,19 @@ describe('the sheet inside the rail', () => {
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
 
-    const nowly = screen.getByRole('button', { name: 'Nowly' });
+    const nowly = screen.getByRole('button', { name: 'RESA' });
     fireEvent.click(nowly);
 
     expect(invocations('toggle_bar_menu')).toHaveLength(1);
     expect(document.querySelector('.status-rail')).toHaveAttribute('data-surface', 'status');
-    expect(screen.queryByRole('textbox', { name: '告诉 Nowly 你想做什么' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '告诉 RESA 你想做什么' })).not.toBeInTheDocument();
 
     await act(async () => openPanel?.({ payload: { generation: 6, source: 'menu', identity: null, hovered: false } }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'AI 助手' }));
     expect(invocations('toggle_nowly_panel')).toHaveLength(1);
     await act(async () => openPanel?.({ payload: { generation: 7, source: 'nowly', identity: null, hovered: false } }));
 
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await waitFor(() => expect(input).toHaveFocus());
     expect(nowly).toHaveAttribute('aria-expanded', 'true');
     expect(nowly).toHaveAttribute('aria-hidden', 'true');
@@ -1616,13 +1616,13 @@ describe('the sheet inside the rail', () => {
     });
     render(<StatusIslandApp />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.click(screen.getByRole('button', { name: 'Nowly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'RESA' }));
     expect(invokeMock).toHaveBeenCalledWith('toggle_bar_menu');
     await emitPanelEvent('status-island-details-open', { generation: 6, source: 'menu', identity: null, hovered: false });
     fireEvent.click(screen.getByRole('menuitem', { name: 'AI 助手' }));
     expect(invokeMock).toHaveBeenCalledWith('toggle_nowly_panel');
     await act(async () => openPanel?.({ payload: { generation: 7, source: 'nowly', identity: null, hovered: false } }));
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await waitFor(() => expect(input).toHaveFocus());
 
     fireEvent.change(input, { target: { value: '明天下午三点创建产品评审' } });

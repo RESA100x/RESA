@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Nowly",
+  "productName": "RESA",
   "version": "0.1.5",
   "identifier": "com.nowly.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Nowly",
+        "title": "RESA",
         "label": "main",
         "width": 1280,
         "height": 720,
@@ -23,7 +23,7 @@
       },
       {
         "label": "quick-panel-handle",
-        "title": "Nowly Bar",
+        "title": "RESA Bar",
         "width": 432,
         "height": 40,
         "resizable": false,

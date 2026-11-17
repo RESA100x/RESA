@@ -1,6 +1,7 @@
 import type { ClockAppearance } from './time-model';
 import { timeLocalLabel } from './time-translations';
 import { getLocale, t } from '../i18n';
+import { usesJalaliCalendar } from '../lib/calendar-system';
 
 export type ClockParts = {
   year: number;
@@ -153,7 +154,7 @@ export function formatClockDisplay(
 export function formatClockDate(now: Date, zone: string) {
   return new Intl.DateTimeFormat(getLocale(), {
     timeZone: resolveTimeZone(zone),
-    calendar: 'gregory',
+    calendar: usesJalaliCalendar() ? 'persian' : 'gregory',
     month: 'short',
     day: 'numeric',
     weekday: 'short'

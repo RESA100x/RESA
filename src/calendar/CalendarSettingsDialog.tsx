@@ -85,7 +85,11 @@ export function CalendarSettingsDialog({
               id="calendar-week-start"
               label={t('calendarSettings.weekStart')}
               value={settings.weekStart}
-              options={[{ value: 'monday', label: t('calendarSettings.monday') }, { value: 'sunday', label: t('calendarSettings.sunday') }]}
+              options={[
+                { value: 'monday', label: t('calendarSettings.monday') },
+                { value: 'saturday', label: t('calendarSettings.saturday') },
+                { value: 'sunday', label: t('calendarSettings.sunday') }
+              ]}
               onChange={(value) => onChange({ ...settings, weekStart: value as AppSettings['weekStart'] })}
             />
             <Select

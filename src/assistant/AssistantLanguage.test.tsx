@@ -16,12 +16,12 @@ const client = { getConfig: vi.fn(async () => config), saveConfig: vi.fn(async (
 afterEach(() => setLanguage('zh'));
 it('switches mounted composer and existing speech errors without changing user input', async () => {
   setLanguage('zh'); render(<AssistantDock client={client} onRefresh={() => {}} />);
-  const input = screen.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = screen.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await waitFor(() => expect(client.getConfig).toHaveBeenCalled());
   fireEvent.click(screen.getByRole('button', { name: '语音输入' }));
   fireEvent.change(input, { target: { value: '用户数据不翻译' } });
   act(() => setLanguage('en'));
-  expect(screen.getByRole('textbox', { name: 'Tell Nowly what you want to do' })).toHaveValue('用户数据不翻译');
+  expect(screen.getByRole('textbox', { name: 'Tell RESA what you want to do' })).toHaveValue('用户数据不翻译');
   expect(screen.getByRole('alert')).toHaveTextContent('Voice input is not supported');
   act(() => setLanguage('zh'));
   expect(screen.getByRole('alert')).toHaveTextContent('当前环境不支持语音输入');

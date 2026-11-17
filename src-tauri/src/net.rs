@@ -15,7 +15,7 @@ use std::time::Duration;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_ICS_BYTES: usize = 1024 * 1024; // 1 MiB 的订阅日历
 const MAX_RELEASE_BYTES: usize = 256 * 1024; // 256 KiB GitHub release payload
-const USER_AGENT: &str = "Nowly/1";
+const USER_AGENT: &str = "RESA/1";
 
 fn is_public_ip(ip: &IpAddr) -> bool {
     match ip {

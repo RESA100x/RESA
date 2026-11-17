@@ -1,10 +1,12 @@
-# Nowly · 此刻
+# RESA
 
 **Your personal workspace for Windows**
 
 English | [简体中文](README.zh.md)
 
-A desktop of your own for the day ahead. Nowly brings schedules, tasks, notes and time together in an adjustable workspace for people working, studying or freelancing on Windows. Use it as an ordinary window, set it behind your desktop icons, or keep reminders and quick tools within reach through Nowly Bar.
+A desktop of your own for the day ahead. RESA brings schedules, tasks, notes and time together in an adjustable workspace for people working, studying or freelancing on Windows. Use it as an ordinary window, set it behind your desktop icons, or keep reminders and quick tools within reach through RESA Bar.
+
+RESA ships with a Persian (فارسی) interface, a right-to-left layout and the Jalali (Solar Hijri) calendar.
 
 ## Make room for your work
 
@@ -13,7 +15,7 @@ A desktop of your own for the day ahead. Nowly brings schedules, tasks, notes an
 - **Keep thoughts close:** capture notes and use an optional Sticker canvas for text and images.
 - **See your time:** add Time for world clocks, local-time alarms, focus sessions and statistics. Switch between clocks and focus without stopping a session.
 - **Arrange your desktop:** choose among six built-in modules on a 12×8 grid, resize and reposition them, and adjust density, color, blur and icon style.
-- **Reach quick tools:** Nowly Bar offers reminders, quick creation of events, matrix tasks and notes without opening the main window, screenshots, screenshot history and an optional AI assistant. Menu order/visibility and global shortcuts are configurable; quick-create shortcuts are optional.
+- **Reach quick tools:** RESA Bar offers reminders, quick creation of events, matrix tasks and notes without opening the main window, screenshots, screenshot history and an optional AI assistant. Menu order/visibility and global shortcuts are configurable; quick-create shortcuts are optional.
 
 For a workday, keep meetings, next actions and quick notes together. For study, pair deadlines with a focus session. For freelance delivery, keep your own board and reference notes in view. This is a personal workspace, not a shared team or cross-device cloud workspace.
 

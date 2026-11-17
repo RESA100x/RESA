@@ -294,7 +294,7 @@ pub fn save_config(
     Ok(config)
 }
 
-const INSTRUCTIONS: &str = r#"You are Nowly's calendar/task intent planner. Return ONE JSON object, no Markdown.
+const INSTRUCTIONS: &str = r#"You are RESA's calendar/task intent planner. Return ONE JSON object, no Markdown.
 You have NO execute capability. Never claim a write or notification succeeded.
 Supported outputs:
 {"kind":"query","query":{"domain":"calendar","text":"","startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD"}}

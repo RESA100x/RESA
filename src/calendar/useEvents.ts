@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNowlyRepository } from '../data/RepositoryContext';
 import type { NowlyRepository } from '../data/nowly-repository';
 import type { WeekStart } from '../lib/date';
+import { addDisplayMonths, displayMonthOf, displayMonthStart, isSameDisplayMonth } from '../lib/calendar-system';
 import type { CalendarEvent, CalendarView, EditScope, EventDraft, EventTarget } from './calendar-model';
 import {
   monthRange,
@@ -141,19 +142,21 @@ export function useEvents({
 
   const goToPreviousMonth = useCallback(() => {
     setState((current) => {
-      const date = new Date(current.anchor.getFullYear(), current.anchor.getMonth() - 1, 1);
+      const month = displayMonthOf(current.anchor);
+      const previous = addDisplayMonths(month.year, month.monthIndex, -1);
       requestIdRef.current += 1;
       setEvents({ status: 'loading', data: [] });
-      return { view: current.view, anchor: date };
+      return { view: current.view, anchor: displayMonthStart(previous.year, previous.monthIndex) };
     });
   }, []);
 
   const goToNextMonth = useCallback(() => {
     setState((current) => {
-      const date = new Date(current.anchor.getFullYear(), current.anchor.getMonth() + 1, 1);
+      const month = displayMonthOf(current.anchor);
+      const next = addDisplayMonths(month.year, month.monthIndex, 1);
       requestIdRef.current += 1;
       setEvents({ status: 'loading', data: [] });
-      return { view: current.view, anchor: date };
+      return { view: current.view, anchor: displayMonthStart(next.year, next.monthIndex) };
     });
   }, []);
 
@@ -169,10 +172,11 @@ export function useEvents({
   const goToMonthContaining = useCallback(
     (isoDate: string) => {
       const [year, month] = isoDate.split('-').map(Number);
+      const monthOfDate = displayMonthOf(new Date(year, month - 1, 1));
       setState((current) => {
         requestIdRef.current += 1;
         setEvents({ status: 'loading', data: [] });
-        return { view: current.view, anchor: new Date(year, month - 1, 1) };
+        return { view: current.view, anchor: displayMonthStart(monthOfDate.year, monthOfDate.monthIndex) };
       });
     },
     []
@@ -189,7 +193,9 @@ export function useEvents({
       if (view === 'day') {
         return { view, anchor: new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - 1) };
       }
-      return { view, anchor: new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1) };
+      const month = displayMonthOf(anchor);
+      const previous = addDisplayMonths(month.year, month.monthIndex, -1);
+      return { view, anchor: displayMonthStart(previous.year, previous.monthIndex) };
     });
   }, []);
 
@@ -204,7 +210,9 @@ export function useEvents({
       if (view === 'day') {
         return { view, anchor: new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + 1) };
       }
-      return { view, anchor: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1) };
+      const month = displayMonthOf(anchor);
+      const next = addDisplayMonths(month.year, month.monthIndex, 1);
+      return { view, anchor: displayMonthStart(next.year, next.monthIndex) };
     });
   }, []);
 
@@ -284,14 +292,19 @@ export function useEvents({
       const [targetYear, targetMonth] = isoDate.split('-').map(Number);
       const outsideVisibleMonth =
         state.view === 'month' &&
-        (targetYear !== state.anchor.getFullYear() || targetMonth - 1 !== state.anchor.getMonth());
+        !isSameDisplayMonth(
+          new Date(targetYear, targetMonth - 1, 1),
+          displayMonthOf(state.anchor).year,
+          displayMonthOf(state.anchor).monthIndex
+        );
       if (outsideVisibleMonth) {
         // The dropped date belongs to an adjacent month (an outside grid day),
         // so jump to that month; the effect reloads its range and keeps the
         // moved event visible instead of dropping out of the current range.
         requestIdRef.current += 1;
         setEvents({ status: 'loading', data: [] });
-        setState({ view: 'month', anchor: new Date(targetYear, targetMonth - 1, 1) });
+        const month = displayMonthOf(new Date(targetYear, targetMonth - 1, 1));
+        setState({ view: 'month', anchor: displayMonthStart(month.year, month.monthIndex) });
       } else {
         await refreshAfterWrite();
       }
@@ -355,8 +368,8 @@ export function useEvents({
   return {
     view: state.view,
     anchorIso: isoOf(state.anchor),
-    year: state.anchor.getFullYear(),
-    monthIndex: state.anchor.getMonth(),
+    year: displayMonthOf(state.anchor).year,
+    monthIndex: displayMonthOf(state.anchor).monthIndex,
     events,
     retryEvents: () => loadEvents(state),
     refreshEvents: refreshAfterWrite,

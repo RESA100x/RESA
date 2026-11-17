@@ -3,6 +3,7 @@
 :root:lang(ja) { --font-sans: "Yu Gothic UI", Meiryo, Inter, sans-serif; }
 :root:lang(ko) { --font-sans: "Malgun Gothic", Inter, sans-serif; }
 :root:lang(zh-Hant) { --font-sans: "Microsoft JhengHei", "PingFang TC", Inter, sans-serif; }
+:root:lang(fa) { --font-sans: "Vazirmatn", "Segoe UI", Tahoma, "Iranian Sans", sans-serif; }
 
 /* Artwork and its measurement use the original font in every UI locale. */
 .sticker-canvas__stage {
@@ -16,3 +17,147 @@
 .settings-grid, .settings-grid > *, .select-field { min-width: 0; }
 .select-option, .select-value { overflow-wrap: anywhere; }
 .good-dialog__footer .good-button { height: auto; min-height: 40px; white-space: normal; }
+
+/* Persian needs a little more leading than the Latin default; the tokens and
+   spacing stay untouched so layouts do not shift. */
+:root:lang(fa) body { line-height: 1.7; }
+:root:lang(fa) .focus-timer__display,
+:root:lang(fa) .focus-fullscreen__display { font-family: var(--font-sans); }
+
+/* Right-to-left shell. The document direction flips flex/grid order and logical
+   text alignment automatically; these rules mirror the remaining physical
+   offsets (borders, handles, anchored popups). */
+[dir="rtl"] .tip__bubble { transform: translateX(50%); }
+[dir="rtl"] .tip--end .tip__bubble { right: auto; left: 0; transform: none; }
+
+[dir="rtl"] .calendar-grid,
+[dir="rtl"] .calendar-week,
+[dir="rtl"] .day-grid { border-left: 0; border-right: 1px solid var(--border-default); }
+[dir="rtl"] .day,
+[dir="rtl"] .week-column,
+[dir="rtl"] .week-column__head,
+[dir="rtl"] .day-grid__hour,
+[dir="rtl"] .day-grid__slot { border-right: 0; border-left: 1px solid var(--border-default); }
+[dir="rtl"] .event-bar__resize-handle,
+[dir="rtl"] .event--resizable::after { right: auto; left: 0; }
+[dir="rtl"] .event-bar__resize-handle::after { right: auto; left: 3px; }
+[dir="rtl"] .day-grid__events { left: 0; right: 64px; }
+[dir="rtl"] .day-grid__event {
+  left: auto;
+  right: calc(8px + (100% - 12px) * var(--day-event-lane) / var(--day-event-lanes));
+}
+
+[dir="rtl"] .module-frame__resize { right: auto; left: 0; }
+[dir="rtl"] .module-frame__resize::after {
+  right: auto;
+  left: 5px;
+  border-right: 0;
+  border-left: 2px solid var(--color-primary);
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 4px;
+}
+[dir="rtl"] .blur-popup { right: auto; left: 0; }
+[dir="rtl"] .custom-block--list { padding-left: 0; padding-right: 20px; }
+[dir="rtl"] .focus-timer__duration { border-left: 0; border-right: 1px solid var(--border-default); }
+[dir="rtl"] .focus-timer__duration:first-child { border-right: 0; }
+[dir="rtl"] .bar-menu-panel__header { padding-right: var(--space-4); padding-left: var(--space-12); }
+[dir="rtl"] .about-button__dot { right: auto; left: 6px; }
+
+[dir="rtl"] .status-island__signals { right: auto; left: 54px; }
+[dir="rtl"] .status-island__dismiss[data-at="collapsed"] { right: auto; left: 54px; }
+[dir="rtl"] .status-island__dismiss[data-at="expanded"] { right: auto; left: 7px; }
+[dir="rtl"] .status-rail__nowly { left: auto; right: calc(var(--status-action-w) - var(--rail-edge)); }
+[dir="rtl"] .status-rail__nowly::before { left: auto; right: 0; }
+[dir="rtl"] .status-rail__assistant::after { right: auto; left: 13px; }
+[dir="rtl"] .status-rail__header { left: auto; right: var(--shell-left); }
+[dir="rtl"] .status-rail[data-status-open="true"] .status-rail__header { right: 0; }
+[dir="rtl"] .screen-status-island-error { right: auto; left: 88px; }
+[dir="rtl"] .status-rail__action-error { left: auto; right: calc(50% - 144px); }
+
+/* Rich text editor (Quill) mirrors its physical quote bar, list gutters and
+   link tooltip. The content itself inherits the RTL direction from <html>. */
+[dir="rtl"] .rich-editor .ql-editor { text-align: right; }
+[dir="rtl"] .rich-editor .ql-editor .ql-align-left { text-align: left; }
+[dir="rtl"] .rich-editor .ql-editor .ql-align-right { text-align: right; }
+[dir="rtl"] .rich-editor .ql-editor blockquote {
+  border-left: 0;
+  border-right: 2px solid var(--color-primary);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+[dir="rtl"] .rich-editor .ql-editor ol,
+[dir="rtl"] .rich-editor .ql-editor li { padding-left: 0; padding-right: 1.5em; }
+[dir="rtl"] .rich-editor .ql-editor li > .ql-ui::before {
+  margin-left: 0.3em;
+  margin-right: -1.5em;
+  text-align: left;
+}
+[dir="rtl"] .rich-editor .ql-snow .ql-tooltip::before {
+  margin-left: 0;
+  margin-right: 8px;
+}
+[dir="rtl"] .rich-editor .ql-snow .ql-tooltip a.ql-action::after {
+  border-right: 0;
+  border-left: 1px solid var(--border-default);
+  margin-left: 0;
+  margin-right: 16px;
+  padding-right: 0;
+  padding-left: 8px;
+}
+[dir="rtl"] .rich-editor .ql-snow .ql-tooltip a.ql-remove::before { margin-left: 0; margin-right: 8px; }
+[dir="rtl"] .rich-editor .ql-snow .ql-tooltip.ql-editing a.ql-action::after {
+  border-left: 0;
+  padding-left: 0;
+}
+[dir="rtl"] .rich-editor__attachment-open { text-align: right; }
+[dir="rtl"] .rich-editor__image-resize-handle { cursor: nesw-resize; }
+[dir="rtl"] .rich-editor__image-resize-handle::after {
+  border-right: 0;
+  border-left: 1px solid var(--color-primary-active);
+}
+
+/* Assistant, screenshot history and sticker widgets anchor a few controls with
+   physical offsets; mirror them so the close/layers affordances stay on the
+   side the user expects. */
+[dir="rtl"] .assistant-dock--embedded .assistant-panel-header {
+  padding-right: var(--space-4);
+  padding-left: var(--space-12);
+}
+[dir="rtl"] .screenshot-history--compact .screenshot-history__header {
+  padding-right: var(--space-4);
+  padding-left: var(--space-12);
+}
+[dir="rtl"] .screenshot-history--compact .screenshot-history__header .screenshot-history__icon-button {
+  right: auto;
+  left: calc(var(--space-10) + var(--space-1) - 1px);
+}
+[dir="rtl"] .sticker-widget__status { right: auto; left: var(--space-3); }
+[dir="rtl"] .sticker-widget__layers { left: auto; right: var(--space-2); }
+[dir="rtl"] .sticker-widget__layer-list .btn { text-align: right; }
+
+/* Spanning events keep their accent bar on the leading edge, and the
+   screenshot toolbar keeps its separators between groups. */
+[dir="rtl"] .event--spanning { border-right: 0; border-left: 3px solid currentColor; }
+[dir="rtl"] .event-bar.event--spanning { border-left: 0; }
+[dir="rtl"] .event-bar--open-start {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+[dir="rtl"] .event-bar--open-end {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+[dir="rtl"] .screenshot-toolbar__group + .screenshot-toolbar__group {
+  padding-left: 0;
+  padding-right: 8px;
+  border-left: 0;
+  border-right: 1px solid var(--border-default);
+}
+
+/* Decorative note styles reserve a gutter for their artwork. */
+[dir="rtl"] .sticky-note--style-3,
+[dir="rtl"] .sticky-note--style-4 { padding-right: 0; padding-left: 40px; }
+[dir="rtl"] .sticky-note--style-8 { padding-left: 0; padding-right: 40px; }

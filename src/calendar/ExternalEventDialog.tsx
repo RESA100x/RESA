@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { Dialog } from '../components/Dialog';
 import { t } from '../i18n';
 import type { CalendarEvent } from './calendar-model';
+import { formatIsoDisplay } from '../lib/calendar-system';
 
 type Props = {
   event: CalendarEvent;
@@ -59,14 +60,16 @@ function formatTimeRange(event: CalendarEvent): string {
     // DTEND is exclusive; the inclusive last day is end date - 1.
     const lastDay = addDaysIso(end.date, -1);
     const allDay = t('calendar.external.allDay');
+    const startLabel = formatIsoDisplay(start.date);
+    const lastLabel = formatIsoDisplay(lastDay);
     return lastDay > start.date
-      ? `${start.date} – ${lastDay} · ${allDay}`
-      : `${start.date} · ${allDay}`;
+      ? `${startLabel} – ${lastLabel} · ${allDay}`
+      : `${startLabel} · ${allDay}`;
   }
   // Timed: show the end date too when the event crosses midnight.
   return end.date === start.date
-    ? `${start.date} ${start.time}–${end.time}`
-    : `${start.date} ${start.time} – ${end.date} ${end.time}`;
+    ? `${formatIsoDisplay(start.date)} ${start.time}–${end.time}`
+    : `${formatIsoDisplay(start.date)} ${start.time} – ${formatIsoDisplay(end.date)} ${end.time}`;
 }
 
 export function ExternalEventDialog({ event, sourceName, onClose, isTopLayer = true, restoreFocusRef }: Props) {

@@ -13,6 +13,7 @@ import {
 } from '../../components/icons';
 import { useTranslation } from '../../i18n';
 import { alarmLocalTime, timeBarText } from '../../time/time-bar-translations';
+import { formatIsoDisplay } from '../../lib/calendar-system';
 import type { CalendarEvent } from '../../calendar/calendar-model';
 import type { Task } from '../../tasks/task-model';
 import type {
@@ -174,7 +175,7 @@ function reminderCopy(reminder: StatusIslandReminder, t: Translate): { title: st
   return {
     title: subject.task.title,
     meta: subject.task.dueDate
-      ? t('statusIsland.taskDue', { date: subject.task.dueDate })
+      ? t('statusIsland.taskDue', { date: formatIsoDisplay(subject.task.dueDate) })
       : t('statusIsland.taskMeta')
   };
 }
@@ -684,7 +685,7 @@ function TaskRow({ task, onOpenTask, t }: { task: Task; onOpenTask: (id: string)
         <small>{task.priority === 'important_urgent' ? t('statusIsland.taskMeta') : t('statusIsland.importantTask')}</small>
         <strong>{task.title}</strong>
       </span>
-      <span>{task.dueDate ?? t('statusIsland.noDueDate')}</span>
+      <span>{task.dueDate ? formatIsoDisplay(task.dueDate) : t('statusIsland.noDueDate')}</span>
     </button>
   );
 }
@@ -779,7 +780,7 @@ function panelSummary(context: StatusIslandPanelContext, t: Translate): string {
   }
   if (context.kind === 'ongoingEvent') return t('statusIsland.eventEndsAt', { time: formatTime(context.event.endAt) });
   if (context.kind === 'urgentTask') {
-    return context.task.dueDate ? t('statusIsland.taskDue', { date: context.task.dueDate }) : t('statusIsland.noDueDate');
+    return context.task.dueDate ? t('statusIsland.taskDue', { date: formatIsoDisplay(context.task.dueDate) }) : t('statusIsland.noDueDate');
   }
   if (context.kind === 'overview') {
     return context.totalCount > 0

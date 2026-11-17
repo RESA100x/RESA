@@ -62,7 +62,7 @@ pub(crate) fn reconcile<R: tauri::Runtime>(
     let label = session_label(session_id);
     if app.get_webview_window(&label).is_none() {
         let window = WebviewWindowBuilder::new(app, label, capture_surface_url())
-            .title("Nowly")
+            .title("RESA")
             .inner_size(480.0, 320.0)
             .resizable(false)
             .maximizable(false)
@@ -85,7 +85,7 @@ pub(crate) fn reconcile<R: tauri::Runtime>(
             }
             None => {
                 let window = WebviewWindowBuilder::new(app, &overlay.label, capture_surface_url())
-                    .title("Nowly")
+                    .title("RESA")
                     .decorations(chrome.decorations)
                     .shadow(chrome.shadow)
                     .transparent(chrome.transparent)

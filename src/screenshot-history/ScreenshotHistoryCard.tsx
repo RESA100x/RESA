@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Copy, Trash2 } from '../components/icons';
 import { useTranslation, getLocale } from '../i18n';
 import { copyScreenshotHistory, thumbnailUrl, type ScreenshotHistoryEntry } from './client';
+import { usesJalaliCalendar } from '../lib/calendar-system';
 
 export function ScreenshotHistoryCard({ entry, onDelete }: {
   entry: ScreenshotHistoryEntry;
@@ -24,7 +25,7 @@ export function ScreenshotHistoryCard({ entry, onDelete }: {
     finally { busy.current = false; setCopying(false); }
   };
   const date = new Date(entry.createdAt);
-  const dateLabel = Number.isNaN(date.valueOf()) ? entry.createdAt : date.toLocaleString(getLocale(), { calendar: 'gregory', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const dateLabel = Number.isNaN(date.valueOf()) ? entry.createdAt : date.toLocaleString(getLocale(), { calendar: usesJalaliCalendar() ? 'persian' : 'gregory', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const timeLabel = Number.isNaN(date.valueOf()) ? entry.createdAt : date.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   return <article className="screenshot-history-card" aria-label={entry.fileName} tabIndex={0}>
     <div className="screenshot-history-card__thumbnail">

@@ -18,7 +18,7 @@ describe('SettingsDialog',()=>{
     const save = vi.fn(async value => value);
     render(<SettingsDialog settings={{ ...settings, barMenu: [...DEFAULT_BAR_MENU] }} onClose={vi.fn()} onSave={save}/>);
     expect(screen.queryByRole('tab', { name: t('settings.model') })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: 'Nowly Bar' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'RESA Bar' }));
     expect(screen.queryByRole('checkbox', { name: t('barMenu.assistant') })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ barMenu: DEFAULT_BAR_MENU }));
@@ -40,7 +40,7 @@ describe('SettingsDialog',()=>{
   it('only exposes sound choices and previews in the sound tab', async () => {
     const user = userEvent.setup();
     render(<SettingsDialog settings={settings} onClose={vi.fn()} onSave={vi.fn()}/>);
-    await user.click(screen.getByRole('tab', { name: 'Nowly Bar' }));
+    await user.click(screen.getByRole('tab', { name: 'RESA Bar' }));
     expect(screen.queryByRole('combobox', { name: t('sounds.calendar') })).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: t('settings.sound') }));
     expect(screen.getByRole('tabpanel', { name: t('settings.sound') })).toBeVisible();
@@ -63,7 +63,7 @@ describe('SettingsDialog',()=>{
     expect(screen.getByRole('combobox', { name: t('sounds.calendar') })).toHaveTextContent(t('sounds.chime-glass'));
     await user.click(screen.getByRole('combobox', { name: t('sounds.calendar') }));
     await user.click(screen.getByRole('option', { name: t('sounds.chime-wood') }));
-    await user.click(screen.getByRole('tab', { name: 'Nowly Bar' }));
+    await user.click(screen.getByRole('tab', { name: 'RESA Bar' }));
     await user.click(screen.getByRole('tab', { name: t('settings.sound') }));
     expect(screen.getByRole('combobox', { name: t('sounds.calendar') })).toHaveTextContent(t('sounds.chime-wood'));
     await user.click(screen.getByRole('button', { name: t('settings.saveSettings') }));
@@ -83,7 +83,7 @@ describe('SettingsDialog',()=>{
     expect(calendar.volume).toBe(1);
     await user.click(screen.getByRole('button', { name: t('sounds.preview') + ' · ' + t('sounds.alarm') }));
     expect(pause.mock.contexts).toContain(calendar);
-    await user.click(screen.getByRole('tab', { name: 'Nowly Bar' }));
+    await user.click(screen.getByRole('tab', { name: 'RESA Bar' }));
     expect(pause.mock.contexts).toContain(play.mock.contexts[1]);
     expect(save).not.toHaveBeenCalled();
   });
@@ -246,7 +246,7 @@ describe('SettingsDialog',()=>{
   it('does not expose a separate Nowly Bar enable switch or shortcut field', async () => {
     const save = vi.fn(async value => value);
     render(<SettingsDialog settings={settings} onClose={vi.fn()} onSave={save}/>);
-    expect(screen.queryByRole('checkbox', { name: '启用 Nowly Bar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: '启用 RESA Bar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: '快捷窗口快捷键' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ quickPanelEnabled: true }));
@@ -285,7 +285,7 @@ describe('SettingsDialog',()=>{
   it('saves all hidden menu items with their draft order',async()=>{
     const user=userEvent.setup(); const save=vi.fn().mockImplementation(async value=>value);
     render(<SettingsDialog settings={settings} onClose={vi.fn()} onSave={save}/>);
-    await user.click(screen.getByRole('tab',{name:'Nowly Bar'}));
+    await user.click(screen.getByRole('tab',{name:'RESA Bar'}));
     for (const item of DEFAULT_BAR_MENU.filter(item=>item.id!=='assistant')) await user.click(screen.getByRole('checkbox',{name:t(`barMenu.${item.id}`)}));
     await user.click(screen.getByRole('button',{name:'保存设置'}));
     expect(save).toHaveBeenCalledWith(expect.objectContaining({barMenu:DEFAULT_BAR_MENU.map(item=>({...item,visible:item.id==='assistant'}))}));
@@ -294,7 +294,7 @@ describe('SettingsDialog',()=>{
     const user=userEvent.setup(); const save=vi.fn(); const close=vi.fn();
     const configured={...settings,barMenu:DEFAULT_BAR_MENU.map(item=>({...item}))};
     render(<SettingsDialog settings={configured} onClose={close} onSave={save}/>);
-    await user.click(screen.getByRole('tab',{name:'Nowly Bar'}));
+    await user.click(screen.getByRole('tab',{name:'RESA Bar'}));
     await user.click(screen.getByRole('checkbox',{name:t('barMenu.screenshot')}));
     await user.click(screen.getByRole('button',{name:'取消'}));
     expect(close).toHaveBeenCalled();

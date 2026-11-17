@@ -38,13 +38,14 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 pub fn quit_label(language: &str) -> &'static str {
     match language {
-        "zh" => "退出 Nowly",
-        "fr" => "Quitter Nowly",
-        "es" => "Salir de Nowly",
-        "ja" => "Nowly を終了",
-        "ko" => "Nowly 종료",
-        "zh-Hant" => "結束 Nowly",
-        _ => "Quit Nowly",
+        "zh" => "退出 RESA",
+        "fa" => "خروج از RESA",
+        "fr" => "Quitter RESA",
+        "es" => "Salir de RESA",
+        "ja" => "RESA を終了",
+        "ko" => "RESA 종료",
+        "zh-Hant" => "結束 RESA",
+        _ => "Quit RESA",
     }
 }
 
@@ -55,13 +56,14 @@ mod tests {
     #[test]
     fn quit_action_is_localized_in_all_supported_languages() {
         for (language, expected) in [
-            ("zh", "退出 Nowly"),
-            ("en", "Quit Nowly"),
-            ("fr", "Quitter Nowly"),
-            ("es", "Salir de Nowly"),
-            ("ja", "Nowly を終了"),
-            ("ko", "Nowly 종료"),
-            ("zh-Hant", "結束 Nowly"),
+            ("zh", "退出 RESA"),
+            ("en", "Quit RESA"),
+            ("fa", "خروج از RESA"),
+            ("fr", "Quitter RESA"),
+            ("es", "Salir de RESA"),
+            ("ja", "RESA を終了"),
+            ("ko", "RESA 종료"),
+            ("zh-Hant", "結束 RESA"),
         ] {
             assert_eq!(quit_label(language), expected, "{language}");
         }
@@ -69,8 +71,8 @@ mod tests {
 
     #[test]
     fn unsupported_language_uses_english() {
-        assert_eq!(quit_label("unknown"), "Quit Nowly");
-        assert_eq!(quit_label("ar"), "Quit Nowly");
+        assert_eq!(quit_label("unknown"), "Quit RESA");
+        assert_eq!(quit_label("ar"), "Quit RESA");
     }
 
     #[test]

@@ -4,6 +4,7 @@ import { Check } from '../components/icons';
 import { t } from '../i18n';
 import { DONE_HOLD_EVENT, DONE_LAND_EVENT, playDoneLanding, prefersReducedMotion } from '../tasks/completion-celebration';
 import { groupDoneEntries, isRecentDone, type DoneEntry, type DoneGroupKey } from './kanban-done';
+import { displayMonthDayOf } from '../lib/calendar-system';
 
 type KanbanDoneButtonProps = {
   entries: DoneEntry[];
@@ -20,9 +21,10 @@ const groupLabelKey: Record<DoneGroupKey, string> = {
 
 function completedOn(iso: string, now: Date): string {
   const date = new Date(iso);
+  const monthDay = displayMonthDayOf(iso.slice(0, 10));
   return date.toDateString() === now.toDateString()
     ? t('kanbanDone.groupToday')
-    : t('kanbanDue.monthDay', { month: date.getMonth() + 1, day: date.getDate() });
+    : t('kanbanDue.monthDay', { month: monthDay.month, day: monthDay.day });
 }
 
 // Toolbar entry for tasks completed on the board. Completed tasks keep their

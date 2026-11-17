@@ -17,7 +17,7 @@ export function useBarPresentation(ready: boolean) {
     setPresentation(current => current?.generation === next.generation && current.strip === next.strip ? current : next);
   }, []);
   const failed = useCallback((reason: unknown) => {
-    console.error('Failed to update Nowly Bar presentation', reason);
+    console.error('Failed to update RESA Bar presentation', reason);
     setError(localizedRepositoryErrorMessage(reason) ?? t('statusIsland.readError'));
   }, []);
   const refresh = useCallback(() => {

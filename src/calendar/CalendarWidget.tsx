@@ -38,6 +38,7 @@ import {
 import { colorStyle, isHexColor } from '../lib/color';
 import { occurrenceKey } from '../lib/recurrence';
 import { t, formatNumber } from '../i18n';
+import { displayMonthStart, isWeekendDow } from '../lib/calendar-system';
 
 // Indexed by day-of-week (0 = Sunday … 6 = Saturday) so a column's label can be
 // looked up directly from its weekday regardless of the week-start setting.
@@ -196,7 +197,7 @@ export function CalendarWidget({
   const [syncing, setSyncing] = useState(false);
   // Timestamp (ms) of the last sync trigger, used to debounce repeat clicks.
   const lastSyncAtRef = useRef(0);
-  const anchor = anchorIso ? new Date(`${anchorIso}T00:00:00`) : new Date(year, monthIndex, 1);
+  const anchor = anchorIso ? new Date(`${anchorIso}T00:00:00`) : displayMonthStart(year, monthIndex);
   const today = new Date(`${todayIso}T00:00:00`);
   const weekStart = calendarSettings?.weekStart ?? 'monday';
   const dateFormat = calendarSettings?.dateFormat ?? 'localized';
@@ -206,7 +207,7 @@ export function CalendarWidget({
   // Grid columns follow the week-start setting. Each column maps to a fixed
   // day-of-week (0 = Sunday … 6 = Saturday) so weekday labels, weekend shading,
   // and weekend hiding all derive from the same source of truth.
-  const startDow = weekStart === 'sunday' ? 0 : 1;
+  const startDow = weekStart === 'sunday' ? 0 : weekStart === 'saturday' ? 6 : 1;
   const columnDows = Array.from({ length: 7 }, (_, col) => (startDow + col) % 7);
   const weekdays = weekdayLabelsList();
   const weekdayLabels = columnDows.map((dow) => weekdays[dow]);
@@ -215,7 +216,7 @@ export function CalendarWidget({
   // Logical columns (0-6) that are actually rendered. When weekends are hidden
   // the Saturday/Sunday columns drop out, leaving five visible columns.
   const visibleCols = columnDows
-    .map((dow, col) => (showWeekends || (dow !== 0 && dow !== 6) ? col : -1))
+    .map((dow, col) => (showWeekends || !isWeekendDow(dow) ? col : -1))
     .filter((col) => col >= 0);
   const visibleCount = visibleCols.length;
   const visibleIndexOf = new Array(7).fill(-1);
@@ -698,7 +699,7 @@ export function CalendarWidget({
               data-calendar-day
               data-iso-date={day.isoDate}
               aria-current={day.isToday ? 'date' : undefined}
-              className={`day${day.isCurrentMonth ? '' : ' outside'}${day.isToday ? ' today' : ''}${columnDows[col] === 0 || columnDows[col] === 6 ? ' is-weekend' : ''}`}
+              className={`day${day.isCurrentMonth ? '' : ' outside'}${day.isToday ? ' today' : ''}${isWeekendDow(columnDows[col]) ? ' is-weekend' : ''}`}
             >
               <button
                 type="button"

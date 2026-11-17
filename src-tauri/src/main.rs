@@ -411,7 +411,7 @@ fn main() {
 
             let mut tray_builder = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("Nowly")
+                .tooltip("RESA")
                 .show_menu_on_left_click(false);
             if let Some(icon) = app.default_window_icon().cloned() {
                 tray_builder = tray_builder.icon(icon);

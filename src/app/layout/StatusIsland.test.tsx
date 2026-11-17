@@ -210,7 +210,7 @@ describe('TopRail', () => {
 describe('StatusIslandIdleView', () => {
   it('does not create a first-run movement tooltip or acknowledgement button', () => {
     render(<StatusIslandIdleView />);
-    expect(screen.queryByText('移动 Nowly Bar')).not.toBeInTheDocument();
+    expect(screen.queryByText('移动 RESA Bar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '知道了' })).not.toBeInTheDocument();
     expect(document.querySelector('.status-island__drag-hint')).not.toBeInTheDocument();
   });
@@ -517,6 +517,6 @@ describe('StatusIslandPanel', () => {
     renderPanel({ kind: 'empty' });
 
     expect(screen.getByText('暂无待处理状态')).toBeInTheDocument();
-    expect(screen.queryByText('问 Nowly')).not.toBeInTheDocument();
+    expect(screen.queryByText('问 RESA')).not.toBeInTheDocument();
   });
 });

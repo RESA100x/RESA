@@ -97,7 +97,7 @@ fn require_assistant_window(
     if !assistant_window_allowed(window.label(), access) {
         return Err(CommandError::validation(
             "assistant",
-            "此操作只允许在 Nowly 窗口中执行。",
+            "此操作只允许在 RESA 窗口中执行。",
         ));
     }
     Ok(())

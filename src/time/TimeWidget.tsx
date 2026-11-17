@@ -8,6 +8,7 @@ import { formatClockDate, formatClockDisplay, formatDifference } from './time-fo
 import { tt, timeLocalLabel } from './time-translations';
 import { useTimeSettings } from './useTimeSettings';
 import { useTimeSnapshot } from './useTimeSnapshot';
+import { usesJalaliCalendar } from '../lib/calendar-system';
 import './time.css';
 
 type TimeWidgetProps = {
@@ -147,7 +148,7 @@ function displayClockLabel(clock: WorldClock) {
 }
 
 function formatAlarmDate(date: Date) {
-  return new Intl.DateTimeFormat(getLocale(), { calendar: 'gregory', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
+  return new Intl.DateTimeFormat(getLocale(), { calendar: usesJalaliCalendar() ? 'persian' : 'gregory', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
 }
 function earliestAlarm(alarms: Alarm[], now: Date) {
   const candidates = alarms.filter((alarm) => alarm.enabled).flatMap((alarm) => {

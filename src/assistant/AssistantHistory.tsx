@@ -3,6 +3,8 @@ import { CalendarDays, Layers, SquareKanban } from 'lucide-react';
 import { TabPanel, Tabs, type TabItem } from '../components/Tabs';
 import { ChangeDetails, displayField, kinds } from './PlanCard';
 import type { Change, Plan } from './types';
+import { usesJalaliCalendar } from '../lib/calendar-system';
+import { formatJalali } from '../lib/jalali';
 
 export type HistoryRange = '1' | '3' | '7';
 
@@ -33,6 +35,7 @@ function dayLabel(time: number) {
   const distance = Math.round((dayStart(Date.now()) - dayStart(time)) / dayMs);
   if (distance === 0) return t('assistant.text31');
   if (distance === 1) return t('assistant.text32');
+  if (usesJalaliCalendar()) return formatJalali(new Date(time), 'short');
   return new Date(time).toLocaleDateString(getLocale(), { calendar: 'gregory', month: 'long', day: 'numeric', weekday: 'short' });
 }
 function groupByDay(plans: Plan[]) {

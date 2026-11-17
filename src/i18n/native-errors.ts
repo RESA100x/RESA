@@ -27,6 +27,14 @@ export const nativeErrorTranslations: Record<Language, Record<string, string>> =
     'nativeError.system_error': 'L’opération système a échoué. Réessayez.',
     'nativeError.screenshotSaveFailed': 'Impossible d’enregistrer la capture. La sélection et les annotations sont conservées. Réessayez.',
   },
+  fa: {
+    'nativeError.conflict': 'این داده در جای دیگری تغییر کرده است. صفحه را دوباره بارگذاری کنید و دوباره تلاش کنید.',
+    'nativeError.not_found': 'این مورد دیگر در دسترس نیست. دوباره بارگذاری کنید و تلاش کنید.',
+    'nativeError.validation_error': 'فیلد مشخص‌شده را بررسی کنید و دوباره تلاش کنید.',
+    'nativeError.database_error': 'خواندن داده‌های محلی ممکن نشد. دوباره تلاش کنید.',
+    'nativeError.system_error': 'عملیات سیستم ناموفق بود. دوباره تلاش کنید.',
+    'nativeError.screenshotSaveFailed': 'ذخیره تصویر ممکن نشد. انتخاب و یادداشت‌های شما حفظ شده است. دوباره تلاش کنید.'
+  },
   es: {
     'nativeError.conflict': 'Estos datos se modificaron en otro lugar. Vuelve a cargarlos e inténtalo de nuevo.',
     'nativeError.not_found': 'Este elemento ya no está disponible. Vuelve a cargar los datos e inténtalo de nuevo.',

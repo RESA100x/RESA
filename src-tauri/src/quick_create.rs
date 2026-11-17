@@ -195,7 +195,7 @@ fn ensure_window<R: Runtime>(app: &AppHandle<R>) -> Result<tauri::WebviewWindow<
         return Ok(window);
     }
     let window = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
-        .title("Nowly")
+        .title("RESA")
         .decorations(false)
         .shadow(false)
         .transparent(true)

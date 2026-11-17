@@ -4,7 +4,7 @@ import { translations } from './translations';
 import { LOCALES } from './locales';
 
 export type { Language } from './store';
-export { SUPPORTED_LANGUAGES, getLanguage, setLanguage, normalizeLanguage, getLocale, formatNumber } from './store';
+export { SUPPORTED_LANGUAGES, getLanguage, setLanguage, normalizeLanguage, getLocale, formatNumber, getDirection, isRtl } from './store';
 export { LOCALES } from './locales';
 
 type Params = Record<string, string | number>;

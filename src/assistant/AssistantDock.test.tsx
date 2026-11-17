@@ -34,7 +34,7 @@ async function connected() {
   await waitFor(() => expect(document.querySelector('.assistant-panel')).not.toHaveAttribute('data-state', 'setup'));
 }
 async function send() {
-  const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await connected();
   await act(async () => {
     fireEvent.change(input, { target: { value: '周三8点提醒我早会' } });
@@ -142,7 +142,7 @@ describe('AssistantDock execution boundary', () => {
   it('IME Enter does not send and Escape preserves draft', async () => {
     const client = clientFixture();
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await connected();
     fireEvent.change(input, { target: { value: '早会' } });
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true, keyCode: 229 });
@@ -153,7 +153,7 @@ describe('AssistantDock execution boundary', () => {
   it('uses Shift+Enter for a newline without sending', async () => {
     const client = clientFixture();
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await connected();
     fireEvent.change(input, { target: { value: '今天3点添加会议' } });
     fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
@@ -195,7 +195,7 @@ describe('AssistantDock execution boundary', () => {
   it('opens the single chat on composer focus without loading operation history', async () => {
     const client = clientFixture();
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await connected();
     await act(async () => { fireEvent.focus(input); });
     const panel = screen.getByRole('region', { name: '当前聊天' });
@@ -286,7 +286,7 @@ describe('AssistantDock execution boundary', () => {
       return { kind: 'plan', message: '', records: [], plan: expiring };
     });
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' }); await connected();
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' }); await connected();
     await act(async () => { fireEvent.change(input, { target: { value: '创建早会' } }); fireEvent.keyDown(input, { key: 'Enter' }); });
     expect(await screen.findByRole('region', { name: '变更预览' })).toBeInTheDocument();
     expect(await screen.findByRole('region', { name: '操作状态：已过期' })).toBeInTheDocument();
@@ -332,7 +332,7 @@ describe('AssistantDock execution boundary', () => {
   it('keeps the current chat open on ordinary blur', async () => {
     const client = clientFixture();
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await connected();
     fireEvent.focus(input); fireEvent.blur(input);
     const panel = screen.getByRole('region', { name: '当前聊天' });
@@ -355,7 +355,7 @@ describe('AssistantDock execution boundary', () => {
     let resolveConfig!: (value: AssistantConfig) => void;
     client.getConfig.mockImplementationOnce(() => new Promise(resolve => { resolveConfig = resolve; }));
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     fireEvent.focus(input);
     await act(async () => resolveConfig(config));
     await waitFor(() => expect(document.querySelector('.assistant-panel')).toHaveAttribute('data-open', 'true'));
@@ -363,7 +363,7 @@ describe('AssistantDock execution boundary', () => {
   it('keeps the full visible chat while limiting only the model context', async () => {
     const client = clientFixture();
     render(<AssistantDock client={client} onRefresh={() => {}} />);
-    const input = await screen.findByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+    const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await connected();
     for (let turn = 1; turn <= 7; turn++) {
       fireEvent.change(input, { target: { value: `请求 ${turn}` } });
@@ -451,7 +451,7 @@ describe('AssistantDock execution boundary', () => {
     await screen.findByRole('button', { name: '核实操作状态' });
     await click(screen.getByRole('button', { name: '操作记录' }));
     expect(screen.getByRole('button', { name: '确认执行 1 项' })).toBeEnabled();
-    expect(screen.getByRole('textbox', { name: '告诉 Nowly 你想做什么' })).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: '告诉 RESA 你想做什么' })).toBeEnabled();
   });
   it('reports an undo conflict instead of calling the committed receipt a successful undo', async () => {
     const client = clientFixture(); client.history.mockResolvedValue([{ ...plan(), status: 'committed' }]);

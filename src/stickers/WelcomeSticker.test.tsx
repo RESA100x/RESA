@@ -11,7 +11,7 @@ describe('WelcomeSticker', () => {
     const { container } = render(<WelcomeSticker />);
     const canvas = screen.getByTestId('sticker-canvas');
     expect(canvas.closest('[aria-hidden="true"]')).not.toBeNull();
-    expect(screen.getByRole('heading', { name: '欢迎使用 Nowly' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '欢迎使用 RESA' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('正在加载你的工作区…');
     expect(container.querySelector('[data-object-id="welcome-logo"] img')).toHaveAttribute('src', '/logo.png');
     expect(container.querySelectorAll('.sticker-object')).toHaveLength(25);
@@ -39,7 +39,7 @@ describe('WelcomeSticker', () => {
     setLanguage('en');
     render(<WelcomeSticker />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading your workspace…');
-    expect(screen.getByRole('heading', { name: 'Welcome to Nowly' })).toBeInTheDocument();
-    expect(screen.getByTestId('sticker-canvas')).toHaveTextContent('欢迎使用 Nowly');
+    expect(screen.getByRole('heading', { name: 'Welcome to RESA' })).toBeInTheDocument();
+    expect(screen.getByTestId('sticker-canvas')).toHaveTextContent('欢迎使用 RESA');
   });
 });

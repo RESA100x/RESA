@@ -263,7 +263,7 @@ fn read_request_query(stream: &mut TcpStream) -> Option<Vec<(String, String)>> {
 
 /// 给浏览器回一个简单的成功页，提示用户可以关闭并回到 Nowly。
 fn oauth_success_html() -> &'static str {
-    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Nowly</title></head><body style=\"font-family:sans-serif;text-align:center;margin-top:15vh;color:#333\"><h2>Authorization complete</h2><p>Calendar connected. Return to Nowly; you may close this page.</p></body></html>"
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>RESA</title></head><body style=\"font-family:sans-serif;text-align:center;margin-top:15vh;color:#333\"><h2>Authorization complete</h2><p>Calendar connected. Return to RESA; you may close this page.</p></body></html>"
 }
 
 fn respond_done(stream: &mut TcpStream) {

@@ -1,5 +1,6 @@
 import { priorityLabel, type MatrixTask, type Quadrant, type TaskDraft, type TaskPriority } from '../matrix/matrix-model';
 import { t } from '../i18n';
+import { displayMonthDayOf } from './calendar-system';
 
 export type TaskFormDraft={title:string;quadrant:Quadrant;dueAt:string;priority:TaskPriority;completed:boolean;note:string};
 export type TaskFieldErrors=Partial<Record<'title'|'quadrant'|'dueAt'|'priority',string>>;
@@ -11,4 +12,4 @@ export function validateTaskForm(form:TaskFormDraft):TaskFieldErrors{if(!form.ti
 export function isTaskFormDirty(initial:TaskFormDraft,current:TaskFormDraft){return JSON.stringify(initial)!==JSON.stringify(current);}
 export function compareTasks(a:MatrixTask,b:MatrixTask){return Number(a.completed)-Number(b.completed)||(a.dueAt===null?1:0)-(b.dueAt===null?1:0)||(a.dueAt??'').localeCompare(b.dueAt??'')||a.priority-b.priority||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id);}
 export function sortTasks(tasks:MatrixTask[]){return[...tasks].sort(compareTasks);}
-export function formatTaskMeta(task:MatrixTask,today=new Date()){let due=t('taskDraft.noDueDate');if(task.dueAt){const local=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;due=task.dueAt===local?t('taskDraft.dueToday'):t('taskDraft.dueMonthDay',{month:Number(task.dueAt.slice(5,7)),day:Number(task.dueAt.slice(8,10))});}const priority=priorityLabel(task.priority);return task.completed?t('taskDraft.metaCompleted',{due,priority}):t('taskDraft.meta',{due,priority});}
+export function formatTaskMeta(task:MatrixTask,today=new Date()){let due=t('taskDraft.noDueDate');if(task.dueAt){const local=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;const monthDay=displayMonthDayOf(task.dueAt);due=task.dueAt===local?t('taskDraft.dueToday'):t('taskDraft.dueMonthDay',{month:monthDay.month,day:monthDay.day});}const priority=priorityLabel(task.priority);return task.completed?t('taskDraft.metaCompleted',{due,priority}):t('taskDraft.meta',{due,priority});}

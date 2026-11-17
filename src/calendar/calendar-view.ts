@@ -1,5 +1,14 @@
 import { buildMonthGrid, toIsoDate, type WeekStart } from '../lib/date';
 import { getLanguage, getLocale } from '../i18n';
+import {
+  addDisplayMonths,
+  displayDayOfMonth,
+  displayMonthOf,
+  displayMonthStart,
+  formatDisplayDate,
+  usesJalaliCalendar
+} from '../lib/calendar-system';
+import { formatJalali, jalaliWeekdayName } from '../lib/jalali';
 import type { CalendarDay, CalendarEvent, CalendarView, EventDraft, EventRange } from './calendar-model';
 
 export type DateFormat = 'localized' | 'iso';
@@ -16,6 +25,7 @@ const monthShortEn = [
 ];
 
 function weekdayName(dayIndex: number): string {
+  if (usesJalaliCalendar()) return jalaliWeekdayName(dayIndex, true);
   if (getLanguage() !== 'zh' && getLanguage() !== 'en') {
     return new Intl.DateTimeFormat(getLocale(), { weekday: 'short' }).format(new Date(2026, 0, 4 + dayIndex));
   }
@@ -36,16 +46,20 @@ function midnightIso(date: Date) {
 }
 
 export function monthRange(year: number, monthIndex: number): EventRange {
-  const nextMonth = new Date(year, monthIndex + 1, 1);
+  // `year`/`monthIndex` are display-calendar values: in Persian a Jalali month
+  // starts and ends on Gregorian dates that do not align with month 1.
+  const start = displayMonthStart(year, monthIndex);
+  const next = addDisplayMonths(year, monthIndex, 1);
+  const nextMonth = displayMonthStart(next.year, next.monthIndex);
   return {
-    startAt: `${year}-${pad(monthIndex + 1)}-01T00:00`,
-    endAtExclusive: `${nextMonth.getFullYear()}-${pad(nextMonth.getMonth() + 1)}-01T00:00`
+    startAt: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T00:00`,
+    endAtExclusive: `${nextMonth.getFullYear()}-${pad(nextMonth.getMonth() + 1)}-${pad(nextMonth.getDate())}T00:00`
   };
 }
 
 /** Start of the week that contains the given date, honoring the week-start setting. */
 export function startOfWeek(date: Date, weekStart: WeekStart = 'monday'): Date {
-  const startDow = weekStart === 'sunday' ? 0 : 1;
+  const startDow = weekStart === 'sunday' ? 0 : weekStart === 'saturday' ? 6 : 1;
   const offset = (date.getDay() - startDow + 7) % 7;
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - offset);
 }
@@ -65,20 +79,20 @@ export function dayRange(anchor: Date): EventRange {
 export function rangeFor(view: CalendarView, anchor: Date, weekStart: WeekStart = 'monday'): EventRange {
   if (view === 'week') return weekRange(anchor, weekStart);
   if (view === 'day') return dayRange(anchor);
-  return monthRange(anchor.getFullYear(), anchor.getMonth());
+  const month = displayMonthOf(anchor);
+  return monthRange(month.year, month.monthIndex);
 }
 
 export function buildWeekDays(anchor: Date, today = new Date(), weekStart: WeekStart = 'monday'): CalendarDay[] {
   const start = startOfWeek(anchor, weekStart);
   const todayIso = toIsoDate(today);
-  const anchorMonth = anchor.getMonth();
   const result: CalendarDay[] = [];
   for (let index = 0; index < 7; index += 1) {
     const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
     result.push({
       isoDate: toIsoDate(date),
-      dayOfMonth: date.getDate(),
-      isCurrentMonth: date.getMonth() === anchorMonth,
+      dayOfMonth: displayDayOfMonth(date),
+      isCurrentMonth: displayMonthOf(date).monthIndex === displayMonthOf(anchor).monthIndex,
       isToday: toIsoDate(date) === todayIso,
       events: []
     });
@@ -93,6 +107,7 @@ function formatDate(date: Date, dateFormat: DateFormat) {
   if (dateFormat === 'iso') {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
+  if (usesJalaliCalendar()) return formatJalali(date, 'short');
   if (getLanguage() === 'en') {
     return `${monthShortEn[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   }
@@ -104,6 +119,7 @@ function formatDate(date: Date, dateFormat: DateFormat) {
 
 export function monthTitle(year: number, monthIndex: number, dateFormat: DateFormat = 'localized') {
   if (dateFormat === 'iso') return `${year}-${pad(monthIndex + 1)}`;
+  if (usesJalaliCalendar()) return formatDisplayDate(displayMonthStart(year, monthIndex), 'monthYear');
   if (getLanguage() === 'en') return `${monthNamesEn[monthIndex]} ${year}`;
   if (getLanguage() !== 'zh') return new Intl.DateTimeFormat(getLocale(), { calendar: 'gregory', year: 'numeric', month: 'long' }).format(new Date(year, monthIndex, 1));
   return `${year}年${monthIndex + 1}月`;
@@ -116,6 +132,7 @@ export function weekTitle(anchor: Date, weekStart: WeekStart = 'monday', dateFor
 }
 
 export function dayTitle(anchor: Date, dateFormat: DateFormat = 'localized') {
+  if (dateFormat !== 'iso' && usesJalaliCalendar()) return formatJalali(anchor, 'full');
   return `${formatDate(anchor, dateFormat)} ${weekdayName(anchor.getDay())}`;
 }
 
@@ -614,6 +631,9 @@ export function listDateLabel(isoDate: string, dateFormat: DateFormat = 'localiz
   const date = localDate(isoDate);
   if (dateFormat === 'iso') {
     return `${toIsoDate(date)} ${weekdayName(date.getDay())}`;
+  }
+  if (usesJalaliCalendar()) {
+    return `${formatJalali(date, 'short')} ${jalaliWeekdayName(date.getDay(), true)}`;
   }
   if (getLanguage() === 'en') {
     return `${monthShortEn[date.getMonth()]} ${date.getDate()}, ${weekdayName(date.getDay())}`;

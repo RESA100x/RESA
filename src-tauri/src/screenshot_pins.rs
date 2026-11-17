@@ -70,7 +70,7 @@ pub fn create_pin<R: Runtime>(app: &AppHandle<R>, image: RgbaImage) -> Result<St
         }).unwrap_or((800.0, 648.0));
         let (display_width, display_height) = initial_size(width, height, max_width, max_height);
         let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("screenshot.html".into()))
-            .title("Nowly — pinned image").decorations(false).always_on_top(true).skip_taskbar(true)
+            .title("RESA — pinned image").decorations(false).always_on_top(true).skip_taskbar(true)
             .resizable(true).min_inner_size(240.0, 96.0).focused(false).visible(false)
             .inner_size(display_width, display_height)
             .build().map_err(|_| CommandError::reported("Unable to open the pinned image. Retry."))?;
