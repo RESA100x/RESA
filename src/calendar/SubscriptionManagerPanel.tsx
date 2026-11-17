@@ -44,6 +44,16 @@ function errorMessage(error: unknown) {
     : '';
 }
 
+// A build compiled without client credentials can never start the consent flow,
+// so the panel names that reason instead of echoing the native English string.
+function oauthErrorMessage(error: unknown) {
+  const field = typeof error === 'object' && error !== null && 'field' in error
+    ? (error as { field?: unknown }).field
+    : null;
+  if (field === 'oauth') return t('subscription.oauthNotConfigured');
+  return errorMessage(error) || t('subscription.oauthError');
+}
+
 // Provider-specific label for the subscription list badge.
 function providerLabel(provider: SubscriptionProvider): string {
   if (provider === 'google') return t('subscription.sourceGoogle');
@@ -134,7 +144,7 @@ export function SubscriptionManagerPanel({
       .catch((error) => {
         if (!cancelled) {
           setRemoteCalendars([]);
-          setOauthError(errorMessage(error) || t('subscription.oauthError'));
+          setOauthError(oauthErrorMessage(error));
         }
       })
       .finally(() => {
@@ -223,7 +233,7 @@ export function SubscriptionManagerPanel({
       setSelectedAccountId(account.id);
       setChecked(new Set());
     } catch (error) {
-      setOauthError(errorMessage(error) || t('subscription.oauthError'));
+      setOauthError(oauthErrorMessage(error));
     } finally {
       setOauthBusy(false);
     }
@@ -241,7 +251,7 @@ export function SubscriptionManagerPanel({
       askDisconnect(null);
       onChanged();
     } catch (error) {
-      setOauthError(errorMessage(error) || t('subscription.oauthError'));
+      setOauthError(oauthErrorMessage(error));
     } finally {
       setOauthBusy(false);
     }
@@ -272,7 +282,7 @@ export function SubscriptionManagerPanel({
       setChecked(new Set());
       onChanged();
     } catch (error) {
-      setOauthError(errorMessage(error) || t('subscription.oauthError'));
+      setOauthError(oauthErrorMessage(error));
     } finally {
       setOauthBusy(false);
     }

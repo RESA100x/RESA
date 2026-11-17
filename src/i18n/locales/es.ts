@@ -328,6 +328,7 @@ export const es: Record<string, string> = {
   'subscription.subscribing': 'Suscribiendo…',
   'subscription.alreadySubscribed': 'Suscrito',
   'subscription.oauthError': 'La autorización ha fallado. Inténtalo de nuevo.',
+  'subscription.oauthNotConfigured': 'La conexión de cuentas está desactivada en esta versión: no se configuraron credenciales OAuth al compilar.',
   'subscription.googleGuideTitle': 'Cómo obtener un enlace de Google Calendar',
   'subscription.googleGuide': 'Abre Google Calendar → coloca el cursor sobre un calendario → Configuración y uso compartido → «Dirección secreta en formato iCal», y copia el enlace .ics. También puedes usar «Conectar cuenta» arriba.',
   'subscription.microsoftGuideTitle': 'Cómo obtener un enlace del calendario de Outlook',

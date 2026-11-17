@@ -328,6 +328,7 @@ export const fr: Record<string, string> = {
   'subscription.subscribing': 'Abonnement…',
   'subscription.alreadySubscribed': 'Abonné',
   'subscription.oauthError': 'Échec de l’autorisation. Réessayez.',
+  'subscription.oauthNotConfigured': 'La connexion de compte est désactivée dans cette version : aucun identifiant OAuth n’a été configuré lors de la compilation.',
   'subscription.googleGuideTitle': 'Obtenir un lien Google Calendar',
   'subscription.googleGuide': 'Ouvrez Google Calendar → survolez un calendrier → Paramètres et partage → « Adresse secrète au format iCal », puis copiez le lien .ics. Vous pouvez aussi utiliser « Connecter un compte » ci-dessus.',
   'subscription.microsoftGuideTitle': 'Obtenir un lien de calendrier Outlook',

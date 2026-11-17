@@ -3,6 +3,8 @@ import { setLanguage } from '../i18n';
 import { describe, expect, it, vi } from 'vitest';
 import { SubscriptionManagerPanel } from './SubscriptionManagerPanel';
 import type { CalendarSubscription } from './subscription-model';
+import { RepositoryProvider } from '../data/RepositoryContext';
+import type { NowlyRepository } from '../data/nowly-repository';
 
 function sub(overrides: Partial<CalendarSubscription> = {}): CalendarSubscription {
   return {
@@ -78,5 +80,28 @@ describe('SubscriptionManagerPanel', () => {
     render(<SubscriptionManagerPanel {...props({ onOverlayOpenChange })} />);
     fireEvent.click(screen.getByRole('button', { name: '删除家庭' }));
     expect(onOverlayOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('explains that this build has no OAuth credentials instead of echoing the native error', async () => {
+    // A build compiled without client ids rejects the consent flow with the
+    // `oauth` field; the panel turns that into guidance the user can act on.
+    const repository = {
+      listOAuthAccounts: vi.fn().mockResolvedValue([]),
+      startOAuthLogin: vi.fn().mockRejectedValue({
+        code: 'validation_error',
+        field: 'oauth',
+        message: 'Credentials are not configured for this provider.'
+      })
+    } as unknown as NowlyRepository;
+    render(
+      <RepositoryProvider repository={repository}>
+        <SubscriptionManagerPanel {...props({ subscriptions: [] })} />
+      </RepositoryProvider>
+    );
+    fireEvent.click(screen.getByLabelText('来源'));
+    fireEvent.click(screen.getByRole('option', { name: 'Google 日历' }));
+    fireEvent.click(screen.getByRole('button', { name: '连接账户' }));
+    expect(await screen.findByText(/构建时没有配置 OAuth/)).toBeInTheDocument();
+    expect(screen.queryByText('Credentials are not configured for this provider.')).not.toBeInTheDocument();
   });
 });

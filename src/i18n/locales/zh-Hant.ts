@@ -329,6 +329,7 @@ export const zhHant: Record<string, string> = {
   "subscription.subscribing": "訂閱中…",
   "subscription.alreadySubscribed": "已訂閱",
   "subscription.oauthError": "授權失敗，請再試一次。",
+  "subscription.oauthNotConfigured": "此版本未啟用帳戶連接：建置時沒有設定 OAuth 用戶端憑證。",
   "subscription.googleGuideTitle": "如何取得 Google Calendar 連結",
   "subscription.googleGuide": "開啟 Google Calendar → 將滑鼠移至行事曆 →「設定和共用」→「iCal 格式的私人網址」，複製 .ics 連結。也可直接使用上方的「連線至帳戶」。",
   "subscription.microsoftGuideTitle": "如何取得 Outlook 行事曆連結",

@@ -692,6 +692,7 @@ export const fa: Record<string, string> = {
   'subscription.subscribing': 'در حال اشتراک…',
   'subscription.alreadySubscribed': 'مشترک شده',
   'subscription.oauthError': 'مجوزدهی ناموفق بود، دوباره تلاش کنید.',
+  'subscription.oauthNotConfigured': 'اتصال حساب در این نسخه فعال نیست، چون کلیدهای OAuth هنگام ساخت برنامه تنظیم نشده‌اند.',
   'subscription.googleGuideTitle': 'چگونه پیوند تقویم Google بگیریم',
   'subscription.googleGuide': 'تقویم Google را باز کنید ← روی یک تقویم نگه دارید ← تنظیمات و اشتراک‌گذاری ← «نشانی محرمانه در قالب iCal»، پیوند .ics را کپی کنید. یا از «اتصال حساب» بالا استفاده کنید.',
   'subscription.microsoftGuideTitle': 'چگونه پیوند تقویم Outlook بگیریم',

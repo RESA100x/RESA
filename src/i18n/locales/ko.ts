@@ -329,6 +329,7 @@ export const ko: Record<string, string> = {
   'subscription.subscribing': '구독 중…',
   'subscription.alreadySubscribed': '구독 중',
   'subscription.oauthError': '인증하지 못했습니다. 다시 시도해 주세요.',
+  'subscription.oauthNotConfigured': '이 빌드에서는 계정 연결이 꺼져 있습니다. 빌드할 때 OAuth 클라이언트 자격 증명이 설정되지 않았습니다.',
   'subscription.googleGuideTitle': 'Google Calendar 링크 가져오기',
   'subscription.googleGuide': 'Google Calendar → 캘린더에 마우스 올리기 → 설정 및 공유 → iCal 형식의 비공개 주소에서 .ics 링크를 복사하세요. 위의 계정 연결을 이용해도 됩니다.',
   'subscription.microsoftGuideTitle': 'Outlook 캘린더 링크 가져오기',

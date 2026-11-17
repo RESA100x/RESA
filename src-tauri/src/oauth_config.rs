@@ -38,7 +38,9 @@ pub fn credentials(provider: &str) -> Result<ClientCredentials, CommandError> {
     };
     if client_id.is_empty() {
         return Err(CommandError::validation(
-            "provider",
+            // A distinct field so the UI can explain that this build simply has
+            // no client credentials, rather than blaming the chosen provider.
+            "oauth",
             "Credentials are not configured for this provider.",
         ));
     }

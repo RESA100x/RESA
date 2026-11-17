@@ -329,6 +329,7 @@ export const ja: Record<string, string> = {
   'subscription.subscribing': '購読中…',
   'subscription.alreadySubscribed': '購読済み',
   'subscription.oauthError': '認証に失敗しました。もう一度お試しください。',
+  'subscription.oauthNotConfigured': 'このビルドではアカウント接続が無効です。ビルド時に OAuth クライアントの認証情報が設定されていません。',
   'subscription.googleGuideTitle': 'Google Calendar のリンクを取得する方法',
   'subscription.googleGuide': 'Google Calendar → カレンダーにカーソルを合わせる →「設定と共有」→「iCal 形式の非公開 URL」から .ics リンクをコピーします。上の「アカウントを接続」も利用できます。',
   'subscription.microsoftGuideTitle': 'Outlook カレンダーのリンクを取得する方法',
