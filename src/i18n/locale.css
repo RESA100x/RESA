@@ -66,6 +66,14 @@
 [dir="rtl"] .status-island__signals { right: auto; left: 54px; }
 [dir="rtl"] .status-island__dismiss[data-at="collapsed"] { right: auto; left: 54px; }
 [dir="rtl"] .status-island__dismiss[data-at="expanded"] { right: auto; left: 7px; }
+/* The header reserves 54px for the badge/dismiss lane. RTL moves those anchors
+   to the left edge, so the lane has to follow them: otherwise the copy and its
+   icon stop 54px short of the right edge (leaving that strip empty) while the
+   badges and the collapsed dismiss land on top of the copy instead. */
+[dir="rtl"] .status-rail__header > .status-island { padding-right: 8px; padding-left: 54px; }
+/* The hit area is the status half of the shell, so it mirrors with the lane
+   rather than staying on the left where the Nowly logo lane now sits. */
+[dir="rtl"] .status-island__trigger { left: auto; right: 0; }
 [dir="rtl"] .status-rail__nowly { left: auto; right: calc(var(--status-action-w) - var(--rail-edge)); }
 [dir="rtl"] .status-rail__nowly::before { left: auto; right: 0; }
 [dir="rtl"] .status-rail__assistant::after { right: auto; left: 13px; }

@@ -102,7 +102,7 @@ test('all expanded panels measure 432px while the collapsed Logo Bar is 288px', 
   expect((await title.boundingBox())!.x).toBe(titleX - 72);
   await page.keyboard.press('Escape');
   await expect(status).toHaveCSS('width', '288px');
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   const menu = page.getByRole('menu', { name: '功能菜单' });
   await expect(menu).toBeVisible();
   await expect(page.locator('.status-rail__menu')).toHaveCSS('width', '432px');
@@ -120,16 +120,40 @@ test('all expanded panels measure 432px while the collapsed Logo Bar is 288px', 
   await page.evaluate(() => Reflect.get(window, '__barTest').open('nowly'));
   await expect(page.locator('.status-rail__assistant')).toHaveCSS('width', '432px');
   await expect(page.locator('.status-rail__assistant')).toHaveCSS('height', '440px');
-  await expect(page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: '告诉 RESA 你想做什么' })).toBeFocused();
   await page.screenshot({ path: testInfo.outputPath('bar-assistant.png') });
   expect(await page.evaluate(() => Reflect.get(window, '__barTest').calls.filter((name: string) =>
     name === 'acknowledge_status_island_reminder').length)).toBe(0);
 });
 
+test('right-to-left Bar mirrors the badge lane instead of leaving the right edge empty', async ({ page }) => {
+  await installBar(page, 'fa');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const island = (await page.locator('.status-island').boundingBox())!;
+  const content = (await page.locator('.status-island__content').boundingBox())!;
+  // The header reserves 54px for the badge/dismiss lane. Mirrored, that lane sits
+  // on the left edge, so the copy keeps the 8px edge gap on the right rather than
+  // stopping 54px short of it while the badges land on top of the text.
+  expect(content.x - island.x).toBeCloseTo(54, 0);
+  expect(island.x + island.width - (content.x + content.width)).toBeCloseTo(8, 0);
+  const icon = (await page.locator('.status-island__icon').boundingBox())!;
+  expect(icon.x + icon.width).toBeCloseTo(content.x + content.width, 0);
+  // The hit area is the status half of the shell, so it ends where the shell does
+  // instead of covering the lane the logo now owns.
+  const trigger = (await page.locator('.status-island__trigger').boundingBox())!;
+  expect(trigger.x + trigger.width).toBeCloseTo(island.x + island.width, 0);
+  await page.evaluate(() => Reflect.get(window, '__barTest').open('island'));
+  await expect(page.locator('.status-rail__status-presence')).toHaveCSS('width', '432px');
+  const openIsland = (await page.locator('.status-island').boundingBox())!;
+  const openContent = (await page.locator('.status-island__content').boundingBox())!;
+  expect(openContent.x - openIsland.x).toBeCloseTo(54, 0);
+  expect(openIsland.x + openIsland.width - (openContent.x + openContent.width)).toBeCloseTo(8, 0);
+});
+
 test('Bar controls never draw focus or active rings, including Logo after Escape', async ({ page }) => {
   await installBar(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const logo = page.getByRole('button', { name: 'Nowly', exact: true });
+  const logo = page.getByRole('button', { name: 'RESA', exact: true });
   await logo.click();
   const menu = page.getByRole('menu', { name: '功能菜单' });
   await expect(menu).toBeVisible();
@@ -164,7 +188,7 @@ test('Bar controls never draw focus or active rings, including Logo after Escape
 test('reopening the menu after Escape does not leave the first item hover-styled', async ({ page }) => {
   await installBar(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const logo = page.getByRole('button', { name: 'Nowly', exact: true });
+  const logo = page.getByRole('button', { name: 'RESA', exact: true });
   await logo.click();
   await expect(page.getByRole('menu')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -196,7 +220,7 @@ test('reopening the menu after Escape does not leave the first item hover-styled
 
 test('arrow keys move linearly across groups and Home/End jump to the ends', async ({ page }) => {
   await installBar(page);
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   const items = page.getByRole('menuitem');
   await expect(items.first()).toBeFocused();
   const names = ['日程', '四象限任务', '便签', '截图', '截图历史'];
@@ -217,7 +241,7 @@ test('arrow keys move linearly across groups and Home/End jump to the ends', asy
 
 test('live menu order and visibility update without changing Bar geometry', async ({ page }) => {
   await installBar(page);
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   await expect(page.getByRole('menu')).toBeVisible();
   await page.evaluate(() => Reflect.get(window, '__barTest').setMenu([
     { id: 'assistant', visible: true },
@@ -252,7 +276,7 @@ test('live menu order and visibility update without changing Bar geometry', asyn
     { id: 'createNote', visible: false }
   ]));
   await expect(page.getByRole('menuitem')).toHaveCount(0);
-  await expect(page.getByText('暂无显示的功能，请在设置 → Nowly Bar 中启用。')).toBeVisible();
+  await expect(page.getByText('暂无显示的功能，请在设置 → RESA Bar 中启用。')).toBeVisible();
   await expect(page.locator('[data-owner="menu"]')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('.status-rail__status-presence')).toHaveCSS('width', '288px');
@@ -262,7 +286,7 @@ test('live menu order and visibility update without changing Bar geometry', asyn
 
 test('capture startup failures remain visible and retry without an extra window', async ({ page }) => {
   await installBar(page);
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   await page.getByRole('menuitem', { name: '截图', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Capture startup failed');
   await expect(page.locator('.status-rail')).toHaveAttribute('data-surface', 'menu');
@@ -274,7 +298,7 @@ test('capture startup failures remain visible and retry without an extra window'
 
 test('late close events cannot close a more recently selected panel', async ({ page }) => {
   await installBar(page);
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   await page.getByRole('menuitem', { name: /^截图历史/ }).click();
   await page.evaluate(() => Reflect.get(window, '__barTest').emit('status-island-details-closed', { generation: 1 }));
   await expect(page.locator('.status-rail')).toHaveAttribute('data-surface', 'history');
@@ -285,7 +309,7 @@ for (const language of ['zh', 'en', 'fr', 'es', 'ja', 'ko', 'zh-Hant']) {
   test(`menu entries center icons above labels (${language})`, async ({ page }) => {
     await installBar(page, language);
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+    await page.getByRole('button', { name: 'RESA', exact: true }).click();
     const entries = page.getByRole('menuitem');
     await expect(entries).toHaveCount(5);
     await expect(page.locator('.bar-menu-panel__keys, .bar-menu-panel__shortcut, .bar-menu-panel__note')).toHaveCount(0);
@@ -315,7 +339,7 @@ test('capture labels stay aligned when one shortcut is unavailable', async ({ pa
   await page.evaluate(() => Reflect.get(window, '__barTest').setShortcuts({
     history: { shortcut: 'Ctrl+Alt+H', registered: false, error: 'Shortcut in use' }
   }));
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   const entries = page.locator('.bar-menu-panel__item');
   await expect(entries).toHaveText(['截图', '截图历史']);
   const labels = await Promise.all((await entries.all()).map(entry => entry.locator('.bar-menu-panel__label').boundingBox()));
@@ -324,7 +348,7 @@ test('capture labels stay aligned when one shortcut is unavailable', async ({ pa
 
 test('quick create tiles show only names and open the create window', async ({ page }) => {
   await installBar(page);
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   const create = page.getByRole('group', { name: '快速创建' });
   const tiles = create.getByRole('menuitem');
   await expect(tiles).toHaveCount(3);
@@ -343,7 +367,7 @@ test('quick create tiles show only names and open the create window', async ({ p
 
 test('English menu shows only names without horizontal overflow', async ({ page }) => {
   await installBar(page, 'en');
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   await expect(page.getByRole('menu', { name: 'Function menu' })).toBeVisible();
   await expect(page.getByRole('menuitem')).toHaveCount(5);
   await expect(page.getByRole('group', { name: 'Quick create' })).toBeVisible();
@@ -356,7 +380,7 @@ test('English menu shows only names without horizontal overflow', async ({ page 
 test('long menu text stops at two lines with an ellipsis', async ({ page }) => {
   await installBar(page, 'fr');
   const long = 'Un nom de fonctionnalité exceptionnellement long pour vérifier la mise en page';
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+  await page.getByRole('button', { name: 'RESA', exact: true }).click();
   const tile = page.getByRole('menuitem').nth(1);
   const label = tile.locator('.bar-menu-panel__label');
   await label.evaluate((element, text) => { element.textContent = text; }, long);
