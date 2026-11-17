@@ -19,7 +19,7 @@ The Store requires a positive major version, components <= 65535 and revision ze
 
 ## GitHub Actions
 
-The Release workflow runs on pushes to main and can also be started manually from Actions. It builds EXE/MSI and an unsigned x64 MSIX, uploads the MSIX as an Actions artifact, and attaches it to the GitHub Release. Download the MSIX and submit it manually in Partner Center; this workflow does not submit to the Store or sign packages for sideloading.
+The MSIX is built locally with the script below. The repository's Release workflow (`.github/workflows/release.yml`) publishes only the Windows EXE/MSI installers and does not build, upload or attach an MSIX; it also does not submit anything to Partner Center or sign packages for sideloading.
 
 No additional GitHub Secrets are required for MSIX. Package identity, publisher and Store Product ID are public values in the workflow. GitHub provides GITHUB_TOKEN automatically. The existing optional LLM_API_KEY is used only for release notes. Do not upload the local test certificate or private key.
 

@@ -70,7 +70,7 @@ function fallbackNotes(commits) {
     }
   }
 
-  const lines = [`## Nowly v${VERSION}`, ''];
+  const lines = [`## RESA v${VERSION}`, ''];
   for (const section of TYPE_SECTIONS) {
     const items = buckets.get(section.key);
     if (items && items.length) {
@@ -97,12 +97,12 @@ async function llmNotes(commits) {
     .join('\n');
 
   const systemPrompt = [
-    'You are a senior release manager writing user-facing release notes for the desktop app "Nowly".',
+    'You are a senior release manager writing user-facing release notes for the desktop app "RESA".',
     'Read the provided Git commits, analyse what this release actually changes, and produce a structured changelog in clear, professional English.',
     '',
     'Strictly follow this Markdown output format (omit any section that has no content; do not keep empty headings):',
     '',
-    `## Nowly v${VERSION}`,
+    `## RESA v${VERSION}`,
     '',
     '> A one-line summary of the key highlight of this release.',
     '',
@@ -188,7 +188,7 @@ function writeNotes(notes) {
 async function main() {
   const commits = collectCommits();
   if (!commits.length) {
-    writeNotes(`## Nowly v${VERSION}\n\nNo code changes in this release.`);
+    writeNotes(`## RESA v${VERSION}\n\nNo code changes in this release.`);
     return;
   }
 
