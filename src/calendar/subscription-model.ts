@@ -2,8 +2,9 @@ import type { HexColor } from '../lib/color';
 
 export type SubscriptionStatus = 'ok' | 'failed';
 
-// 'ics'：直连密钥地址；'google'/'microsoft'：OAuth API 接入。
-export type SubscriptionProvider = 'ics' | 'google' | 'microsoft';
+// 'ics'：直连密钥地址；'google'/'microsoft'：OAuth API 接入；
+// 'axelor'：自建 Axelor 实例的 REST 接口（API key，只读）。
+export type SubscriptionProvider = 'ics' | 'google' | 'microsoft' | 'axelor';
 
 export type CalendarSubscription = {
   id: string;
@@ -17,6 +18,9 @@ export type CalendarSubscription = {
   provider: SubscriptionProvider;
   accountId: string | null;
   remoteCalendarId: string | null;
+  // Axelor 源：服务器 id 与模型名（如 com.axelor.apps.project.db.ProjectTask）。
+  axelorServerId: string | null;
+  axelorModel: string | null;
   lastSyncedAt: string | null;
   lastAttemptedAt: string | null;
   lastStatus: SubscriptionStatus | null;
@@ -47,6 +51,12 @@ export type RemoteCalendar = {
   id: string;
   name: string;
   color: string | null;
+};
+
+// Axelor 实例里可同步的一个模型（来自 /ws/meta/models）。
+export type AxelorModel = {
+  name: string;
+  title: string;
 };
 
 import type { CalendarEvent, EventCategory } from './calendar-model';

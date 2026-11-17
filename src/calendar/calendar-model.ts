@@ -105,7 +105,7 @@ export type CalendarEvent = {
   subscriptionId: string | null;
   // External source identity. OAuth events can be writable when the connected
   // account granted a write scope; ICS subscriptions remain read-only.
-  externalProvider?: 'ics' | 'google' | 'microsoft';
+  externalProvider?: 'ics' | 'google' | 'microsoft' | 'axelor';
   remoteEventId?: string | null;
   externalWritable?: boolean;
   // Provider/ICS all-day DTEND before conversion to the calendar grid's

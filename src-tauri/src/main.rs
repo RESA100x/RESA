@@ -4,6 +4,7 @@
 mod assistant;
 mod attachments;
 mod autostart;
+mod axelor;
 mod package;
 mod package_policy;
 mod calendar_api;
@@ -688,6 +689,9 @@ fn main() {
             subscriptions::subscribe_remote_calendar,
             subscriptions::update_subscription_display,
             subscriptions::list_remote_calendars,
+            axelor::list_axelor_models,
+            axelor::list_axelor_servers,
+            axelor::create_axelor_subscription,
             oauth::start_oauth_login,
             oauth::list_oauth_accounts,
             oauth::disconnect_oauth_account,

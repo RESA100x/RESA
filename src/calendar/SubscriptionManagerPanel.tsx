@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Select } from '../components/Select';
 import { useNowlyRepository } from '../data/RepositoryContext';
 import type {
+  AxelorModel,
   CalendarSubscription,
   OAuthAccount,
   RemoteCalendar,
@@ -58,6 +59,7 @@ function oauthErrorMessage(error: unknown) {
 function providerLabel(provider: SubscriptionProvider): string {
   if (provider === 'google') return t('subscription.sourceGoogle');
   if (provider === 'microsoft') return t('subscription.sourceMicrosoft');
+  if (provider === 'axelor') return t('subscription.sourceAxelor');
   return t('subscription.sourceIcs');
 }
 
@@ -91,10 +93,20 @@ export function SubscriptionManagerPanel({
   const [oauthError, setOauthError] = useState('');
   const [confirmDisconnect, setConfirmDisconnect] = useState<{ id: string; name: string } | null>(null);
 
+  // Axelor: server address + API key, then the model list the instance exposes.
+  // The key is only sent to the backend, which seals it with DPAPI.
+  const [axelorUrl, setAxelorUrl] = useState('');
+  const [axelorKey, setAxelorKey] = useState('');
+  const [axelorModels, setAxelorModels] = useState<AxelorModel[]>([]);
+  const [axelorModel, setAxelorModel] = useState('');
+  const [axelorBusy, setAxelorBusy] = useState(false);
+  const [axelorError, setAxelorError] = useState('');
+
   // Category and color are one concept: the chosen category supplies the color
   // snapshot the subscription stores and renders with. No category = no color.
   const selectedColor = (categories.find((c) => c.id === categoryId)?.color ?? '') as HexColor | '';
   const isOAuthProvider = OAUTH_PROVIDERS.includes(provider);
+  const isAxelor = provider === 'axelor';
   const atLimit = subscriptions.length >= MAX_SOURCES && !editing;
   // Remote-calendar ids already subscribed under the picked account, so the
   // picker can show them as taken instead of offering a duplicate.
@@ -166,6 +178,7 @@ export function SubscriptionManagerPanel({
   function resetForm() {
     setName(''); setUrl(''); setCategoryId(''); setIntervalMinutes(15);
     setEditing(null); setFormError('');
+    setAxelorModels([]); setAxelorModel(''); setAxelorError('');
   }
   function beginEdit(item: CalendarSubscription) {
     setEditing({ id: item.id, provider: item.provider });
@@ -179,8 +192,12 @@ export function SubscriptionManagerPanel({
     const trimmed = name.trim();
     if (!trimmed) { setFormError(t('subscription.errorName')); return; }
     const editingOAuth = editing && editing.provider !== 'ics';
-    if (!editingOAuth && !/^(https:\/\/|webcal:\/\/)/i.test(url.trim())) {
+    if (!editingOAuth && !isAxelor && !/^(https:\/\/|webcal:\/\/)/i.test(url.trim())) {
       setFormError(t('subscription.errorUrl'));
+      return;
+    }
+    if (!editing && isAxelor && (!axelorUrl.trim() || !axelorKey.trim() || !axelorModel)) {
+      setFormError(t('subscription.axelorMissing'));
       return;
     }
     setBusy(true); setFormError('');
@@ -193,6 +210,18 @@ export function SubscriptionManagerPanel({
         } else {
           await onUpdate(editing.id, { name: trimmed, url: url.trim(), color, categoryId: draftCategoryId, refreshIntervalMinutes: interval });
         }
+        onChanged();
+      } else if (isAxelor) {
+        const created = await repository.createAxelorSubscription(
+          axelorUrl.trim(),
+          axelorKey.trim(),
+          axelorModel,
+          trimmed,
+          color,
+          interval,
+          draftCategoryId
+        );
+        await onRefresh(created.id);
         onChanged();
       } else {
         // Sync the new source right away so its events appear without waiting
@@ -217,6 +246,32 @@ export function SubscriptionManagerPanel({
     setBusy(true);
     try { await onRefresh(id); onChanged(); }
     finally { setBusy(false); }
+  }
+
+  // Probe the Axelor instance with the entered address + key and list its models,
+  // so the user picks a real model name instead of typing one from memory.
+  async function loadAxelorModels() {
+    if (!axelorUrl.trim() || !axelorKey.trim()) {
+      setAxelorError(t('subscription.axelorMissing'));
+      return;
+    }
+    setAxelorBusy(true); setAxelorError('');
+    try {
+      const models = await repository.listAxelorModels(axelorUrl.trim(), axelorKey.trim());
+      setAxelorModels(models);
+      if (models.length === 0) {
+        setAxelorError(t('subscription.axelorNoModels'));
+      } else if (!models.some((model) => model.name === axelorModel)) {
+        // Prefer the project task model; otherwise take the first entry.
+        const preferred = models.find((model) => model.name.endsWith('.ProjectTask'));
+        setAxelorModel((preferred ?? models[0]).name);
+      }
+    } catch (error) {
+      setAxelorModels([]);
+      setAxelorError(errorMessage(error) || t('subscription.oauthError'));
+    } finally {
+      setAxelorBusy(false);
+    }
   }
 
   // Open the system browser for the provider consent screen, then store the
@@ -306,6 +361,7 @@ export function SubscriptionManagerPanel({
             options={[
               { value: 'google', label: t('subscription.sourceGoogle') },
               { value: 'microsoft', label: t('subscription.sourceMicrosoft') },
+              { value: 'axelor', label: t('subscription.sourceAxelor') },
               { value: 'ics', label: t('subscription.sourceIcs') }
             ]}
             onChange={(value) => { setProvider(value as SubscriptionProvider); setOauthError(''); }}
@@ -418,12 +474,65 @@ export function SubscriptionManagerPanel({
       {/* ICS create form + edit form (both ICS and OAuth display edits). */}
       {(!isOAuthProvider || editing) ? (
         <form className="subscription-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          {/* Axelor: address + API key, then the model list the instance exposes. */}
+          {isAxelor && !editing ? (
+            <div className="subscription-axelor">
+              <label className="good-field">
+                <span>{t('subscription.axelorUrl')}</span>
+                <input
+                  className="good-input"
+                  value={axelorUrl}
+                  placeholder="https://axelor.example.com"
+                  onChange={(e) => setAxelorUrl(e.target.value)}
+                  disabled={busy || axelorBusy}
+                />
+              </label>
+              <label className="good-field">
+                <span>{t('subscription.axelorApiKey')}</span>
+                <input
+                  className="good-input"
+                  type="password"
+                  value={axelorKey}
+                  autoComplete="off"
+                  onChange={(e) => setAxelorKey(e.target.value)}
+                  disabled={busy || axelorBusy}
+                />
+              </label>
+              <div className="subscription-form__actions">
+                <button
+                  type="button"
+                  className="good-button"
+                  disabled={busy || axelorBusy}
+                  onClick={() => void loadAxelorModels()}
+                >
+                  <Plug aria-hidden="true" />
+                  {axelorBusy ? t('subscription.oauthConnecting') : t('subscription.axelorLoadModels')}
+                </button>
+              </div>
+              {axelorModels.length > 0 ? (
+                <div className="good-field">
+                  <Select
+                    id="axelor-model"
+                    label={t('subscription.axelorModel')}
+                    value={axelorModel}
+                    options={axelorModels.map((model) => ({
+                      value: model.name,
+                      label: model.title ? `${model.title} · ${model.name}` : model.name
+                    }))}
+                    onChange={setAxelorModel}
+                  />
+                </div>
+              ) : null}
+              {axelorError ? <div role="alert" className="dialog-error">{axelorError}</div> : null}
+              <p className="subscription-form__hint">{t('subscription.axelorHint')}</p>
+            </div>
+          ) : null}
           <label className="good-field">
             <span>{t('subscription.name')}</span>
             <input className="good-input" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
           </label>
           {/* OAuth rows have no editable URL; only ICS shows the link field. */}
-          {!editing || editing.provider === 'ics' ? (
+          {(!editing && !isAxelor) || editing?.provider === 'ics' ? (
             <label className="good-field">
               <span>{t('subscription.url')}</span>
               <input className="good-input" value={url} onChange={(e) => setUrl(e.target.value)} disabled={busy} />

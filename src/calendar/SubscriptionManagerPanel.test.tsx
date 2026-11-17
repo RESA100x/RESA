@@ -11,6 +11,7 @@ function sub(overrides: Partial<CalendarSubscription> = {}): CalendarSubscriptio
     id: 's1', name: '家庭', url: 'https://example.com/a.ics', color: '#4FC9DA',
     categoryId: null,
     refreshIntervalMinutes: 15, provider: 'ics', accountId: null, remoteCalendarId: null,
+    axelorServerId: null, axelorModel: null,
     lastSyncedAt: null, lastAttemptedAt: null, lastStatus: null, lastError: null,
     createdAt: '', updatedAt: '', ...overrides
   };
@@ -103,5 +104,43 @@ describe('SubscriptionManagerPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '连接账户' }));
     expect(await screen.findByText(/构建时没有配置 OAuth/)).toBeInTheDocument();
     expect(screen.queryByText('Credentials are not configured for this provider.')).not.toBeInTheDocument();
+  });
+
+  it('subscribes an Axelor model after probing the server', async () => {
+    const created = sub({ provider: 'axelor', url: '', axelorModel: 'com.axelor.apps.project.db.ProjectTask' });
+    const repository = {
+      listAxelorModels: vi.fn().mockResolvedValue([
+        { name: 'com.axelor.apps.project.db.ProjectTask', title: 'Project Task' }
+      ]),
+      createAxelorSubscription: vi.fn().mockResolvedValue(created)
+    } as unknown as NowlyRepository;
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    render(
+      <RepositoryProvider repository={repository}>
+        <SubscriptionManagerPanel {...props({ subscriptions: [], onRefresh })} />
+      </RepositoryProvider>
+    );
+    fireEvent.click(screen.getByLabelText('来源'));
+    fireEvent.click(screen.getByRole('option', { name: 'Axelor（REST）' }));
+    fireEvent.change(screen.getByLabelText('Axelor 服务器地址'), {
+      target: { value: 'https://axelor.example.com' }
+    });
+    fireEvent.change(screen.getByLabelText('API 密钥'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByRole('button', { name: '连接并获取模型' }));
+    await waitFor(() => expect(repository.listAxelorModels).toHaveBeenCalledWith('https://axelor.example.com', 'secret'));
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: '任务' } });
+    fireEvent.click(screen.getByRole('button', { name: '添加订阅' }));
+    await waitFor(() =>
+      expect(repository.createAxelorSubscription).toHaveBeenCalledWith(
+        'https://axelor.example.com',
+        'secret',
+        'com.axelor.apps.project.db.ProjectTask',
+        '任务',
+        '',
+        15,
+        null
+      )
+    );
+    expect(onRefresh).toHaveBeenCalledWith('s1');
   });
 });

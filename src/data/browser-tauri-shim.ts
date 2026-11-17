@@ -605,6 +605,35 @@ export function installBrowserTauriBackend() {
       persist();
       return sub;
     },
+    // Axelor（浏览器 mock：返回几个常见模型，订阅不真正拉数据）。
+    list_axelor_models: () => [
+      { name: 'com.axelor.apps.project.db.ProjectTask', title: 'Project Task' },
+      { name: 'com.axelor.apps.crm.db.Event', title: 'Event' }
+    ],
+    create_axelor_subscription: (a) => {
+      const sub = {
+        id: id('sub'),
+        name: a.name as string,
+        url: '',
+        color: a.color as string,
+        categoryId: (a.categoryId as string | null) ?? null,
+        refreshIntervalMinutes: a.refreshIntervalMinutes as number,
+        provider: 'axelor',
+        accountId: null,
+        remoteCalendarId: null,
+        axelorServerId: id('axelor'),
+        axelorModel: a.model as string,
+        lastSyncedAt: null,
+        lastAttemptedAt: null,
+        lastStatus: null,
+        lastError: null,
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+      store.subscriptions.push(sub);
+      persist();
+      return sub;
+    },
     update_subscription_display: (a) => {
       let updated: Dict | undefined;
       store.subscriptions = store.subscriptions.map((s) =>

@@ -51,7 +51,7 @@ fn validate_draft(draft: &SubscriptionDraft) -> Result<String, CommandError> {
 
 const SUBSCRIPTION_COLUMNS: &str = "id,name,url,color,refresh_interval_minutes,\
     last_synced_at,last_status,last_error,created_at,updated_at,last_attempted_at,\
-    provider,account_id,remote_calendar_id,category_id";
+    provider,account_id,remote_calendar_id,category_id,axelor_server_id,axelor_model";
 
 fn read_subscription(row: &Row<'_>) -> rusqlite::Result<CalendarSubscription> {
     Ok(CalendarSubscription {
@@ -70,6 +70,8 @@ fn read_subscription(row: &Row<'_>) -> rusqlite::Result<CalendarSubscription> {
         account_id: row.get(12)?,
         remote_calendar_id: row.get(13)?,
         category_id: row.get(14)?,
+        axelor_server_id: row.get(15)?,
+        axelor_model: row.get(16)?,
     })
 }
 
@@ -212,6 +214,73 @@ pub fn create_oauth(
     fetch_one(connection, &id)
 }
 
+/// 新建一个 Axelor 订阅：只落服务器 id + 模型名，URL 存空串（不走 ICS 拉取）。
+/// 同一服务器下同一模型不重复订阅。
+pub fn create_axelor(
+    connection: &mut Connection,
+    server_id: &str,
+    model: &str,
+    name: &str,
+    color: &str,
+    refresh_interval_minutes: i64,
+    category_id: Option<&str>,
+) -> Result<CalendarSubscription, CommandError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(CommandError::validation("name", "名称不能为空。"));
+    }
+    if !(1..=30).contains(&refresh_interval_minutes) {
+        return Err(CommandError::validation(
+            "refreshIntervalMinutes",
+            "刷新间隔需在 1 到 30 分钟之间。",
+        ));
+    }
+    let model = model.trim();
+    if model.is_empty() {
+        return Err(CommandError::validation("model", "请选择要同步的模型。"));
+    }
+    let existing: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM calendar_subscriptions
+                WHERE axelor_server_id=?1 AND axelor_model=?2",
+            params![server_id, model],
+            |row| row.get(0),
+        )
+        .map_err(CommandError::database)?;
+    if existing > 0 {
+        return Err(CommandError::validation("model", "该模型已订阅。"));
+    }
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM calendar_subscriptions", [], |row| {
+            row.get(0)
+        })
+        .map_err(CommandError::database)?;
+    if count >= MAX_SUBSCRIPTIONS {
+        return Err(CommandError::validation("model", "订阅源数量已达上限。"));
+    }
+    let id = Uuid::new_v4().to_string();
+    let now = now_utc();
+    connection
+        .execute(
+            "INSERT INTO calendar_subscriptions
+                (id,name,url,color,category_id,refresh_interval_minutes,
+                 provider,axelor_server_id,axelor_model,created_at,updated_at)
+             VALUES (?1,?2,'',?3,?4,?5,'axelor',?6,?7,?8,?8)",
+            params![
+                id,
+                name,
+                color,
+                category_id,
+                refresh_interval_minutes,
+                server_id,
+                model,
+                now
+            ],
+        )
+        .map_err(CommandError::database)?;
+    fetch_one(connection, &id)
+}
+
 /// 编辑订阅（名称/URL/颜色/间隔）。不改动同步状态字段。
 pub fn update(
     connection: &mut Connection,
@@ -252,6 +321,16 @@ pub fn delete(connection: &mut Connection, id: &str) -> Result<(), CommandError>
     if affected == 0 {
         return Err(CommandError::validation("id", "订阅不存在。"));
     }
+    // 删掉不再被任何订阅引用的 Axelor 服务器，避免加密后的 API key 留在库里。
+    connection
+        .execute(
+            "DELETE FROM axelor_servers
+              WHERE NOT EXISTS (
+                SELECT 1 FROM calendar_subscriptions s
+                 WHERE s.axelor_server_id = axelor_servers.id)",
+            [],
+        )
+        .map_err(CommandError::database)?;
     Ok(())
 }
 
@@ -622,6 +701,46 @@ mod tests {
         d.url = "webcal://example.com/a.ics".into();
         let created = create(&mut connection, d).unwrap();
         assert_eq!(created.url, "https://example.com/a.ics");
+    }
+
+    #[test]
+    fn axelor_subscription_roundtrip_and_duplicate_guard() {
+        let mut connection = memory_db();
+        connection
+            .execute(
+                "INSERT INTO axelor_servers(id,name,base_url,created_at,updated_at)
+                 VALUES ('srv','A','https://a.example.com','t','t')",
+                [],
+            )
+            .unwrap();
+        let created = create_axelor(
+            &mut connection,
+            "srv",
+            "com.axelor.apps.project.db.ProjectTask",
+            "任务",
+            "#4FC9DA",
+            15,
+            None,
+        )
+        .unwrap();
+        assert_eq!(created.provider, "axelor");
+        assert_eq!(created.url, "");
+        assert_eq!(created.axelor_server_id.as_deref(), Some("srv"));
+        assert_eq!(
+            created.axelor_model.as_deref(),
+            Some("com.axelor.apps.project.db.ProjectTask")
+        );
+        let err = create_axelor(
+            &mut connection,
+            "srv",
+            "com.axelor.apps.project.db.ProjectTask",
+            "重复",
+            "#4FC9DA",
+            15,
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(err.field.as_deref(), Some("model"));
     }
 
     #[test]

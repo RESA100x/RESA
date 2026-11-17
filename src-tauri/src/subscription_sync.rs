@@ -186,6 +186,8 @@ fn fetch_source(
             let access_token = crate::oauth::ensure_valid_access_token(db, account_id)?;
             crate::calendar_api::fetch_events(&source.provider, &access_token, remote_id)
         }
+        // Axelor：短锁读服务器凭证，锁外走 `/ws/rest/<model>` 拉记录。
+        "axelor" => crate::axelor::fetch_source_events(db, source),
         // 默认按 ICS 处理（含迁移前的旧订阅）。
         _ => fetch_and_expand(&source.url, today, |u| crate::net::fetch_ics(u)),
     }

@@ -69,12 +69,13 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (39, migration_39_completion_without_lane),
     (40, migration_40_optional_task_lane),
     (41, migration_41_reset_tasks_for_free_lanes),
+    (42, migration_42_axelor_sources),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
 // cascade into steps, tag links and linked events. These migrations run with
 // foreign keys off and are checked with `foreign_key_check` before commit.
-const FOREIGN_KEYS_OFF_MIGRATIONS: &[i64] = &[40];
+const FOREIGN_KEYS_OFF_MIGRATIONS: &[i64] = &[40, 42];
 
 fn apply_migration(connection: &mut Connection, version: i64, apply: Migration) -> Result<()> {
     let foreign_keys_off = FOREIGN_KEYS_OFF_MIGRATIONS.contains(&version);
@@ -162,6 +163,66 @@ fn migration_41_reset_tasks_for_free_lanes(transaction: &Transaction<'_>) -> Res
          ALTER TABLE tasks ADD COLUMN completed_at TEXT;",
     )?;
     crate::assistant::store::install_triggers(transaction)
+}
+
+// Axelor 源：一个服务器（地址 + 加密后的 API key）可挂多个模型（任务/日程）。
+// `calendar_subscriptions.provider` 原本带 CHECK('ics','google','microsoft')，
+// SQLite 无法就地放宽 CHECK，因此重建该表（外键关闭，见
+// `FOREIGN_KEYS_OFF_MIGRATIONS`），旧行原样搬运，external_events 按表名继续引用。
+fn migration_42_axelor_sources(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE axelor_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            base_url TEXT NOT NULL,
+            api_key_enc BLOB,
+            username TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+         );
+         CREATE UNIQUE INDEX idx_axelor_servers_base_url ON axelor_servers(base_url);
+
+         CREATE TABLE calendar_subscriptions_v42 (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL,
+            color TEXT NOT NULL,
+            refresh_interval_minutes INTEGER NOT NULL DEFAULT 15,
+            last_synced_at TEXT,
+            last_attempted_at TEXT,
+            last_status TEXT CHECK (last_status IN ('ok','failed')),
+            last_error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            provider TEXT NOT NULL DEFAULT 'ics'
+                CHECK (provider IN ('ics','google','microsoft','axelor')),
+            account_id TEXT REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+            remote_calendar_id TEXT,
+            category_id TEXT,
+            axelor_server_id TEXT REFERENCES axelor_servers(id) ON DELETE CASCADE,
+            axelor_model TEXT
+         );
+
+         INSERT INTO calendar_subscriptions_v42
+            (id,name,url,color,refresh_interval_minutes,last_synced_at,
+             last_attempted_at,last_status,last_error,created_at,updated_at,
+             provider,account_id,remote_calendar_id,category_id,
+             axelor_server_id,axelor_model)
+         SELECT id,name,url,color,refresh_interval_minutes,last_synced_at,
+                last_attempted_at,last_status,last_error,created_at,updated_at,
+                provider,account_id,remote_calendar_id,category_id,
+                NULL,NULL
+           FROM calendar_subscriptions;
+
+         DROP TABLE calendar_subscriptions;
+         ALTER TABLE calendar_subscriptions_v42 RENAME TO calendar_subscriptions;
+
+         CREATE INDEX idx_calendar_subscriptions_account
+            ON calendar_subscriptions(account_id) WHERE account_id IS NOT NULL;
+         CREATE INDEX idx_calendar_subscriptions_axelor
+            ON calendar_subscriptions(axelor_server_id)
+            WHERE axelor_server_id IS NOT NULL;",
+    )
 }
 
 /// Lanes the pre-41 schema seeded; tests that exercise lane behaviour add them.
@@ -3206,6 +3267,47 @@ mod tests {
         // Running again must not clear tasks created after the upgrade.
         migrate(&mut connection).unwrap();
         assert_eq!(count(&connection, "SELECT COUNT(*) FROM tasks"), 1);
+    }
+
+    #[test]
+    fn migration_42_keeps_subscriptions_and_their_events() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrate_through(&mut connection, 41).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO calendar_subscriptions
+                    (id,name,url,color,refresh_interval_minutes,created_at,updated_at)
+                 VALUES ('s1','家庭','https://example.com/a.ics','#4FC9DA',15,'t','t');
+                 INSERT INTO external_events
+                    (id,subscription_id,start_at,end_at,all_day,title,last_synced_at)
+                 VALUES ('x1','s1','2026-01-01T09:00','2026-01-01T10:00',0,'会议','t');",
+            )
+            .unwrap();
+        migrate(&mut connection).unwrap();
+        let count = |sql: &str| -> i64 { connection.query_row(sql, [], |row| row.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM calendar_subscriptions"), 1);
+        assert_eq!(
+            count("SELECT COUNT(*) FROM external_events WHERE subscription_id='s1'"),
+            1
+        );
+        assert_eq!(
+            count("SELECT COUNT(*) FROM pragma_table_info('calendar_subscriptions') WHERE name='axelor_model'"),
+            1
+        );
+        // The rebuilt CHECK now accepts the Axelor provider.
+        connection
+            .execute_batch(
+                "INSERT INTO axelor_servers(id,name,base_url,created_at,updated_at)
+                   VALUES ('a1','A','https://a.example.com','t','t');
+                 INSERT INTO calendar_subscriptions
+                    (id,name,url,color,refresh_interval_minutes,provider,
+                     axelor_server_id,axelor_model,created_at,updated_at)
+                 VALUES ('s2','任务','','#4FC9DA',15,'axelor','a1',
+                         'com.axelor.apps.project.db.ProjectTask','t','t');",
+            )
+            .unwrap();
+        assert_eq!(count("SELECT COUNT(*) FROM calendar_subscriptions"), 2);
     }
 
     #[test]

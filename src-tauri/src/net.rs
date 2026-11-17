@@ -301,6 +301,82 @@ pub fn fetch_public_text(url: &str) -> Result<String, CommandError> {
     fetch_text(url, MAX_RELEASE_BYTES)
 }
 
+// Axelor 服务器地址由用户在自己的设置里显式填写（自建服务器、局域网、
+// Tailscale 都可能），因此这里不能沿用「只许公网 IP」的规则，否则本地部署
+// 永远连不上。放宽的部分只有目的地范围：仍然只接受 http/https、禁重定向、
+// 限大小、限超时；http 只对局域网/回环地址开放，公网地址必须走 https。
+fn is_lan_host(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return !is_public_ip(&ip);
+    }
+    // 单标签主机名（`axelor`）与常见的局域网后缀按内网处理。
+    !host.contains('.')
+        || [".local", ".lan", ".internal", ".home", ".localdomain"]
+            .iter()
+            .any(|suffix| host.to_ascii_lowercase().ends_with(suffix))
+}
+
+/// 读取一个用户自建 Axelor 实例的 REST 资源（`/ws/rest/...`、`/ws/meta/...`）。
+/// `path_and_query` 必须以 `/` 开头且不含 scheme/host，避免被拼成任意地址。
+/// 返回 (HTTP 状态码, 响应体)。非 2xx 也返回，由调用方按状态给出用户文案。
+pub fn get_axelor_json(
+    base_url: &str,
+    path_and_query: &str,
+    api_key: &str,
+) -> Result<(u16, String), CommandError> {
+    let base = base_url.trim().trim_end_matches('/');
+    let parsed =
+        reqwest::Url::parse(base).map_err(|_| CommandError::validation("baseUrl", "服务器地址无效。"))?;
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| CommandError::validation("baseUrl", "服务器地址缺少域名。"))?
+        .to_owned();
+    match parsed.scheme() {
+        "https" => {}
+        "http" if is_lan_host(&host) => {}
+        "http" => {
+            return Err(CommandError::validation(
+                "baseUrl",
+                "公网服务器必须使用 https 地址。",
+            ))
+        }
+        _ => return Err(CommandError::validation("baseUrl", "仅支持 http/https 地址。")),
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(CommandError::validation(
+            "baseUrl",
+            "服务器地址不能带查询参数。",
+        ));
+    }
+    if !path_and_query.starts_with('/') || path_and_query.starts_with("//") {
+        return Err(CommandError::validation("baseUrl", "请求路径无效。"));
+    }
+    let url = format!("{base}{path_and_query}");
+    let url = reqwest::Url::parse(&url)
+        .map_err(|_| CommandError::validation("baseUrl", "服务器地址无效。"))?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(CommandError::system)?;
+    let response = client
+        .get(url)
+        .header("API-KEY", api_key)
+        .header("Accept", "application/json")
+        .send()
+        .map_err(|error| {
+            CommandError::validation("baseUrl", &format!("请求失败：{}", short_reqwest_error(&error)))
+        })?;
+    let status = response.status().as_u16();
+    let body = read_capped(response, MAX_API_BYTES)?;
+    Ok((status, body))
+}
+
 // The fixed set of hosts the OAuth calendar integration may talk to. Unlike the
 // module proxy (which enforces a per-module user allow-list), these API calls
 // carry an `Authorization: Bearer` token, so the destination must be pinned to

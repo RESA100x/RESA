@@ -7,7 +7,7 @@ import type {
   EventRange,
   EventTarget
 } from '../calendar/calendar-model';
-import type { CalendarSubscription, ExternalEvent, OAuthAccount, RemoteCalendar, SubscriptionDraft } from '../calendar/subscription-model';
+import type { AxelorModel, CalendarSubscription, ExternalEvent, OAuthAccount, RemoteCalendar, SubscriptionDraft } from '../calendar/subscription-model';
 import type {
   KanbanCard,
   KanbanCardDraft,
@@ -155,6 +155,17 @@ export type NowlyRepository = {
     name: string,
     color: string,
     refreshIntervalMinutes: number
+  ) => Promise<CalendarSubscription>;
+  // Axelor 自建实例（REST + API key）。模型清单用于让用户挑选要同步的模型。
+  listAxelorModels: (baseUrl: string, apiKey: string) => Promise<AxelorModel[]>;
+  createAxelorSubscription: (
+    baseUrl: string,
+    apiKey: string,
+    model: string,
+    name: string,
+    color: string,
+    refreshIntervalMinutes: number,
+    categoryId: string | null
   ) => Promise<CalendarSubscription>;
   updateSubscriptionDisplay: (
     id: string,

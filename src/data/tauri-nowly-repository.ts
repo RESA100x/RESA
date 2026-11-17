@@ -52,6 +52,19 @@ export const tauriNowlyRepository: NowlyRepository = {
     }),
   updateSubscriptionDisplay: (id, name, color, refreshIntervalMinutes, categoryId) =>
     invoke('update_subscription_display', { id, name, color, refreshIntervalMinutes, categoryId }),
+  listAxelorModels: (baseUrl, apiKey) => invoke('list_axelor_models', { baseUrl, apiKey }),
+  createAxelorSubscription: (baseUrl, apiKey, model, name, color, refreshIntervalMinutes, categoryId) =>
+    invalidating(
+      invoke('create_axelor_subscription', {
+        baseUrl,
+        apiKey,
+        model,
+        name,
+        color,
+        refreshIntervalMinutes,
+        categoryId
+      })
+    ),
   listExternalEventsInRange: (range) => invoke('list_external_events_in_range', { range }),
   createRemoteEvent: (subscriptionId, draft) => invalidating(invoke('create_remote_event', { subscriptionId, draft })),
   updateRemoteEvent: (subscriptionId, remoteEventId, draft, descriptionChanged) =>

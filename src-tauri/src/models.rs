@@ -203,6 +203,12 @@ pub struct CalendarSubscription {
     /// OAuth 源对应的远端日历 id；ICS 源为 None。
     #[serde(default)]
     pub remote_calendar_id: Option<String>,
+    /// Axelor 源关联的服务器 id；其它来源为 None。
+    #[serde(default)]
+    pub axelor_server_id: Option<String>,
+    /// Axelor 源读取的模型（如 `com.axelor.apps.project.db.ProjectTask`）。
+    #[serde(default)]
+    pub axelor_model: Option<String>,
     /// 上次成功同步的时间戳（RFC3339 UTC）；从未同步为 None。
     pub last_synced_at: Option<String>,
     /// 上次尝试同步的时间戳（RFC3339 UTC），无论成败都更新；从未尝试为 None。
@@ -275,6 +281,30 @@ pub struct RemoteCalendar {
     pub name: String,
     /// 远端给出的建议颜色（hex），可能为 None。
     pub color: Option<String>,
+}
+
+/// 一个已保存的 Axelor 服务器（地址 + 加密后的 API key）。
+/// API key 本身永不出现在这里，只用于后端发起请求。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AxelorServer {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    /// 可选：API key 对应/登录用的用户名，仅用于展示。
+    pub username: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Axelor 实例里可被同步的一个模型（来自 `/ws/meta/models`）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AxelorModel {
+    /// 完整模型名，如 `com.axelor.apps.project.db.ProjectTask`。
+    pub name: String,
+    /// 人类可读标题（实例里的模块翻译），可能为空。
+    pub title: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -765,6 +795,8 @@ mod tests {
             provider: "ics".into(),
             account_id: None,
             remote_calendar_id: None,
+            axelor_server_id: None,
+            axelor_model: None,
             last_synced_at: None,
             last_attempted_at: None,
             last_status: None,
