@@ -1,4 +1,22 @@
 import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// The download button follows the release repository configured for the build:
+// the repository-root `resa.config.json` (overridable with `RESA_REPO`), with
+// `website/config.json` as the fallback.
+function expectedReleasesUrl(): string {
+  const read = (file: string) => JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')) as { repo?: string; releasesUrl?: string };
+  let repo = (process.env.RESA_REPO ?? '').trim();
+  if (!repo) {
+    try {
+      repo = (read('resa.config.json').repo ?? '').trim();
+    } catch {
+      repo = '';
+    }
+  }
+  return repo ? `https://github.com/${repo}/releases` : (read('website/config.json').releasesUrl ?? '');
+}
 
 test('homepage motion reveals once and respects reduced motion in both languages', async ({ page }) => {
   for (const url of ['/', '/en/index.html']) {
@@ -156,5 +174,5 @@ test('download, language, keyboard skip link and FAQ provide real navigation', a
   await expect(page).toHaveURL(/en\/index.html$/);
   await page.getByRole('link', { name: '简体中文', exact: true }).click();
   await expect(page).toHaveURL(/\/index.html$/);
-  await expect(page.locator('.hero__copy .site__button--primary')).toHaveAttribute('href', 'https://github.com/greywen/nowly/releases');
+  await expect(page.locator('.hero__copy .site__button--primary')).toHaveAttribute('href', expectedReleasesUrl());
 });

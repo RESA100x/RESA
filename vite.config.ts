@@ -1,12 +1,27 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import pkg from './package.json';
+import sharedConfig from './resa.config.json';
 
 // The app version is the single source of truth in package.json. Inject it as a
 // compile-time constant so the browser dev shim (and any non-Tauri build) can
 // report it without a backend. The desktop app reads its own version from Cargo
 // through the `check_for_update` command instead.
 const appVersion = pkg.version;
+
+// Where this build publishes its releases and where feedback should go. Both
+// live in the repository-root `resa.config.json` so the in-app updater only
+// ever offers this project's own releases; `RESA_REPO` can override the
+// repository at build time (used by CI). An empty repository disables the
+// update check and hides the repository links instead of pointing at another
+// project.
+const runtimeEnv = (globalThis as unknown as {
+  process?: { env?: Record<string, string | undefined> }
+}).process?.env ?? {};
+const shared = sharedConfig as { repo?: unknown; feedbackEmail?: unknown };
+const asText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+const resaRepo = asText(runtimeEnv.RESA_REPO) || asText(shared.repo);
+const resaFeedbackEmail = asText(shared.feedbackEmail);
 
 // The `mode` is `test` only while Vitest runs. Vitest pre-bundles React's CJS
 // entry and inlines `process.env.NODE_ENV`; left to the default it resolves to
@@ -20,6 +35,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+    __RESA_REPO__: JSON.stringify(resaRepo),
+    __RESA_FEEDBACK_EMAIL__: JSON.stringify(resaFeedbackEmail),
     ...(mode === 'test' ? { 'process.env.NODE_ENV': '"test"' } : {})
   },
   test: {

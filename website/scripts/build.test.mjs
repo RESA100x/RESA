@@ -16,7 +16,8 @@ async function temporary(callback) {
 }
 
 test('builds Chinese, English, Persian and legacy Chinese pages with real internal links', async () => {
-  const { buildSite, validateOutput } = await builder();
+  const { buildSite, readPublicConfig, validateOutput } = await builder();
+  const { releasesUrl } = await readPublicConfig();
   await temporary(async output => {
     await buildSite({ output });
     for (const prefix of ['', 'en/', 'fa/', 'zh-CN/']) {
@@ -34,7 +35,7 @@ test('builds Chinese, English, Persian and legacy Chinese pages with real intern
     assert.deepEqual(await validateOutput(output), []);
     const home = await fs.readFile(path.join(output, 'index.html'), 'utf8');
     assert.match(home, /你的 Windows 个人工作桌面/);
-    assert.match(home, /github\.com\/greywen\/nowly\/releases/);
+    assert.ok(home.includes(releasesUrl), `home page should link to the configured releases URL ${releasesUrl}`);
     assert.match(home, /<script type="module" src="assets\/showcase.js"><\/script>/);
     assert.match(home, /aria-label="模块截图展示"/);
     assert.match(home, /screenshots\/zh\/kanban\.png/);

@@ -56,7 +56,7 @@ export function AboutDialog({ onClose, update }: Props) {
             <button
               type="button"
               className="good-button good-button--primary about-version__download"
-              onClick={() => void openExternal(update?.releaseUrl ?? FEEDBACK_REPO_URL)}
+              onClick={() => void openExternal(update?.releaseUrl || FEEDBACK_REPO_URL)}
             >
               <Download aria-hidden="true" />
               {t('about.download')}
@@ -64,19 +64,21 @@ export function AboutDialog({ onClose, update }: Props) {
           ) : null}
         </section>
 
-        <div className="feedback-channels">
-          <button
-            type="button"
-            className="feedback-channel"
-            onClick={() => void openExternal(mailto)}
-          >
-            <span className="feedback-channel__icon"><Mail aria-hidden="true" /></span>
-            <span className="feedback-channel__body">
-              <span className="feedback-channel__label">{t('about.emailLabel')}</span>
-              <span className="feedback-channel__value">{FEEDBACK_EMAIL}</span>
-            </span>
-          </button>
-        </div>
+        {FEEDBACK_EMAIL ? (
+          <div className="feedback-channels">
+            <button
+              type="button"
+              className="feedback-channel"
+              onClick={() => void openExternal(mailto)}
+            >
+              <span className="feedback-channel__icon"><Mail aria-hidden="true" /></span>
+              <span className="feedback-channel__body">
+                <span className="feedback-channel__label">{t('about.emailLabel')}</span>
+                <span className="feedback-channel__value">{FEEDBACK_EMAIL}</span>
+              </span>
+            </button>
+          </div>
+        ) : null}
 
         {/* CC BY 4.0 requires visible attribution for the icon set. */}
         <p className="about-attribution">{t('about.iconCredit')}</p>

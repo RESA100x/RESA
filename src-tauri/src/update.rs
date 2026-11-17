@@ -1,6 +1,7 @@
 use crate::error::CommandError;
 use crate::net;
 use serde::Serialize;
+use std::sync::OnceLock;
 
 // Software update check.
 //
@@ -17,8 +18,38 @@ use serde::Serialize;
 // frontend treats as "no update info", so the About dialog still shows the
 // current version offline.
 
-const LATEST_RELEASE_API: &str = "https://api.github.com/repos/greywen/nowly/releases/latest";
-const RELEASES_PAGE_URL: &str = "https://github.com/greywen/nowly/releases";
+// Which GitHub repository publishes releases for *this* build. It comes from
+// the repository-root `resa.config.json` (`repo`), or from the `RESA_REPO`
+// environment variable at build time. Left empty, the update check is skipped
+// entirely — the app never offers another project's releases as its own.
+#[derive(serde::Deserialize)]
+struct ResaConfig {
+    #[serde(default)]
+    repo: String,
+}
+
+const RESA_CONFIG_JSON: &str = include_str!("../../resa.config.json");
+
+fn update_repo() -> String {
+    // Prefer an explicit build-time override so CI can inject the repository.
+    if let Some(repo) = option_env!("RESA_REPO") {
+        let repo = repo.trim();
+        if !repo.is_empty() {
+            return repo.to_owned();
+        }
+    }
+    static CONFIG: OnceLock<ResaConfig> = OnceLock::new();
+    let config = CONFIG.get_or_init(|| serde_json::from_str(RESA_CONFIG_JSON).unwrap_or(ResaConfig { repo: String::new() }));
+    config.repo.trim().to_owned()
+}
+
+fn latest_release_api(repo: &str) -> String {
+    format!("https://api.github.com/repos/{repo}/releases/latest")
+}
+
+fn releases_page_url(repo: &str) -> String {
+    format!("https://github.com/{repo}/releases")
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,7 +116,20 @@ fn parse_release(json: &str) -> Result<(String, Option<String>, Option<String>),
 }
 
 fn run_check(current_version: String) -> Result<UpdateInfo, CommandError> {
-    let body = net::fetch_public_text(LATEST_RELEASE_API)?;
+    let repo = update_repo();
+    if repo.is_empty() {
+        // No repository configured for this build: report the running version
+        // only, so the About dialog stays offline and never points elsewhere.
+        return Ok(UpdateInfo {
+            current_version,
+            latest_version: None,
+            update_available: false,
+            release_notes: None,
+            release_url: String::new(),
+            published_at: None,
+        });
+    }
+    let body = net::fetch_public_text(&latest_release_api(&repo))?;
     let (tag, notes, published) = parse_release(&body)?;
     let update_available = is_newer(&tag, &current_version);
     Ok(UpdateInfo {
@@ -93,7 +137,7 @@ fn run_check(current_version: String) -> Result<UpdateInfo, CommandError> {
         latest_version: Some(tag),
         update_available,
         release_notes: notes,
-        release_url: RELEASES_PAGE_URL.to_owned(),
+        release_url: releases_page_url(&repo),
         published_at: published,
     })
 }
@@ -163,5 +207,30 @@ mod tests {
     fn missing_tag_is_an_error() {
         let json = r#"{ "body": "notes" }"#;
         assert!(parse_release(json).is_err());
+    }
+
+    #[test]
+    fn release_urls_follow_the_configured_repository() {
+        assert_eq!(
+            latest_release_api("someone/resa"),
+            "https://api.github.com/repos/someone/resa/releases/latest"
+        );
+        assert_eq!(
+            releases_page_url("someone/resa"),
+            "https://github.com/someone/resa/releases"
+        );
+    }
+
+    #[test]
+    fn an_unconfigured_repository_disables_the_update_check() {
+        // The shipped default is empty so a build never advertises another
+        // project's releases as its own.
+        if update_repo().is_empty() {
+            let info = run_check("0.1.5".to_owned()).expect("disabled check is not an error");
+            assert_eq!(info.current_version, "0.1.5");
+            assert!(!info.update_available);
+            assert_eq!(info.latest_version, None);
+            assert!(info.release_url.is_empty());
+        }
     }
 }

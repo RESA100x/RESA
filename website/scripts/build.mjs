@@ -33,7 +33,26 @@ const LOCALE_OUTPUTS = [
   { locale: 'zh-CN', prefix: 'zh-CN' }
 ];
 const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-export async function readPublicConfig() { return JSON.parse(await fs.readFile(path.join(ROOT, 'config.json'), 'utf8')); }
+
+// The release repository is shared with the app (`../resa.config.json`): when it
+// is set, the site's download and issues links follow it, so pointing the app at
+// your own repository also points the site there. `website/config.json` stays
+// authoritative for everything else and is the fallback for these two URLs.
+async function readSharedRepo() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(path.join(ROOT, '..', 'resa.config.json'), 'utf8'));
+    return typeof parsed.repo === 'string' ? parsed.repo.trim() : '';
+  } catch {
+    return '';
+  }
+}
+export async function readPublicConfig() {
+  const config = JSON.parse(await fs.readFile(path.join(ROOT, 'config.json'), 'utf8'));
+  const repo = (process.env.RESA_REPO ?? '').trim() || await readSharedRepo();
+  return repo
+    ? { ...config, releasesUrl: `https://github.com/${repo}/releases`, issuesUrl: `https://github.com/${repo}/issues` }
+    : config;
+}
 function validateConfig(config) {
   if (Object.keys(config).some(key => !CONFIG_KEYS.includes(key)) || CONFIG_KEYS.some(key => typeof config[key] !== 'string' || !config[key].trim() || /REPLACE_BEFORE_DEPLOY|\{\{/i.test(config[key]))) throw new Error('Invalid public configuration');
   for (const key of ['officialDomain', 'releasesUrl', 'issuesUrl']) {

@@ -35,6 +35,9 @@ fn emit_oauth_credentials() {
 }
 
 fn main() {
+    // Rebuild when the shared app config changes so `include_str!` picks up a
+    // new release repository.
+    println!("cargo:rerun-if-changed=../resa.config.json");
     emit_oauth_credentials();
     tauri_build::build();
 }

@@ -959,7 +959,7 @@ export function installBrowserTauriBackend() {
       latestVersion: null,
       updateAvailable: false,
       releaseNotes: null,
-      releaseUrl: 'https://github.com/greywen/nowly/releases',
+      releaseUrl: typeof __RESA_REPO__ === 'string' && __RESA_REPO__ ? `https://github.com/${__RESA_REPO__.trim()}/releases` : '',
       publishedAt: null
     }),
 

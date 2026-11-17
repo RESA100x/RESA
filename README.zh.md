@@ -64,3 +64,5 @@ AI 是可选助手。配置自己的模型接口，再选择允许的日历、�
 ## 开发者入口
 
 React + TypeScript + Vite、手写 CSS、Tauri 2/Rust，SQLite 配合独立本地资源文件；既有测试使用 Vitest、Playwright 与 Rust tests。Windows 开发需要 Node.js、Rust 及 Tauri 的 Windows 依赖。命令、目录结构与限定开发重置警告保留在 [指南的开发章节](docs/user-guide.zh.md#开发)。本文不是平台兼容性实测报告。
+
+更新检查与反馈链接跟随仓库根目录 `resa.config.json` 中配置的仓库（`repo`、`feedbackEmail`）；构建时可用 `RESA_REPO` 覆盖。留空则跳过更新检查，不会展示其他项目的发行版。

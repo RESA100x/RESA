@@ -5,6 +5,7 @@ Nowly 官网是独立静态站，定位为“你的 Windows 个人工作桌面�
 ## 来源与产物
 
 - `website/config.json`：仅公开品牌、正式域名、支持邮箱与发行链接。拒绝未知字段，不能添加审核账号、视频、凭证或 API 密钥。
+- `resa.config.json`（仓库根）：与应用共享的 `repo`（`owner/name`）与 `feedbackEmail`。设置后应用更新检查、关于对话框链接以及官网的发行/问题链接都跟随它，因此把项目指向自己的仓库只需改这一处；`RESA_REPO` 构建变量可覆盖 `repo`。留空则应用关闭更新检查，官网回退到 `website/config.json` 的链接。
 - `website/content/zh.json` / `en.json`：双语页面内容，渲染时统一 HTML 转义。
 - `website/templates/page.html`：公共布局、语言、SEO 与导航。
 - `website/assets/site.css`：语义化手写样式。构建从根级 [design.md](../design.md) 提取唯一 Token 清单，不维护另一套颜色和字号。
