@@ -82,6 +82,7 @@ dev-modules/*
 !docs/user-guide.en.md
 !docs/privacy-and-data.zh.md
 !docs/privacy-and-data.en.md
+!docs/calendar-sharing.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/
