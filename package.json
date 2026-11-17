@@ -32,6 +32,7 @@
     "e2e": "playwright test",
     "tauri": "tauri",
     "icons": "node scripts/generate-icons.mjs",
+    "icons:app": "node scripts/generate-app-icons.mjs && tauri icon app-icon.png",
     "version:check": "node scripts/check-version-sync.mjs",
     "test:tooling": "node scripts/check-version-sync.mjs",
     "site:build": "node website/scripts/build.mjs",
