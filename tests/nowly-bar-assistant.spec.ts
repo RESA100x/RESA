@@ -4,8 +4,9 @@ test.use({ viewport: { width: 432, height: 440 } });
 test.setTimeout(60_000);
 
 async function openAssistant(page: Page) {
-  await page.getByRole('button', { name: 'Nowly', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'AI 助手', exact: true }).click();
+  // The AI entry is not part of the function menu, so open its panel the way the
+  // native side does: by emitting the panel-open event with the next generation.
+  await page.evaluate(() => (Reflect.get(window, '__OPEN_PANEL__') as (source: string) => void)('nowly'));
 }
 
 async function installNowlyBar(page: Page) {
@@ -14,6 +15,21 @@ async function installNowlyBar(page: Page) {
     let panelGeneration = 0;
     const listeners = new Map<string, number>();
     Object.assign(window, {
+      // Opens a panel with the same monotonic generation the native commands use,
+      // so a later close event numbered right after this open still applies.
+      __OPEN_PANEL__: (source: string) => {
+        panelGeneration += 1;
+        const handler = listeners.get('status-island-details-open');
+        const callback = handler
+          ? (window as unknown as Record<string, unknown>)[`_${handler}`]
+          : null;
+        if (typeof callback === 'function') {
+          callback({
+            event: 'status-island-details-open',
+            payload: { generation: panelGeneration, source, identity: null, hovered: false }
+          });
+        }
+      },
       __EMIT_TAURI_EVENT__: (event: string, payload: unknown = null) => {
         const handler = listeners.get(event);
         const callback = handler
@@ -52,7 +68,10 @@ async function installNowlyBar(page: Page) {
                 stageSequence: 0,
                 stageChangedAt: null
               },
-              reminders: []
+              reminders: [],
+              // Persistent mode keeps the full Bar; without it the rail folds into
+              // the top-edge strip and the logo entry is not reachable at all.
+              notificationMode: 'persistent'
             };
           }
           if (command === 'assistant_get_config') {
@@ -104,7 +123,7 @@ test('uses compact Solar glyphs for the embedded voice and send actions', async 
   await installNowlyBar(page);
   await openAssistant(page);
 
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await expect(page.getByRole('button', { name: '语音输入' }).locator('svg')).toHaveAttribute('width', '16');
 
   await input.fill('明天下午三点创建产品评审');
@@ -115,7 +134,7 @@ test('keeps the collapsed Bar unselectable without keyboard focus or pointer act
   await installNowlyBar(page);
 
   const trigger = page.locator('.status-island__trigger');
-  const logo = page.getByRole('button', { name: 'Nowly' });
+  const logo = page.getByRole('button', { name: 'RESA' });
   await expect(page.locator('.status-rail__header')).toHaveCSS('user-select', 'none');
   await expect(page.locator('.status-rail__nowly img')).toHaveCSS('user-select', 'none');
 
@@ -249,8 +268,8 @@ test('does not let a pointer activate Nowly while the status shell is still shri
 test('reveals only the status capsule while AI is still closing', async ({ page }) => {
   await installNowlyBar(page);
   await openAssistant(page);
-  await page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' }).fill('测试收起衔接');
-  await page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' }).press('Enter');
+  await page.getByRole('textbox', { name: '告诉 RESA 你想做什么' }).fill('测试收起衔接');
+  await page.getByRole('textbox', { name: '告诉 RESA 你想做什么' }).press('Enter');
   await expect(page.locator('.status-rail__assistant')).toHaveCSS('height', '440px');
   const sample = await page.evaluate(async () => {
     (Reflect.get(window, '__EMIT_TAURI_EVENT__') as Function)(
@@ -282,7 +301,7 @@ test('reveals only the status capsule while AI is still closing', async ({ page 
 test('keeps the returning status capsule stationary throughout AI collapse', async ({ page }) => {
   await installNowlyBar(page);
   await openAssistant(page);
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.fill('检查状态胶囊闪动');
   await input.press('Enter');
   await expect(page.locator('.status-rail__assistant')).toHaveCSS('height', '440px');
@@ -293,20 +312,28 @@ test('keeps the returning status capsule stationary throughout AI collapse', asy
     await new Promise(requestAnimationFrame);
     const rail = document.querySelector('.status-rail')!;
     const sheet = document.querySelector('.status-rail__sheet')!;
+    const presence = document.querySelector('.status-rail__status-presence')!;
+    // The sheet sits inside the capsule's 1px border, so its final left edge is
+    // the capsule's padding-box edge rather than the border-box edge.
+    const target = presence.getBoundingClientRect().left
+      + Number.parseFloat(getComputedStyle(presence).borderLeftWidth);
     const animations = rail.getAnimations({ subtree: true });
     for (const animation of animations) animation.pause();
-    return [35, 100, 219].map(time => {
-      for (const animation of animations) animation.currentTime = time;
-      return sheet.getBoundingClientRect().left;
-    });
+    return {
+      target,
+      lefts: [35, 100, 219].map(time => {
+        for (const animation of animations) animation.currentTime = time;
+        return sheet.getBoundingClientRect().left;
+      })
+    };
   });
-  for (const left of samples) expect(left).toBeCloseTo(72, 1);
+  for (const left of samples.lefts) expect(left).toBeCloseTo(samples.target, 1);
 });
 
 test('does not wipe the returning status capsule with the opaque closing AI shell', async ({ page }) => {
   await installNowlyBar(page);
   await openAssistant(page);
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.fill('检查遮挡闪动');
   await input.press('Enter');
   await expect(page.locator('.status-rail__assistant')).toHaveCSS('height', '440px');
@@ -369,7 +396,7 @@ test('keeps movement help inside the status panel and AI animations out of it on
   expect(await assistant.evaluate(element =>
     element.closest('.status-rail__status-presence') !== null)).toBe(false);
   await expect(page.locator('.status-rail__assistant-frame')).toHaveCSS('pointer-events', 'none');
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.fill('检查两个面板是否独立');
   await input.press('Enter');
   await expect(assistant).toHaveCSS('height', '440px');
@@ -394,7 +421,7 @@ test('morphs the logo radius and reveals fixed-size content without stretching',
   await expect(shell).toHaveCSS('transition-property', 'width, height, border-radius, opacity');
   await expect(shell).toHaveCSS('transition-duration', '0.28s, 0.28s, 0.28s, 0s');
   await expect(shell).toHaveCSS('border-radius', '15.2px');
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.press('Escape');
   await expect(shell).toHaveAttribute('inert', '');
   await expect(shell).toHaveCSS('transition-duration', '0.22s, 0.22s, 0.22s, 0s');
@@ -404,7 +431,7 @@ test('morphs the logo radius and reveals fixed-size content without stretching',
     (Reflect.get(window, '__EMIT_TAURI_EVENT__') as Function)(
       'status-island-details-closed', { generation: 3 });
   });
-  await expect(page.getByRole('button', { name: 'Nowly' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'RESA' })).toBeVisible();
   await openAssistant(page);
   await input.fill('测试面板形变');
   await input.press('Enter');
@@ -505,7 +532,7 @@ test('morphs status with Logo timing and radius while clipping fixed content', a
 
 test('morphs directly from the Logo footprint to the full assistant panel', async ({ page }) => {
   await installNowlyBar(page);
-  await expect(page.getByRole('button', { name: 'Nowly' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'RESA' })).toBeVisible();
   // Freeze real browser CSS transitions partway through, not a second animation implementation.
   const sample = await page.evaluate(async () => {
     (Reflect.get(window, '__EMIT_TAURI_EVENT__') as (event: string, payload: unknown) => void)(
@@ -573,7 +600,7 @@ test('reverses a closing assistant from its current shape instead of restarting 
     (element as HTMLElement).style.setProperty('--logo-grow', '2800ms');
     (element as HTMLElement).style.setProperty('--logo-shrink', '2200ms');
   });
-  await page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' }).press('Escape');
+  await page.getByRole('textbox', { name: '告诉 RESA 你想做什么' }).press('Escape');
   await expect.poll(() => shell.evaluate(element => element.getBoundingClientRect().width))
     .toBeLessThan(400);
   const before = await shell.evaluate(element => element.getBoundingClientRect().width);
@@ -590,7 +617,7 @@ test('reverses a closing assistant from its current shape instead of restarting 
 test('clips the expanded assistant to all four rail corners', async ({ page }) => {
   await installNowlyBar(page);
   await openAssistant(page);
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.fill('明天下午三点创建产品评审');
   await input.press('Enter');
 
@@ -633,7 +660,7 @@ test('clips the expanded assistant to all four rail corners', async ({ page }) =
 test('keeps the rail centered while the assistant closes', async ({ page }) => {
   await installNowlyBar(page);
   await openAssistant(page);
-  const input = page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' });
+  const input = page.getByRole('textbox', { name: '告诉 RESA 你想做什么' });
   await input.fill('明天下午三点创建产品评审');
   await input.press('Enter');
 

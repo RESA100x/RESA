@@ -148,17 +148,17 @@ test.describe(`notification-only strip through the browser backend at ${scale}x`
   }
 
   test('continuously morphs the same shell between the exact strip and Bar geometry', async ({ page }) => {
-    const entry = page.getByRole('button', { name: '显示 Nowly Bar' });
+    const entry = page.getByRole('button', { name: '显示 RESA Bar' });
     const shell = page.locator('.status-rail__status-presence');
     await expect(entry).toBeVisible();
     await expect.poll(() => shell.boundingBox()).toEqual({ x: 168, y: 4, width: 96, height: 4 });
     await entry.hover();
     await expect.poll(() => shell.boundingBox()).toEqual({ x: 72, y: 0, width: 288, height: 40 });
-    await expect(page.getByRole('button', { name: 'Nowly', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'RESA', exact: true })).toBeVisible();
     await expect(page.locator('.status-rail')).toHaveAttribute('data-open', 'false');
     await page.mouse.move(10, 120);
     await expect.poll(() => shell.boundingBox()).toEqual({ x: 168, y: 4, width: 96, height: 4 });
-    await expect(page.getByRole('button', { name: 'Nowly', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'RESA', exact: true })).toHaveCount(0);
   });
 
   test('keeps the entry hit area covered on the first reveal frame', async ({ page }) => {
@@ -179,8 +179,8 @@ test.describe(`notification-only strip through the browser backend at ${scale}x`
   });
 
   test('holds an open menu and notifications rather than dismissing them on pointer leave', async ({ page }) => {
-    await page.getByRole('button', { name: '显示 Nowly Bar' }).hover();
-    await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+    await page.getByRole('button', { name: '显示 RESA Bar' }).hover();
+    await page.getByRole('button', { name: 'RESA', exact: true }).click();
     await page.mouse.move(10, 287);
     await expect(page.getByRole('menu', { name: '功能菜单' })).toBeVisible();
     await nativeCommand(page, 'set_status_island_presence', { surface: 'keyboard', present: false });
@@ -189,14 +189,14 @@ test.describe(`notification-only strip through the browser backend at ${scale}x`
     await expect(page.locator('.status-rail')).toHaveAttribute('data-open', 'false');
     await expect(page.locator('.status-rail')).toHaveAttribute('data-strip', 'false');
     await expect(page.locator('.status-rail')).not.toHaveAttribute('data-frame-anim', 'shrink');
-    await page.getByRole('button', { name: 'Nowly', exact: true }).evaluate(element => element.blur());
+    await page.getByRole('button', { name: 'RESA', exact: true }).evaluate(element => element.blur());
     await page.mouse.move(10, 120);
     await nativeCommand(page, 'set_status_island_visibility', { visible: false });
     await expect(page.locator('.status-rail')).toHaveAttribute('data-strip', 'true');
   });
 
   test('keeps the full entry hittable and reverses from the current shape without jumping', async ({ page }) => {
-    const entry = page.getByRole('button', { name: '显示 Nowly Bar' });
+    const entry = page.getByRole('button', { name: '显示 RESA Bar' });
     const shell = page.locator('.status-rail__status-presence');
     await expect.poll(() => shell.boundingBox()).toEqual({ x: 168, y: 4, width: 96, height: 4 });
     await entry.hover({ position: { x: 64, y: 14 } });
@@ -216,16 +216,16 @@ test.describe(`notification-only strip through the browser backend at ${scale}x`
 
   test('reveals through keyboard focus and respects reduced motion without a completion delay', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    const entry = page.getByRole('button', { name: '显示 Nowly Bar' });
+    const entry = page.getByRole('button', { name: '显示 RESA Bar' });
     await expect(entry).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.locator('.status-rail')).toHaveAttribute('data-strip', 'false');
     await expect(page.locator('.status-rail__status-presence')).toHaveCSS('transition-duration', '0s, 0s, 0s, 0s, 0s');
     await expect(page.locator('.status-rail__reveal')).toHaveCSS('transition-duration', '0s');
-    await page.getByRole('button', { name: 'Nowly' }).focus();
+    await page.getByRole('button', { name: 'RESA' }).focus();
     await page.mouse.move(10, 120);
     await expect(page.locator('.status-rail')).toHaveAttribute('data-strip', 'false');
-    await page.getByRole('button', { name: 'Nowly' }).evaluate(element => element.blur());
+    await page.getByRole('button', { name: 'RESA' }).evaluate(element => element.blur());
     await expect(page.locator('.status-rail')).toHaveAttribute('data-strip', 'true');
   });
 });
@@ -286,11 +286,11 @@ for (const scale of [1, 1.5, 2]) {
     });
 
     test('keeps the Nowly control separate inside the continuous shell', async ({ page }) => {
-      const nowly = page.getByRole('button', { name: 'Nowly' });
+      const nowly = page.getByRole('button', { name: 'RESA' });
       await expect(nowly).toBeVisible();
       await nowly.click();
       expect(await commands(page)).toContain('toggle_bar_menu');
-      await expect(page.getByRole('textbox', { name: '告诉 Nowly 你想做什么' })).toHaveCount(0);
+      await expect(page.getByRole('textbox', { name: '告诉 RESA 你想做什么' })).toHaveCount(0);
       expect(await commands(page)).not.toContain('toggle_nowly_panel');
       expect(await commands(page)).not.toContain('hover_nowly_panel');
     });
@@ -317,7 +317,7 @@ test.describe('the Logo-only Bar', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status-rail__status-presence')).toHaveCSS('width', '288px');
     await expect(page.locator('.status-rail__app-button')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Nowly', exact: true }).click();
+    await page.getByRole('button', { name: 'RESA', exact: true }).click();
     expect(await commands(page)).toContain('toggle_bar_menu');
     expect(await commands(page)).not.toContain('toggle_nowly_panel');
   });
@@ -546,7 +546,7 @@ test.describe('the open sheet', () => {
     ]));
     // No AI entry remains anywhere in the sheet.
     expect(await commands(page)).not.toContain('open_quick_panel');
-    await expect(page.getByText('问 Nowly')).toHaveCount(0);
+    await expect(page.getByText('问 RESA')).toHaveCount(0);
   });
 
   test('offers focus controls with accessible progress', async ({ page }) => {
