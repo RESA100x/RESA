@@ -37,7 +37,7 @@ import {
 } from './calendar-model';
 import { colorStyle, isHexColor } from '../lib/color';
 import { occurrenceKey } from '../lib/recurrence';
-import { t, formatNumber } from '../i18n';
+import { t, formatNumber, isRtl } from '../i18n';
 import { displayMonthStart, isWeekendDow } from '../lib/calendar-system';
 
 // Indexed by day-of-week (0 = Sunday … 6 = Saturday) so a column's label can be
@@ -213,6 +213,10 @@ export function CalendarWidget({
   const weekdayLabels = columnDows.map((dow) => weekdays[dow]);
   const viewOptions = viewOptionsList();
   const navLabels = navLabelsFor(view);
+  // The period buttons are logical back/forward controls: in a right-to-left
+  // layout the row mirrors, so the chevrons have to point the other way too.
+  const PreviousIcon = isRtl() ? ChevronRight : ChevronLeft;
+  const NextIcon = isRtl() ? ChevronLeft : ChevronRight;
   // Logical columns (0-6) that are actually rendered. When weekends are hidden
   // the Saturday/Sunday columns drop out, leaving five visible columns.
   const visibleCols = columnDows
@@ -991,11 +995,11 @@ export function CalendarWidget({
             </button>
           ) : null}
           <button type="button" className="btn btn-icon" aria-label={navLabels.previous} onClick={onPreviousMonth}>
-            <ChevronLeft aria-hidden="true" />
+            <PreviousIcon aria-hidden="true" />
           </button>
           <button type="button" className="btn" onClick={onToday}>{t('calendar.today')}</button>
           <button type="button" className="btn btn-icon" aria-label={navLabels.next} onClick={onNextMonth}>
-            <ChevronRight aria-hidden="true" />
+            <NextIcon aria-hidden="true" />
           </button>
           {onOpenSettings ? (
             <button type="button" className="btn btn-icon" aria-label={t('calendarSettings.label')} onClick={onOpenSettings}>

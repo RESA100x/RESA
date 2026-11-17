@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DatePicker } from './DatePicker';
+import { setLanguage } from '../i18n';
 
 const today = new Date(2026, 6, 23, 9, 42);
 
@@ -58,6 +59,28 @@ describe('DatePicker', () => {
     expect(within(dialog).getAllByRole('gridcell')).toHaveLength(42);
     expect(within(dialog).getByRole('gridcell', { name: '2026年7月23日 星期四' })).toHaveAttribute('aria-selected', 'true');
     expect(within(dialog).getByRole('gridcell', { name: '2026年7月23日 星期四' })).toHaveAttribute('aria-current', 'date');
+  });
+
+  it('points the month chevrons along the reading direction', () => {
+    const { unmount } = render(<Harness initiallyOpen />);
+    const dialog = screen.getByRole('dialog', { name: '选择开始日期' });
+    const leftToRightPrevious = within(dialog).getByRole('button', { name: '上一个月' }).querySelector('svg')!.innerHTML;
+    const leftToRightNext = within(dialog).getByRole('button', { name: '下一个月' }).querySelector('svg')!.innerHTML;
+    expect(leftToRightPrevious).not.toBe(leftToRightNext);
+    unmount();
+
+    setLanguage('fa');
+    try {
+      render(<Harness initiallyOpen />);
+      const monthDialog = screen.getByRole('dialog');
+      const rightToLeftPrevious = within(monthDialog).getByRole('button', { name: 'ماه قبل' }).querySelector('svg')!.innerHTML;
+      const rightToLeftNext = within(monthDialog).getByRole('button', { name: 'ماه بعد' }).querySelector('svg')!.innerHTML;
+
+      expect(rightToLeftPrevious).toBe(leftToRightNext);
+      expect(rightToLeftNext).toBe(leftToRightPrevious);
+    } finally {
+      setLanguage('zh');
+    }
   });
 
   it('navigates months and selects leading or trailing dates directly', async () => {

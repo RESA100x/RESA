@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from '../components/icons';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { buildMonthGrid, effectiveWeekStart, formatChineseDate, toIsoDate } from '../lib/date';
-import { t, formatNumber } from '../i18n';
+import { t, formatNumber, isRtl } from '../i18n';
 import {
   addDisplayMonths,
   displayMonthLength,
@@ -70,6 +70,10 @@ export function DatePicker({
   const shouldRestoreFocusRef = useRef(false);
 
   const days = buildMonthGrid(visibleMonth.year, visibleMonth.monthIndex, today, effectiveWeekStart('monday'));
+  // Month navigation is a logical back/forward control, so the chevrons flip
+  // along with the mirrored layout in right-to-left languages.
+  const PreviousIcon = isRtl() ? ChevronRight : ChevronLeft;
+  const NextIcon = isRtl() ? ChevronLeft : ChevronRight;
   const dialogId = `${id}-dialog`;
 
   useEffect(() => {
@@ -174,9 +178,9 @@ export function DatePicker({
       {open ? (
         <div id={dialogId} role="dialog" aria-label={t('datePicker.select', { label })} className="date-picker__popup">
           <div className="date-picker__header">
-            <button type="button" aria-label={t('datePicker.prevMonth')} onClick={() => changeVisibleMonth(-1)}><ChevronLeft aria-hidden="true" /></button>
+            <button type="button" aria-label={t('datePicker.prevMonth')} onClick={() => changeVisibleMonth(-1)}><PreviousIcon aria-hidden="true" /></button>
             <strong>{monthHeading(visibleMonth.year, visibleMonth.monthIndex)}</strong>
-            <button type="button" aria-label={t('datePicker.nextMonth')} onClick={() => changeVisibleMonth(1)}><ChevronRight aria-hidden="true" /></button>
+            <button type="button" aria-label={t('datePicker.nextMonth')} onClick={() => changeVisibleMonth(1)}><NextIcon aria-hidden="true" /></button>
           </div>
           <div role="grid" aria-label={monthHeading(visibleMonth.year, visibleMonth.monthIndex)} className="date-picker__calendar">
             <div role="row" className="date-picker__weekdays">

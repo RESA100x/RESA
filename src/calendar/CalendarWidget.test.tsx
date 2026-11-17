@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../app/styles.css';
 import { sampleEvents } from '../lib/sample-data';
+import { setLanguage } from '../i18n';
 import type { CalendarEvent, Recurrence } from './calendar-model';
 import { CalendarWidget } from './CalendarWidget';
 
@@ -38,6 +39,7 @@ const baseProps = {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  setLanguage('zh');
   // jsdom has no elementFromPoint, so the drag test installs one by hand.
   Reflect.deleteProperty(document, 'elementFromPoint');
   Reflect.deleteProperty(document, 'elementsFromPoint');
@@ -90,6 +92,22 @@ describe('CalendarWidget', () => {
     const row = screen.getByRole('button', { name: '另有 1 个日程' });
     expect(row).toHaveClass('event-overflow-dots');
     expect(row.querySelector('.event-overflow-dot')).toHaveStyle({ '--selected-color': '#4F55DA' });
+  });
+
+  it('points the header chevrons along the reading direction', () => {
+    const { unmount } = render(<CalendarWidget {...baseProps} />);
+    const leftToRightPrevious = screen.getByRole('button', { name: '上一个月' }).querySelector('svg')!.innerHTML;
+    const leftToRightNext = screen.getByRole('button', { name: '下一个月' }).querySelector('svg')!.innerHTML;
+    expect(leftToRightPrevious).not.toBe(leftToRightNext);
+    unmount();
+
+    setLanguage('fa');
+    render(<CalendarWidget {...baseProps} />);
+    const rightToLeftPrevious = screen.getByRole('button', { name: 'ماه قبل' }).querySelector('svg')!.innerHTML;
+    const rightToLeftNext = screen.getByRole('button', { name: 'ماه بعد' }).querySelector('svg')!.innerHTML;
+
+    expect(rightToLeftPrevious).toBe(leftToRightNext);
+    expect(rightToLeftNext).toBe(leftToRightPrevious);
   });
 
   it('renders a 42-day month and invokes all header navigation callbacks', async () => {
