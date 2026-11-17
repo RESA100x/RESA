@@ -1,4 +1,4 @@
-# Nowly 文档索引
+# RESA 文档索引
 
 ## 产品与使用 / Product and usage
 
@@ -12,7 +12,7 @@
 
 - 前端入口：`src/main.tsx`
 - 主应用：`src/app/App.tsx`
-- Nowly Bar：`src/quick-panel/StatusIslandApp.tsx`
+- RESA Bar：`src/quick-panel/StatusIslandApp.tsx`
 - Tauri 入口：`src-tauri/src/main.rs`
 - 统一设计规范：`design.md`
 - 贴纸模块：`src/stickers/`；使用说明见 [中文指南](user-guide.zh.md#贴纸画布) / [English guide](user-guide.en.md#sticker-canvas)

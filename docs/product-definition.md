@@ -1,8 +1,8 @@
-# Nowly 产品定义 / Product definition
+# RESA 产品定义 / Product definition
 
 ## 定位 / Positioning
 
-**Nowly · 此刻，你的 Windows 个人工作桌面**  
+**RESA · 此刻，你的 Windows 个人工作桌面**  
 **Your personal workspace for Windows**
 
 面向在 Windows 上工作、学习和独立交付的人：个人工作者、学生、自由职业者。把安排、任务、记录和时间放在可自行组织的桌面上，而不是要求用户围绕 AI 或某一种生产力方法工作。AI 是可选助手，不是产品主体。
@@ -15,7 +15,7 @@ For personal Windows work, study and freelance delivery: arrange schedules, task
 |---|---|
 | Modules | Six built-in picker entries: Calendar, Matrix, Notes, Kanban, Time, Stickers. `src/widgets/widget-registry.ts`: 12×8 non-overlapping layout; fallback/default definitions contain Calendar/Matrix/Notes, others are optional. `src/app/layout` and onboarding handle empty-layout welcome. Focus lives in Time rather than a separate current picker entry. |
 | Tasks and notes | `src/tasks`, `src/matrix`, `src/kanban`, `src/notes`, `src-tauri/src/task_workspace.rs`: one local task list shown as a kanban board and an Eisenhower matrix (every task has a quadrant; only tasks with a lane appear on the board, and done is a state rather than a lane), tags and notes. |
-| Desktop surfaces | `src-tauri/src/wallpaper.rs`, `window_lifecycle.rs`, `shell.rs`, `quick_panel.rs`, `status_island.rs`: ordinary foreground, desktop wallpaper behind icons, tray, top-edge quick panel/Nowly Bar and fullscreen focus. Closing is not fully exiting; tray Exit terminates the process. Wallpaper-mode chrome can be hidden by a setting, independently of Bar. |
+| Desktop surfaces | `src-tauri/src/wallpaper.rs`, `window_lifecycle.rs`, `shell.rs`, `quick_panel.rs`, `status_island.rs`: ordinary foreground, desktop wallpaper behind icons, tray, top-edge quick panel/RESA Bar and fullscreen focus. Closing is not fully exiting; tray Exit terminates the process. Wallpaper-mode chrome can be hidden by a setting, independently of Bar. |
 | Time and notifications | `src/time`, `src/focus`, `src-tauri/src/focus_timer.rs`, `time/scheduler.rs`, `sounds.rs`: shared native focus state, world clocks, local-time alarms, reminders and bundled sounds. App must remain running for scheduled reminders; no detached Windows alarm task is installed. |
 | Screenshots and stickers | `src-tauri/src/screenshot_history`, `screen_capture`, `stickers.rs`: final screenshot PNG archive and local image canvas. Screenshot metadata is not screenshot image bytes. Sticker deletion/cleanup and read-only modes differ from simply hiding a module. Detailed limits remain in the guides. |
 | External calendars | `oauth.rs`, `calendar_api.rs`, `subscriptions.rs`, `subscription_sync.rs`, `remote_events.rs`, `src/calendar/useEvents.ts`: Google/Microsoft OAuth, selected calendars, cached events, refresh, manual remote create/update/delete with write scope; HTTPS ICS is read-only. Remote recurrence-rule creation/editing is unsupported. Not a general full-workspace sync service, but definitely not “no sync.” |

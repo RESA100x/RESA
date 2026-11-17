@@ -46,16 +46,16 @@
 
 ## 日历连接与其它联网
 
-- 基础本地功能不要求 Nowly 账户。Google/Microsoft 账户授权可选，在浏览器中使用 Authorization Code + PKCE（S256）、临时 loopback 回调与 state 校验。Google scope 为 `openid email https://www.googleapis.com/auth/calendar`；Microsoft 为 `openid email offline_access https://graph.microsoft.com/Calendars.ReadWrite`。请求的是日历读写范围，不只是只读；本文不作平台审核/认证状态声明。
+- 基础本地功能不要求 RESA 账户。Google/Microsoft 账户授权可选，在浏览器中使用 Authorization Code + PKCE（S256）、临时 loopback 回调与 state 校验。Google scope 为 `openid email https://www.googleapis.com/auth/calendar`；Microsoft 为 `openid email offline_access https://graph.microsoft.com/Calendars.ReadWrite`。请求的是日历读写范围，不只是只读；本文不作平台审核/认证状态声明。
 - 连接后获取账户供应商/邮箱标签、日历列表和选定日历事件，按需刷新 token。本地外部缓存包含标题、时间、地点、描述和提醒；AI 只发送上表中更窄的字段。
-- ICS/webcal 订阅访问指定 feed，webcal 转为 HTTPS。订阅 URL 可能自带访问令牌，分享备份时应当作敏感数据。ICS 只读；最多 50 个来源，刷新间隔 1–30 分钟，界面默认 15 分钟。启动、手动及间隔刷新可在 Nowly 运行时访问已配置来源。失败保留上次成功缓存，内容可能过时。ICS 展开当前月及前后各六个月，OAuth 拉取当前时间前后各约 190 天。
+- ICS/webcal 订阅访问指定 feed，webcal 转为 HTTPS。订阅 URL 可能自带访问令牌，分享备份时应当作敏感数据。ICS 只读；最多 50 个来源，刷新间隔 1–30 分钟，界面默认 15 分钟。启动、手动及间隔刷新可在 RESA 运行时访问已配置来源。失败保留上次成功缓存，内容可能过时。ICS 展开当前月及前后各六个月，OAuth 拉取当前时间前后各约 190 天。
 - 普通日历编辑器在账户有写入 scope 时可创建、修改、删除 Google/Microsoft 远程事件，向供应商发送标题、时间、提醒，完整编辑还发送备注/描述。不支持创建/修改远程重复规则。这不同于 AI 的外部只读权限。
 - 断开连接通过数据库级联删除本地账户及关联订阅/缓存，不等同于在供应商端撤销授权。如需要，应另到供应商账户设置撤销访问。删除本地订阅不会删除远端日历。
 - 启动时的更新检查请求本构建所配置仓库（根级 `resa.config.json` 的 `repo`，或构建变量 `RESA_REPO`）的最新公开发布信息（`api.github.com/repos/<owner>/<name>/releases/latest`），不在请求载荷中上传工作区记录，但 GitHub 会收到常规网络请求信息。请求失败不阻止本地使用；未配置仓库时跳过该检查。
-- 反馈/关于链接可由外部应用打开 HTTPS 或邮件目标，后续处理不在 Nowly 的本地存储边界内。
+- 反馈/关于链接可由外部应用打开 HTTPS 或邮件目标，后续处理不在 RESA 的本地存储边界内。
 
 ## 备份与控制
 
-将应用数据目录、截图目录及浏览器/WebView 配置视为个人数据。手动复制前完全退出 Nowly，保留关联文件及 SQLite sidecar 文件，不要只复制单个数据库。数据库单文件不是完整备份。DPAPI 凭据绑定 Windows 用户环境，换环境后重新连接服务，不应把加密 token 当作可移植凭据。上述存储路径不构成自动跨设备备份或完整工作区同步服务。
+将应用数据目录、截图目录及浏览器/WebView 配置视为个人数据。手动复制前完全退出 RESA，保留关联文件及 SQLite sidecar 文件，不要只复制单个数据库。数据库单文件不是完整备份。DPAPI 凭据绑定 Windows 用户环境，换环境后重新连接服务，不应把加密 token 当作可移植凭据。上述存储路径不构成自动跨设备备份或完整工作区同步服务。
 
 通过现有编辑器删除记录，通过截图历史确认删除 PNG/缓存，通过日历设置断开来源。调整 AI 权限限制的是未来宿主查询，不会擦除已发送内容或面板内的既有消息；清除 Key 不等同于删除本地方案或在供应商端撤销 Key。远端留存或删除需查阅相应服务设置。

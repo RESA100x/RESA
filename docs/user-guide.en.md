@@ -1,14 +1,14 @@
-# Nowly user guide
+# RESA user guide
 
 [简体中文](user-guide.zh.md) · [Product overview](../README.md) · [Privacy and data](privacy-and-data.en.md)
 
 ## Start with your day
 
-Use Nowly as a personal Windows workspace: add your schedule, sort tasks in the matrix or board, capture notes, then add Time or Stickers if useful. Enter **Edit layout → Add module** to choose modules, drag and resize within the 12×8 grid. If no space remains, shrink or remove another module. An empty layout shows a welcome canvas; the fallback layout contains Calendar, Matrix and Notes, while Board, Time and Stickers are optional.
+Use RESA as a personal Windows workspace: add your schedule, sort tasks in the matrix or board, capture notes, then add Time or Stickers if useful. Enter **Edit layout → Add module** to choose modules, drag and resize within the 12×8 grid. If no space remains, shrink or remove another module. An empty layout shows a welcome canvas; the fallback layout contains Calendar, Matrix and Notes, while Board, Time and Stickers are optional.
 
-The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve different purposes. AI and connected calendars are optional; local task, note and focus work does not require connecting them. Nowly is not a shared team workspace.
+The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve different purposes. AI and connected calendars are optional; local task, note and focus work does not require connecting them. RESA is not a shared team workspace.
 
-> AI chat, the AI assistant option in Nowly Bar settings, and the Model Settings tab are temporarily hidden. Existing AI data and configuration are retained; other features are unaffected.
+> AI chat, the AI assistant option in RESA Bar settings, and the Model Settings tab are temporarily hidden. Existing AI data and configuration are retained; other features are unaffected.
 
 ## Features
 
@@ -28,8 +28,8 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
   keep the "do it now" quadrant honest.
 - **Focus timer** — countdown sessions with a distraction-free fullscreen mode
   and session statistics. On desktop, one native timer supplies the same remaining
-  time to the dashboard, fullscreen focus, and Nowly Bar; views resync on resume.
-  Nowly Bar keeps the completion reminder visible after the session record is saved,
+  time to the dashboard, fullscreen focus, and RESA Bar; views resync on resume.
+  RESA Bar keeps the completion reminder visible after the session record is saved,
   until you close the reminder or start another focus session.
 - **World clocks and alarms** — an optional Time module arranges multiple time zones
   as pure digital clocks, pure analog faces, or mixed displays. City, date, and
@@ -65,13 +65,13 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
   Upgrading to this date-free alarm format clears old alarms, alarm notices, and
   alarm scheduler state once; calendar events, tasks, focus records, clocks, and
   other settings are retained.
-  Nowly Bar offers acknowledgment and a five-minute snooze. Enabled alarm
-  sounds play for up to one minute per occurrence; after the sound stops, Nowly Bar
+  RESA Bar offers acknowledgment and a five-minute snooze. Enabled alarm
+  sounds play for up to one minute per occurrence; after the sound stops, RESA Bar
   keeps the pending reminder. Dismissal or acknowledgment ends that occurrence;
   snoozing silences it and rings again after five minutes.
-  Keep Nowly running (including in the tray) for on-time reminders. Restarting or
+  Keep RESA running (including in the tray) for on-time reminders. Restarting or
   resuming after sleep produces one missed-alarm summary, not individual replay.
-  Removing the Time module does not disable alarms. Fully exiting Nowly does not
+  Removing the Time module does not disable alarms. Fully exiting RESA does not
   leave a Windows scheduled alarm behind.
 - **Kanban board** — tasks created on the board also appear in the matrix (in
   their quadrant), and edits sync between the two. Tasks created in the matrix
@@ -103,7 +103,7 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
 - **Stickers** — an optional image and plain-text canvas with original, rounded,
   circular and photo-frame styles, text formatting, transforms, opacity, layers,
   locking, duplication and deletion.
-- **Wallpaper mode** — embed Nowly behind your desktop icons with taskbar-aware
+- **Wallpaper mode** — embed RESA behind your desktop icons with taskbar-aware
   positioning, or run it as a regular window.
 - **Flexible layout** — arrange every module on a 12x8 grid; toggle modules on
   or off and resize them freely.
@@ -115,10 +115,10 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
   or volume mixer to adjust loudness. There are no in-app mute or volume controls.
   Previously muted scenes revert to their default sounds; other choices are preserved.
   Changes apply after saving; desktop reminders
-  sound in the background while Nowly is running. Calendar reminders, focus completion,
-  and alarms all appear in Nowly Bar. Nowly no longer sends Windows system
+  sound in the background while RESA is running. Calendar reminders, focus completion,
+  and alarms all appear in RESA Bar. RESA no longer sends Windows system
   notifications, and sounds do not depend on Windows notification permissions.
-- **Quick create** — create events, matrix tasks, and notes from the Nowly Bar
+- **Quick create** — create events, matrix tasks, and notes from the RESA Bar
   function menu or optional global shortcuts, without opening the main window.
 - **Localization** — Simplified Chinese, English, French, Spanish, Japanese,
   Korean, and Traditional Chinese. Without a saved manual choice,
@@ -132,7 +132,7 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
 
 ## Usage
 
-- Use the top-right button to set Nowly as your wallpaper.
+- Use the top-right button to set RESA as your wallpaper.
 - Double-click the wallpaper or click the tray icon to return to foreground
   mode. Within the same running session, this restores the window size, position,
   and maximized state from before entering wallpaper mode.
@@ -142,7 +142,7 @@ The ordinary window, wallpaper, tray, quick panel and fullscreen focus serve dif
   saving also succeeds if Windows or a manual action already removed it.
 - Closing the foreground window restores the wallpaper when the wallpaper
   preference is enabled; otherwise it hides to the tray.
-- **Exit Nowly** in the tray menu is the only action that terminates the
+- **Quit RESA** in the tray menu is the only action that terminates the
   process.
 
 ### Sticker canvas
@@ -180,23 +180,23 @@ of the existing 1 MiB note/task attachment limit. The browser development mode
 uses IndexedDB and also survives reloads. This version does not include online
 assets, animated stickers, custom fonts, background removal or file export.
 
-### Nowly Bar visibility
+### RESA Bar visibility
 
-Calendar reminders, focus completion, and alarms appear in Nowly Bar, without
+Calendar reminders, focus completion, and alarms appear in RESA Bar, without
 entries in Windows Notification Center or system notifications on the lock screen.
-Keep Nowly running: reminders remain available when the main window is minimized
+Keep RESA running: reminders remain available when the main window is minimized
 or hidden to the tray, but stop after fully exiting. Save failures, form validation,
 and screenshot results remain next to the relevant action.
 
-Set Nowly Bar to **Notification only** in **Settings → Notifications** to keep a thin top-edge entry when no notification needs attention, rather than hiding the Bar completely. Hovering continuously unfolds the same shell down into the full Bar; leaving folds it back up. Hover only reveals the Bar; click its status area or Logo to open a panel.
+Set RESA Bar to **Notification only** in **Settings → Notifications** to keep a thin top-edge entry when no notification needs attention, rather than hiding the Bar completely. Hovering continuously unfolds the same shell down into the full Bar; leaving folds it back up. Hover only reveals the Bar; click its status area or Logo to open a panel.
 
 Pending notifications, open reminder/menu/AI/history panels, keyboard focus within the Bar, and actions in progress keep the surface available without acknowledging notifications or interrupting input. After a panel closes, the current state determines whether it folds back. Tab can enter the strip; reduced-motion preferences make the transition immediate. Persistent mode is unchanged. Suppressing the Bar for capture also hides the strip, and transparent areas do not intercept desktop clicks.
 
-### Nowly Bar function menu
+### RESA Bar function menu
 
-Click the **Nowly Bar Logo** to open the function menu. It has two groups: **Quick create** (Event, Matrix task, Note) and **Screenshots** (Screenshot, Screenshot history). Each item shows only an icon and name, centered together horizontally and vertically, without shortcut labels. Long names wrap to at most two lines and end with an ellipsis. Arrow keys move through the items in display order; Home and End jump to the first and last item.
+Click the **RESA Bar Logo** to open the function menu. It has two groups: **Quick create** (Event, Matrix task, Note) and **Screenshots** (Screenshot, Screenshot history). Each item shows only an icon and name, centered together horizontally and vertically, without shortcut labels. Long names wrap to at most two lines and end with an ellipsis. Arrow keys move through the items in display order; Home and End jump to the first and last item.
 
-Configure visibility and the order within each group under **Settings → Notifications → Nowly Bar → Function menu**; the group order is fixed. Every item is visible by default, including after an upgrade. A group whose items are all hidden is not shown. You may hide every item; the menu then explains how to enable them again. Hiding an item only removes its menu entry; shortcuts continue to work.
+Configure visibility and the order within each group under **Settings → Notifications → RESA Bar → Function menu**; the group order is fixed. Every item is visible by default, including after an upgrade. A group whose items are all hidden is not shown. You may hide every item; the menu then explains how to enable them again. Hiding an item only removes its menu entry; shortcuts continue to work.
 
 ### Quick create
 
@@ -216,7 +216,7 @@ Choose Screenshot or Screenshot history in the **Screenshots** group of the func
 
 **Save** writes directly to the system **Pictures\Nowly\Screenshots** folder instead of opening a Save As dialog. **Copy image and finish** archives the same final PNG before writing the image clipboard. Only cropped, annotated and redacted output is retained; cancelling creates no history. Redirected system Pictures folders are respected.
 
-Screenshot history expands directly from the top-edge Nowly Bar into an animated panel, without a separate window. The collapsed Bar is **288 × 40px**, with only the status area and Logo entry; reminders, the function menu, AI, and history all expand to **432px** wide. Press **Esc**, use the close button, or click outside to collapse it; Esc first cancels an open deletion confirmation. Click the Logo again to return to the function menu. The panel shows thumbnails with image-copy and confirmed-delete actions, plus **Open folder**. Images remain until deleted; confirmation removes the archived PNG and its thumbnail cache. SQLite stores metadata, not image bytes. Thumbnail caches can be regenerated.
+Screenshot history expands directly from the top-edge RESA Bar into an animated panel, without a separate window. The collapsed Bar is **288 × 40px**, with only the status area and Logo entry; reminders, the function menu, AI, and history all expand to **432px** wide. Press **Esc**, use the close button, or click outside to collapse it; Esc first cancels an open deletion confirmation. Click the Logo again to return to the function menu. The panel shows thumbnails with image-copy and confirmed-delete actions, plus **Open folder**. Images remain until deleted; confirmation removes the archived PNG and its thumbnail cache. SQLite stores metadata, not image bytes. Thumbnail caches can be regenerated.
 
 An archive failure preserves the editor and does not copy. If archiving succeeds but the clipboard fails, retrying the same final image reuses its history entry. Copying from history never creates another entry. Raw desktop frames are retained only for the active capture session.
 
@@ -231,7 +231,7 @@ Existing pins hide temporarily during another capture and return without taking 
 The scrolling capture entry is temporarily hidden due to known issues. Regular screenshots, annotations, pinning, saving and copying are unaffected. The instructions below apply once the feature is restored.
 
 1. Select a vertical content region within one monitor, avoiding fixed headers/footers, sidebars and video. Choose **Scrolling capture** on the toolbar before adding annotations.
-2. Capture starts at once and stays in the same screenshot screen: outside the selection is dimmed but live, a hint above the selection says "Scroll the page to capture more", and a live preview of the long image appears beside it. Put the pointer inside the selection and scroll the page with the wheel; new content is stitched automatically, and nothing is added while you are not scrolling. Nowly never scrolls for you.
+2. Capture starts at once and stays in the same screenshot screen: outside the selection is dimmed but live, a hint above the selection says "Scroll the page to capture more", and a live preview of the long image appears beside it. Put the pointer inside the selection and scroll the page with the wheel; new content is stitched automatically, and nothing is added while you are not scrolling. RESA never scrolls for you.
 3. Choose **Done** (or press Enter / Ctrl+C) to copy the long image and close the screenshot, **Save** (or Ctrl+S) to save it and close, or **Cancel** / **Esc** to close the whole screenshot.
 
 Frames are captured continuously while you scroll; there is no need to pause after each movement. Scrolling below the captured end appends new content; scrolling above the starting position prepends it. Revisiting captured content neither removes nor duplicates it. The preview follows the end that just grew. Unverified matches never overwrite confirmed pixels; feedback identifies capture or matching problems rather than asking you to control scroll speed. A selection that includes a bar that does not scroll is explained; automatic fixed-chrome removal is not included. Horizontal, cross-monitor and automatic scrolling modes are not included; the Windows frame-driven backend currently excludes rotated displays. Output is limited to **64 million pixels**, with neither edge exceeding **65,535 pixels**; at the limit you can finish with what was captured.
@@ -247,7 +247,7 @@ ICS events are read-only. Authorized Google/Microsoft sources can be selected as
 
 Open AI settings, enter the complete API endpoint, Model ID and API Key, and select allowed local-calendar, task and/or external-calendar data. Save/connection testing sends a fixed JSON test and detects the protocol. Remote services require HTTPS and a key; loopback services can use HTTP and may work without a key. Changing the endpoint does not reuse the old key automatically. A failed connection leaves the previous saved settings intact.
 
-Open the assistant from the main workspace or **Nowly Bar Logo → AI assistant**. Ask for a bounded lookup or a local change, such as “Show my incomplete important tasks” or “Create a study session tomorrow at 19:00.” Review exact dates, targets and changes. Clarify ambiguous requests; select/edit the preview and regenerate it before confirmation if needed. Only the explicit confirmation button executes the local plan. Cancel or stop does not confirm it.
+Open the assistant from the main workspace or **RESA Bar Logo → AI assistant**. Ask for a bounded lookup or a local change, such as “Show my incomplete important tasks” or “Create a study session tomorrow at 19:00.” Review exact dates, targets and changes. Clarify ambiguous requests; select/edit the preview and regenerate it before confirmation if needed. Only the explicit confirmation button executes the local plan. Cancel or stop does not confirm it.
 
 Plans contain 1–20 unique actions in one domain, expire after five minutes, and become unconfirmable after restarting the app. AI supports local calendar/task creation, editing and deletion, not arbitrary code or board administration. Existing recurring events can only be changed/deleted as an explicitly queried occurrence; recurring rules and occurrence reminder-offset changes are not supported. Split calendar-plus-task requests. Calendar queries span at most 90 days and return at most 200 records; narrow incomplete results before batch changes. Data or permission changes may require a new query/preview. History holds recent local operation plans for seven days; undo is guarded and can be refused if affected data changed, rather than restoring the whole database.
 
@@ -255,7 +255,7 @@ Allowed query results, entered messages, recent conversation and optional previo
 
 ## Desktop modes and data care
 
-The quick panel is a top-edge native surface, separate from embedding the workspace as wallpaper. Fullscreen focus is a dedicated focus view, not wallpaper mode; keep the shared timer running when switching views. Under **Settings → Interface → Wallpaper appearance**, **Hide navigation and module headers** is enabled by default, while **Hide module backgrounds and borders** is disabled by default. These independent options apply only in wallpaper mode. The second option makes only module shells transparent, preserving internal cards, task rows and inputs. Returning to the foreground restores normal appearance; layout data, module content and the independent Nowly Bar are unchanged.
+The quick panel is a top-edge native surface, separate from embedding the workspace as wallpaper. Fullscreen focus is a dedicated focus view, not wallpaper mode; keep the shared timer running when switching views. Under **Settings → Interface → Wallpaper appearance**, **Hide navigation and module headers** is enabled by default, while **Hide module backgrounds and borders** is disabled by default. These independent options apply only in wallpaper mode. The second option makes only module shells transparent, preserving internal cards, task rows and inputs. Returning to the foreground restores normal appearance; layout data, module content and the independent RESA Bar are unchanged.
 
 Wallpaper/tray operation is not a backup. SQLite is only one part of desktop data: preserve attachment/sticker files, screenshots and relevant WebView storage too. Follow [backup and control guidance](privacy-and-data.en.md#backups-and-control) before changing machines or manually resetting development data.
 
@@ -292,7 +292,7 @@ npm run tauri build                                 # build the Windows executab
 
 If `npm run tauri dev` fails with `LNK2019` / `LNK1120` and the missing symbols
 are predominantly `anon.*.llvm.*`, stop the development process, then clear only
-Nowly's compiled artifacts from the repository root and retry:
+RESA's compiled artifacts from the repository root and retry:
 
 ```powershell
 cargo clean --manifest-path src-tauri\Cargo.toml -p nowly
