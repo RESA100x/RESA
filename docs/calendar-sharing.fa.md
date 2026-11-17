@@ -27,6 +27,15 @@ RESA می‌تواند تقویم‌های Google و Microsoft را هم بخو�
 5. `Client ID` و `Client secret` را بردار. برای این نوع کلاینت ثبت Redirect URI
    لازم نیست؛ RESA روی `http://127.0.0.1:<port>` گوش می‌دهد.
 
+> **API key کافی نیست.** «API key» فقط پروژه را برای داده‌های عمومی معرفی می‌کند؛
+> رویدادهای تقویم داده‌ی خصوصی کاربر است و فقط با **OAuth client ID** (و برای
+> Google، `client secret`) خوانده و نوشته می‌شود. RESA هیچ مسیری برای API key
+> ندارد. اگر اشتباهی API key ساختی، همان را در `Credentials` حذف کن.
+
+> **حالت Testing:** اگر صفحه‌ی رضایت (consent screen) در حالت Testing باشد، فقط
+> ایمیل‌هایی که در `Test users` اضافه شده‌اند می‌توانند وصل شوند. برای اشتراک
+> دو‌نفره، ایمیل هر دو نفر را آنجا اضافه کن (یا برنامه را Publish کن).
+
 ## گام ۲: ساخت کلید Microsoft (اختیاری)
 
 1. به `https://entra.microsoft.com` → `App registrations` → `New registration`.
