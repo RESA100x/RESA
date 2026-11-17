@@ -60,16 +60,66 @@ for (const language of SUPPORTED_LANGUAGES) {
     await page.getByRole('option', { name: 'English', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await page.getByRole('button', { name: translations.en['settings.close'], exact: true }).click();
-    expect(await page.locator('.module-frame').evaluateAll(nodes => nodes.map(node => {
+    const modulesAfter = await page.locator('.module-frame').evaluateAll(nodes => nodes.map(node => {
       const rect = node.getBoundingClientRect();
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-    }))).toEqual(modulesBefore);
+    }));
+    if (LOCALES[language].dir === 'rtl') {
+      // A right-to-left layout mirrors the tiling grid, so the stable layout is
+      // the mirrored geometry rather than the literal one. Fractional track
+      // widths make the mirror an approximation, hence the tolerance.
+      const axis = await page.evaluate(() => {
+        const grid = document.querySelector('[data-testid="module-grid"]') as HTMLElement;
+        const rect = grid.getBoundingClientRect();
+        return rect.left + rect.width / 2;
+      });
+      modulesAfter.forEach((rect, index) => {
+        const before = modulesBefore[index];
+        expect(rect.y).toBeCloseTo(before.y, 3);
+        expect(rect.width).toBeCloseTo(before.width, 3);
+        expect(rect.height).toBeCloseTo(before.height, 3);
+        expect(rect.x).toBeCloseTo(2 * axis - before.x - before.width, 3);
+      });
+    } else {
+      expect(modulesAfter).toEqual(modulesBefore);
+    }
     await page.reload();
     await expect(page.locator('[data-guide="settings"]')).toHaveAccessibleName('Open settings');
     expect(await page.evaluate(() => localStorage.getItem('nowly.language'))).toBe('en');
     expect(errors).toEqual([]);
   });
 }
+
+// The header row mirrors in RTL, and the period chevrons are logical
+// back/forward glyphs, so the two directions must keep agreeing.
+async function calendarPeriodButtons(page: Page, language: Language) {
+  const strings = translations[language];
+  const previous = page.getByRole('button', { name: strings['calendar.prevMonth'], exact: true });
+  const next = page.getByRole('button', { name: strings['calendar.nextMonth'], exact: true });
+  return {
+    previousMarkup: await previous.locator('svg').innerHTML(),
+    nextMarkup: await next.locator('svg').innerHTML(),
+    previousX: (await previous.boundingBox())!.x,
+    nextX: (await next.boundingBox())!.x
+  };
+}
+
+test('calendar period chevrons follow the mirrored right-to-left header', async ({ page }) => {
+  await boot(page, 'en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  const leftToRight = await calendarPeriodButtons(page, 'en');
+  expect(leftToRight.previousX).toBeLessThan(leftToRight.nextX);
+  expect(leftToRight.previousMarkup).not.toBe(leftToRight.nextMarkup);
+
+  await page.evaluate(() => localStorage.setItem('nowly.language', 'fa'));
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
+  const rightToLeft = await calendarPeriodButtons(page, 'fa');
+  expect(rightToLeft.previousX).toBeGreaterThan(rightToLeft.nextX);
+  expect(rightToLeft.previousMarkup).toBe(leftToRight.nextMarkup);
+  expect(rightToLeft.nextMarkup).toBe(leftToRight.previousMarkup);
+});
 
 test('real secondary history window follows a language change in the main window', async ({ page, context }) => {
   await boot(page, 'en');
