@@ -34,28 +34,28 @@ Open either MP4 link to watch or download the recording. The recordings use the 
 
 **Daily workspace** — keep your calendar, priorities and quick notes together, with time always in view.
 
-![Nowly daily workspace with calendar, task matrix, notes and time](website/assets/screenshots/en/workspace.png)
+![RESA daily workspace with calendar, task matrix, notes and time](website/assets/screenshots/en/workspace.png)
 
 **Study layout** — bring deadlines, study tasks and focus time into one workspace.
 
-![Nowly study layout with planning and focus modules](website/assets/screenshots/en/study.png)
+![RESA study layout with planning and focus modules](website/assets/screenshots/en/study.png)
 
 **Project layout** — keep delivery tasks and reference notes close while tracking progress on a board.
 
-![Nowly project layout with a task board and reference notes](website/assets/screenshots/en/project.png)
+![RESA project layout with a task board and reference notes](website/assets/screenshots/en/project.png)
 
 ## Start simply
 
-1. Open Nowly and use **Edit layout → Add module** to choose what belongs on your desktop. Shrink or remove a module if the grid has no free space.
+1. Open RESA and use **Edit layout → Add module** to choose what belongs on your desktop. Shrink or remove a module if the grid has no free space.
 2. Add a schedule, a task or a note; add Time or Stickers when useful.
 3. Use the wallpaper button to place the workspace behind your icons. Double-click the wallpaper or use the tray icon to return to the foreground.
-4. Keep Nowly running in the tray for reminders. Closing a window is not fully exiting; use **Exit Nowly** from the tray to end the process.
+4. Keep RESA running in the tray for reminders. Closing a window is not fully exiting; use **Quit RESA** from the tray to end the process.
 
 See the [user guide](docs/user-guide.en.md) for clocks, alarms, autosave/retry, sticker limits, screenshot storage, native modes and development instructions.
 
 ## Local-first, with clear connection choices
 
-Local work does not require a Nowly account. Structured records use local SQLite, while attachments, sticker images, screenshots and some UI preferences have separate local storage. Connected calendars fetch and cache external events; ordinary calendar editing can write to Google/Microsoft when authorized. Local-first does **not** mean every feature is offline or that nothing is synchronized.
+Local work does not require a RESA account. Structured records use local SQLite, while attachments, sticker images, screenshots and some UI preferences have separate local storage. Connected calendars fetch and cache external events; ordinary calendar editing can write to Google/Microsoft when authorized. Local-first does **not** mean every feature is offline or that nothing is synchronized.
 
 AI is optional. Connect your chosen endpoint/model and allow calendar, task or external-calendar context as needed. Requests send your message, recent conversation, time metadata and allowed query results to that endpoint; **external-calendar permission includes cached Google, Microsoft and ICS events**, even when the model is a different provider. AI proposes local task/calendar changes for explicit confirmation and cannot edit external calendars. See [Privacy and data](docs/privacy-and-data.en.md) for exact fields, credentials, network activity and retention boundaries.
 
@@ -68,3 +68,5 @@ AI is optional. Connect your chosen endpoint/model and allow calendar, task or e
 ## For contributors
 
 React + TypeScript + Vite, hand-authored CSS, Tauri 2/Rust, SQLite and separate local asset files. Existing tests use Vitest, Playwright and Rust tests. Windows development requires Node.js, Rust and Tauri's Windows prerequisites. Commands, source structure and scoped development-reset warnings are preserved in the [development section of the guide](docs/user-guide.en.md#development). This overview is not a platform compatibility test report.
+
+The update check and the feedback links follow the repository configured in `resa.config.json` at the repository root (`repo`, `feedbackEmail`); `RESA_REPO` overrides the repository at build time. Left empty, the app skips the update check instead of offering another project's releases.
