@@ -70,3 +70,5 @@ AI is optional. Connect your chosen endpoint/model and allow calendar, task or e
 React + TypeScript + Vite, hand-authored CSS, Tauri 2/Rust, SQLite and separate local asset files. Existing tests use Vitest, Playwright and Rust tests. Windows development requires Node.js, Rust and Tauri's Windows prerequisites. Commands, source structure and scoped development-reset warnings are preserved in the [development section of the guide](docs/user-guide.en.md#development). This overview is not a platform compatibility test report.
 
 The update check and the feedback links follow the repository configured in `resa.config.json` at the repository root (`repo`, `feedbackEmail`); `RESA_REPO` overrides the repository at build time. Left empty, the app skips the update check instead of offering another project's releases.
+
+Releases come from `.github/workflows/release.yml`: a push to `main` (or a manual run from Actions) builds the Windows installers and publishes the GitHub Release, without the Microsoft Store/MSIX steps. Merge upstream fixes with `git fetch upstream && git merge upstream/main` and push; local commits are preserved.
