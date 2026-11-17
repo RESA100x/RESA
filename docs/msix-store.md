@@ -13,7 +13,7 @@ Use Windows, Rust MSVC, Node dependencies from the lockfile, and the Windows SDK
   -ProductId '9NZ6S35M4CL2' -Version 1.0.5.0 -WebView2 Evergreen
 ```
 
-The Store requires a positive major version, components <= 65535 and revision zero. The repository currently has version 0.1.5, so supply a Store version explicitly. Package version and application version can differ; About shows the Cargo application version. Increment the package version for each upload. x64 is the default; arm64 requires the corresponding Rust target, MSVC libraries and native dependency toolchain. ARM64 has not been validated.
+The Store requires a positive major version, components <= 65535 and revision zero. The repository currently has version 0.2.0, so supply a Store version explicitly. Package version and application version can differ; About shows the Cargo application version. Increment the package version for each upload. x64 is the default; arm64 requires the corresponding Rust target, MSVC libraries and native dependency toolchain. ARM64 has not been validated.
 
 `-TargetDirectory` selects a dedicated Cargo target directory. `-SkipBuild` packages an already built `<TargetDirectory>\<target-triple>\release\nowly.exe`; the caller must ensure this executable matches the checked-out sources. Output defaults to `artifacts\msix` inside this worktree. Output is ignored by Git. Never submit validation fixtures containing an older executable.
 
