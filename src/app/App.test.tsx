@@ -227,7 +227,9 @@ describe('App startup and window behavior', () => {
     await waitFor(() => expect(screen.getByText('还没有便签')).toBeInTheDocument());
     await user.click(screen.getByRole('button', {name:'新增便签'}));
     expect(screen.getByRole('dialog', {name:'新建便签'})).toBeInTheDocument();
-    await user.type(screen.getByLabelText('便签标题'), '产品原则');
+    // The note body is a rich-text editor now, not a title textarea: the first
+    // line becomes the title, so the content field is what gets typed into.
+    await user.type(await screen.findByLabelText('便签内容'), '产品原则');
     await user.click(screen.getByRole('button', {name:'保存便签'}));
     await waitFor(() => expect(createNote).toHaveBeenCalled());
     expect(listNotes).toHaveBeenCalledTimes(2);

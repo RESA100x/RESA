@@ -1550,7 +1550,7 @@ describe('the sheet inside the rail', () => {
     expect(document.querySelector('.status-island__retry')).not.toBeInTheDocument();
   });
 
-  it('opens the full assistant from the menu without a compact composer state', async () => {
+  it('opens the full assistant from the panel without a compact composer state', async () => {
     let openPanel: ((event: { payload: { generation: number; source: 'nowly' | 'menu'; identity: null; hovered: false } }) => void) | null = null;
     listenMock.mockImplementation((name: string, callback: typeof openPanel) => {
       if (name === 'status-island-details-open') openPanel = callback;
@@ -1576,9 +1576,11 @@ describe('the sheet inside the rail', () => {
     expect(document.querySelector('.status-rail')).toHaveAttribute('data-surface', 'status');
     expect(screen.queryByRole('textbox', { name: '告诉 RESA 你想做什么' })).not.toBeInTheDocument();
 
+    // The menu deliberately hides AI features, so the assistant is reached from
+    // the panel's own open event rather than a menu entry.
     await act(async () => openPanel?.({ payload: { generation: 6, source: 'menu', identity: null, hovered: false } }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'AI 助手' }));
-    expect(invocations('toggle_nowly_panel')).toHaveLength(1);
+    expect(screen.queryByRole('menuitem', { name: 'AI 助手' })).not.toBeInTheDocument();
+    expect(invocations('toggle_nowly_panel')).toHaveLength(0);
     await act(async () => openPanel?.({ payload: { generation: 7, source: 'nowly', identity: null, hovered: false } }));
 
     const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
@@ -1619,8 +1621,6 @@ describe('the sheet inside the rail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'RESA' }));
     expect(invokeMock).toHaveBeenCalledWith('toggle_bar_menu');
     await emitPanelEvent('status-island-details-open', { generation: 6, source: 'menu', identity: null, hovered: false });
-    fireEvent.click(screen.getByRole('menuitem', { name: 'AI 助手' }));
-    expect(invokeMock).toHaveBeenCalledWith('toggle_nowly_panel');
     await act(async () => openPanel?.({ payload: { generation: 7, source: 'nowly', identity: null, hovered: false } }));
     const input = await screen.findByRole('textbox', { name: '告诉 RESA 你想做什么' });
     await waitFor(() => expect(input).toHaveFocus());
