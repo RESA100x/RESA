@@ -9,6 +9,7 @@ import {
   type ReactNode
 } from 'react';
 import { useNowlyRepository } from '../data/RepositoryContext';
+import type { Recurrence } from '../calendar/calendar-model';
 import { t } from '../i18n';
 import {
   emptyTaskWorkspace,
@@ -46,6 +47,7 @@ type TaskWorkspaceContextValue = {
   updateTask(id: string, draft: TaskDraft): Promise<Task>;
   deleteTask(id: string): Promise<void>;
   setTaskCompleted(id: string, completed: boolean): Promise<Task>;
+  setTaskRecurrence(id: string, recurrence: Recurrence | null): Promise<Task>;
   moveTaskToLane(id: string, laneId: string, targetIndex: number): Promise<Task>;
   moveTaskToPriority(id: string, priority: TaskPriority): Promise<Task>;
   moveTaskToDate(id: string, dueDate: string | null): Promise<Task>;
@@ -268,6 +270,12 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, [patchSnapshot, repository, taskWrite]);
 
+  const setTaskRecurrence = useCallback((id: string, recurrence: Recurrence | null) => {
+    const write = repository.setTaskRecurrence;
+    if (!write) return Promise.reject(new Error(missing('setTaskRecurrence')));
+    return taskWrite(id, () => write(id, recurrence));
+  }, [repository, taskWrite]);
+
   const moveTaskToLane = useCallback((id: string, laneId: string, targetIndex: number) => {
     const write = repository.moveTaskToLane ?? (() => missing('moveTaskToLane'));
     const previous = dataRef.current;
@@ -333,6 +341,7 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     updateTask,
     deleteTask,
     setTaskCompleted,
+    setTaskRecurrence,
     moveTaskToLane,
     moveTaskToPriority,
     moveTaskToDate,
@@ -354,7 +363,7 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     setViewPreferences: (preferences) => snapshotWrite(() => (repository.setTaskViewPreferences ?? (() => missing('setTaskViewPreferences')))(preferences)).then(() => undefined)
   }), [
     workspace, pendingTaskIds, operationError, retry, refresh, createTask, updateTask, deleteTask,
-    setTaskCompleted, moveTaskToLane, moveTaskToPriority, moveTaskToDate,
+    setTaskCompleted, setTaskRecurrence, moveTaskToLane, moveTaskToPriority, moveTaskToDate,
     snapshotWrite, reloadAfter, repository
   ]);
 

@@ -70,12 +70,13 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (40, migration_40_optional_task_lane),
     (41, migration_41_reset_tasks_for_free_lanes),
     (42, migration_42_axelor_sources),
+    (43, migration_43_task_recurrence),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
 // cascade into steps, tag links and linked events. These migrations run with
 // foreign keys off and are checked with `foreign_key_check` before commit.
-const FOREIGN_KEYS_OFF_MIGRATIONS: &[i64] = &[40, 42];
+const FOREIGN_KEYS_OFF_MIGRATIONS: &[i64] = &[40, 42, 43];
 
 fn apply_migration(connection: &mut Connection, version: i64, apply: Migration) -> Result<()> {
     let foreign_keys_off = FOREIGN_KEYS_OFF_MIGRATIONS.contains(&version);
@@ -223,6 +224,52 @@ fn migration_42_axelor_sources(transaction: &Transaction<'_>) -> Result<()> {
             ON calendar_subscriptions(axelor_server_id)
             WHERE axelor_server_id IS NOT NULL;",
     )
+}
+
+// Recurring tasks keep one row per occurrence so history stays visible. The
+// rule is stored as JSON on every occurrence, `recurrence_parent_id` points at
+// the series root and `recurrence_anchor_date` keeps the original due date the
+// weekday/month stride is measured from. Adding columns means rebuilding the
+// table (foreign keys off, see `FOREIGN_KEYS_OFF_MIGRATIONS`).
+fn migration_43_task_recurrence(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE tasks_v43 (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            priority TEXT CHECK (priority IN
+              ('important_urgent','important_not_urgent','not_important_urgent','not_important_not_urgent')),
+            due_date TEXT,
+            completed INTEGER NOT NULL CHECK (completed IN (0,1)),
+            lane_id TEXT REFERENCES task_lanes(id),
+            board_position INTEGER NOT NULL,
+            linked_event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            completed_at TEXT,
+            recurrence TEXT,
+            recurrence_parent_id TEXT,
+            recurrence_anchor_date TEXT
+         );
+         INSERT INTO tasks_v43(id,title,description,priority,due_date,completed,lane_id,
+                               board_position,linked_event_id,created_at,updated_at,
+                               completed_at,recurrence,recurrence_parent_id,
+                               recurrence_anchor_date)
+            SELECT id,title,description,priority,due_date,completed,lane_id,
+                   board_position,linked_event_id,created_at,updated_at,
+                   completed_at,NULL,NULL,NULL FROM tasks;
+         DROP TABLE tasks;
+         ALTER TABLE tasks_v43 RENAME TO tasks;
+         CREATE INDEX idx_tasks_lane ON tasks(lane_id, board_position);
+         CREATE INDEX idx_tasks_priority ON tasks(priority, completed);
+         CREATE INDEX idx_tasks_due ON tasks(due_date, completed);
+         CREATE INDEX idx_tasks_updated ON tasks(updated_at);
+         CREATE UNIQUE INDEX idx_tasks_linked_event
+            ON tasks(linked_event_id) WHERE linked_event_id IS NOT NULL;
+         CREATE INDEX idx_tasks_recurrence ON tasks(recurrence_parent_id)
+            WHERE recurrence_parent_id IS NOT NULL;",
+    )?;
+    crate::assistant::store::install_triggers(transaction)
 }
 
 /// Lanes the pre-41 schema seeded; tests that exercise lane behaviour add them.
@@ -3308,6 +3355,43 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count("SELECT COUNT(*) FROM calendar_subscriptions"), 2);
+    }
+
+    #[test]
+    fn migration_43_keeps_tasks_steps_and_tag_links() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrate_through(&mut connection, 42).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO tasks(id,title,description,priority,due_date,completed,lane_id,
+                                    board_position,linked_event_id,created_at,updated_at,completed_at)
+                   VALUES ('t1','一','','important_urgent','2026-03-01',0,NULL,0,NULL,'t','t',NULL);
+                 INSERT INTO task_tags(id,name,color,archived_at,created_at,updated_at)
+                   VALUES ('g1','标签','#2563EB',NULL,'t','t');
+                 INSERT INTO task_tag_links(task_id,tag_id) VALUES ('t1','g1');
+                 INSERT INTO task_steps(id,task_id,title,completed,position,created_at,updated_at)
+                   VALUES ('s1','t1','步',0,0,'t','t');",
+            )
+            .unwrap();
+        migrate(&mut connection).unwrap();
+        let count = |sql: &str| -> i64 { connection.query_row(sql, [], |row| row.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM tasks WHERE id='t1' AND due_date='2026-03-01'"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM task_steps WHERE task_id='t1'"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM task_tag_links WHERE task_id='t1'"), 1);
+        for column in ["recurrence", "recurrence_parent_id", "recurrence_anchor_date"] {
+            assert_eq!(
+                count(&format!(
+                    "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name='{column}'"
+                )),
+                1,
+                "{column}"
+            );
+        }
+        let violations: i64 = connection
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(violations, 0);
     }
 
     #[test]

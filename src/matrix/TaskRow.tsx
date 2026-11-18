@@ -3,6 +3,7 @@ import { formatTaskMeta } from '../lib/task-draft';
 import { colorStyle } from '../lib/color';
 import type { MatrixTask } from './matrix-model';
 import { t } from '../i18n';
+import { Repeat } from '../components/icons';
 import { TaskStepCount } from '../tasks/TaskStepCount';
 import { celebrateTaskCompletion } from '../tasks/completion-celebration';
 import { priorityColors } from '../tasks/task-projections';
@@ -85,6 +86,12 @@ export function TaskRow({ task, today, pending, dragging = false, onToggle, onOp
                   {tag.name}
                 </span>
               ))}
+            </span>
+          ) : null}
+          {task.recurrence ? (
+            <span className="task-row__repeat" title={t('taskRow.recurring')}>
+              <Repeat aria-hidden="true" />
+              <span className="visually-hidden">{t('taskRow.recurring')}</span>
             </span>
           ) : null}
         </div>

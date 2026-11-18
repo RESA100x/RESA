@@ -161,6 +161,24 @@ describe('UnifiedTaskDialog', () => {
     })));
   });
 
+  it('stores a weekly recurrence through its own command after saving', async () => {
+    const user = userEvent.setup();
+    const createWorkspaceTask = vi.fn().mockResolvedValue(created);
+    const setTaskRecurrence = vi.fn().mockResolvedValue({
+      ...created,
+      recurrence: { freq: 'weekly', interval: 1, byDay: ['MO'], end: { kind: 'never' } }
+    });
+    render(<UnifiedTaskDialog mode={{ type: 'create', dueDate: '2026-03-02' }} onClose={vi.fn()} />,
+      { wrapper: wrapper({ getTaskWorkspaceSnapshot: vi.fn().mockResolvedValue(workspace), createWorkspaceTask, setTaskRecurrence }) });
+    await user.type(await screen.findByLabelText('任务标题'), '整理周报');
+    await user.click(screen.getByRole('combobox', { name: '重复' }));
+    await user.click(screen.getByRole('option', { name: '每周' }));
+    await user.click(screen.getByRole('button', { name: '保存任务' }));
+    await waitFor(() => expect(setTaskRecurrence).toHaveBeenCalledWith('task-1', {
+      freq: 'weekly', interval: 1, byDay: ['MO'], end: { kind: 'never' }
+    }));
+  });
+
   it('keeps completion unchanged when the lane changes', async () => {
     const user = userEvent.setup();
     const done = { ...created, completed: true };

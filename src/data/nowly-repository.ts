@@ -5,7 +5,8 @@ import type {
   EditScope,
   EventDraft,
   EventRange,
-  EventTarget
+  EventTarget,
+  Recurrence
 } from '../calendar/calendar-model';
 import type { AxelorModel, CalendarSubscription, ExternalEvent, OAuthAccount, RemoteCalendar, SubscriptionDraft } from '../calendar/subscription-model';
 import type {
@@ -196,6 +197,8 @@ export type NowlyRepository = {
   updateWorkspaceTask?(id: string, draft: WorkspaceTaskDraft): Promise<WorkspaceTask>;
   deleteWorkspaceTask?(id: string): Promise<void>;
   setWorkspaceTaskCompleted?(id: string, completed: boolean): Promise<WorkspaceTask>;
+  // Sets or clears the recurrence rule of a task (habits / repeating tasks).
+  setTaskRecurrence?(id: string, recurrence: Recurrence | null): Promise<WorkspaceTask>;
   moveTaskToLane?(id: string, laneId: string, targetIndex: number): Promise<WorkspaceTask>;
   moveTaskToPriority?(id: string, priority: WorkspaceTask['priority']): Promise<WorkspaceTask>;
   moveTaskToDate?(id: string, dueDate: string | null): Promise<WorkspaceTask>;

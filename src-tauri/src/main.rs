@@ -46,6 +46,7 @@ mod status_island;
 mod stickers;
 mod subscription_sync;
 mod subscriptions;
+mod task_recurrence;
 mod task_workspace;
 mod time;
 mod timezone;
@@ -630,6 +631,7 @@ fn main() {
             task_workspace::update_task,
             task_workspace::delete_task,
             task_workspace::set_task_completed,
+            task_workspace::set_task_recurrence,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,

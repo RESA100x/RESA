@@ -34,6 +34,7 @@ export function taskToMatrixTask(task: Task, tags: TaskTag[] = [], lanes: TaskLa
     note: task.description,
     tags: resolvedTags,
     steps: task.steps,
+    recurrence: task.recurrence ?? null,
     lane: lane ? { id: lane.id, name: lane.name, color: lane.color } : null,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt

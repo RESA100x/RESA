@@ -8,6 +8,15 @@ import { Select } from '../components/Select';
 import type { RepositoryError } from '../data/nowly-repository';
 import { t } from '../i18n';
 import { KanbanMultiSelect } from '../kanban/KanbanMultiSelect';
+import {
+  presetToRecurrence,
+  recurrenceToPreset,
+  validateRecurrence,
+  WEEKDAYS,
+  weekdayOf,
+  type RecurrencePreset
+} from '../lib/recurrence';
+import type { Recurrence, RecurrenceFreq, Weekday } from '../calendar/calendar-model';
 import { quadrantLabel } from '../matrix/matrix-model';
 import { priorityColors } from './task-projections';
 import { useTaskWorkspace } from './TaskWorkspaceContext';
@@ -44,7 +53,18 @@ type Form = {
   tagIds: string[];
   steps: TaskStepItem[];
   stepInput: string;
+  recurrence: Recurrence | null;
 };
+
+function todayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+const presetOptions = () => (['none', 'daily', 'weekly', 'monthly', 'yearly', 'custom'] as const)
+  .map((preset) => ({ value: preset, label: t(`recurrence.preset.${preset}`) }));
+const freqOptions = () => (['daily', 'weekly', 'monthly', 'yearly'] as const)
+  .map((freq) => ({ value: freq, label: t(`recurrence.freq.${freq}`) }));
 
 function message(error: unknown) {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
@@ -67,7 +87,8 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
         steps: (mode.task.steps ?? []).map((step) => ({
           key: step.id, id: step.id, title: step.title, completed: step.completed
         })),
-        stepInput: ''
+        stepInput: '',
+        recurrence: mode.task.recurrence ?? null
       };
     }
     return {
@@ -78,7 +99,8 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       laneId: mode.laneId !== undefined ? mode.laneId : showLane ? snapshot.defaultLaneId : null,
       tagIds: [],
       steps: [],
-      stepInput: ''
+      stepInput: '',
+      recurrence: null
     };
   }, [mode, showLane, snapshot.defaultLaneId]);
   // A task that is off the board has no lane to pick.
@@ -87,6 +109,10 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   const [dialogError, setDialogError] = useState('');
   const [dateOpen, setDateOpen] = useState(false);
+  const [recurrenceDateOpen, setRecurrenceDateOpen] = useState(false);
+  const [preset, setPreset] = useState<RecurrencePreset>(() =>
+    recurrenceToPreset(initial.recurrence, `${initial.dueDate || todayIso()}T00:00`)
+  );
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'discard' | 'delete' | null>(null);
   const titleId = useId();
@@ -102,6 +128,39 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
   };
   const toggle = (values: string[], id: string, checked: boolean) =>
     checked ? [...values, id] : values.filter((value) => value !== id);
+
+  const recurrenceAnchor = () => `${form.dueDate || todayIso()}T00:00`;
+  const changePreset = (next: RecurrencePreset) => {
+    setPreset(next);
+    update('recurrence', presetToRecurrence(next, recurrenceAnchor()));
+  };
+  const patchRecurrence = (patch: Partial<Recurrence>) => {
+    if (!form.recurrence) return;
+    update('recurrence', { ...form.recurrence, ...patch });
+  };
+  const toggleWeekday = (day: Weekday) => {
+    if (!form.recurrence) return;
+    const chosen = new Set(form.recurrence.byDay);
+    if (!chosen.delete(day)) chosen.add(day);
+    patchRecurrence({ byDay: WEEKDAYS.filter((value) => chosen.has(value)) });
+  };
+  const changeEnd = (kind: Recurrence['end']['kind']) => {
+    if (!form.recurrence) return;
+    const anchor = form.dueDate || todayIso();
+    const end: Recurrence['end'] = kind === 'until'
+      ? { kind, date: anchor }
+      : kind === 'count'
+        ? { kind, count: 10 }
+        : { kind: 'never' };
+    patchRecurrence({ end });
+  };
+  // A weekly rule seeded from the due date follows it when the date changes.
+  const changeDueDate = (value: string) => {
+    update('dueDate', value);
+    if (value && form.recurrence?.freq === 'weekly' && form.recurrence.byDay.length === 1) {
+      patchRecurrence({ byDay: [weekdayOf(value)] });
+    }
+  };
 
   function requestClose() {
     if (busy) return;
@@ -132,13 +191,23 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       setFieldError({ field: 'title', message: t('taskDraft.errorTitle') });
       return;
     }
+    const recurrenceError = validateRecurrence(form.recurrence, recurrenceAnchor());
+    if (recurrenceError) {
+      setFieldError({ field: 'recurrence', message: recurrenceError });
+      return;
+    }
     setBusy(true);
     setDialogError('');
     setFieldError(null);
     try {
-      const saved = mode.type === 'create'
+      let saved = mode.type === 'create'
         ? await workspace.createTask(draft())
         : await workspace.updateTask(mode.task.id, draft());
+      // Recurrence lives on its own command so the other task writers
+      // (assistant, quick toggles) never wipe an existing rule.
+      if (JSON.stringify(saved.recurrence ?? null) !== JSON.stringify(form.recurrence)) {
+        saved = await workspace.setTaskRecurrence(saved.id, form.recurrence);
+      }
       await onSaved?.(saved);
       onClose();
     } catch (error) {
@@ -171,7 +240,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
     <Dialog
       title={mode.type === 'create' ? t('taskModal.createTitle') : t('taskModal.editTitle')}
       ariaLabelledBy={titleId}
-      isTopLayer={!confirm && !dateOpen}
+      isTopLayer={!confirm && !dateOpen && !recurrenceDateOpen}
       restoreFocusRef={restoreFocusRef}
       onRequestClose={requestClose}
       className="task-dialog"
@@ -226,8 +295,70 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
               disabled={busy} onChange={(value) => update('laneId', value)} />
           ) : null}
           <DatePicker id="unified-task-due-date" label={t('taskModal.dueDate')} value={form.dueDate}
-            disabled={busy} open={dateOpen} onOpenChange={setDateOpen} onChange={(value) => update('dueDate', value)} />
+            disabled={busy} open={dateOpen} onOpenChange={setDateOpen} onChange={changeDueDate} />
         </div>
+        <fieldset className="task-form__recurrence" disabled={busy}>
+          <legend>{t('taskModal.recurrence')}</legend>
+          <div className="recurrence-field">
+            <Select id="unified-task-recurrence" label={t('taskModal.recurrence')} hideLabel
+              options={presetOptions()} value={preset} onChange={(value) => changePreset(value as RecurrencePreset)} />
+            {preset === 'custom' && form.recurrence ? (
+              <div className="recurrence-custom">
+                <div className="form-row">
+                  <Select id="unified-task-recurrence-freq" label={t('recurrence.freqLabel')}
+                    options={freqOptions()} value={form.recurrence.freq}
+                    onChange={(value) => patchRecurrence({ freq: value as RecurrenceFreq })} />
+                  <div className="good-field">
+                    <label htmlFor="unified-task-recurrence-interval">{t('recurrence.interval')}</label>
+                    <input id="unified-task-recurrence-interval" className="good-input" type="number" min={1}
+                      value={form.recurrence.interval}
+                      onChange={(event) => patchRecurrence({ interval: Number(event.target.value) })} />
+                  </div>
+                </div>
+                {form.recurrence.freq === 'weekly' ? (
+                  <fieldset className="recurrence-weekdays">
+                    <legend>{t('recurrence.byDay')}</legend>
+                    {WEEKDAYS.map((day, index) => (
+                      <label key={day} className="form-check form-check-custom form-check-solid">
+                        <input className="form-check-input" type="checkbox"
+                          checked={form.recurrence?.byDay.includes(day) ?? false}
+                          onChange={() => toggleWeekday(day)} />
+                        <span className="form-check-label">{t('recurrence.weekdays').split(',')[index]}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                ) : null}
+                <fieldset className="recurrence-end">
+                  <legend>{t('recurrence.endLabel')}</legend>
+                  {(['never', 'until', 'count'] as const).map((kind) => (
+                    <label key={kind} className="form-check form-check-custom form-check-solid">
+                      <input className="form-check-input" type="radio" name="unified-task-recurrence-end"
+                        value={kind} checked={form.recurrence?.end.kind === kind}
+                        onChange={() => changeEnd(kind)} />
+                      <span className="form-check-label">{t(`recurrence.end.${kind}`)}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                {form.recurrence.end.kind === 'until' ? (
+                  <DatePicker id="unified-task-recurrence-until" label={t('recurrence.until')}
+                    value={form.recurrence.end.date} open={recurrenceDateOpen}
+                    onOpenChange={setRecurrenceDateOpen}
+                    onChange={(date) => patchRecurrence({ end: { kind: 'until', date } })} />
+                ) : null}
+                {form.recurrence.end.kind === 'count' ? (
+                  <div className="good-field">
+                    <label htmlFor="unified-task-recurrence-count">{t('recurrence.count')}</label>
+                    <input id="unified-task-recurrence-count" className="good-input" type="number" min={1}
+                      value={form.recurrence.end.count}
+                      onChange={(event) => patchRecurrence({ end: { kind: 'count', count: Number(event.target.value) } })} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {fieldError?.field === 'recurrence' ? <span className="field-error">{fieldError.message}</span> : null}
+            {form.recurrence ? <p className="task-form__hint">{t('taskModal.recurrenceHint')}</p> : null}
+          </div>
+        </fieldset>
         <div className="good-field">
           <label id="unified-task-description-label">{t('kanbanTask.description')}</label>
           <RichEditor id="unified-task-description" labelledBy="unified-task-description-label"

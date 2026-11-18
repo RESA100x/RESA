@@ -1,5 +1,6 @@
 import type { HexColor } from '../lib/color';
 import type { TaskStep } from '../tasks/task-model';
+import type { Recurrence } from '../calendar/calendar-model';
 
 export type Quadrant = 'important_urgent' | 'important_not_urgent' | 'not_important_urgent' | 'not_important_not_urgent';
 
@@ -23,6 +24,8 @@ export type MatrixTask = {
   note: string;
   tags: MatrixTaskTag[];
   steps?: TaskStep[];
+  // Present on recurring tasks (habits); shown as a repeat badge.
+  recurrence?: Recurrence | null;
   // The kanban lane of an open task on the board, shown as a chip.
   lane?: MatrixTaskLane | null;
   createdAt: string;

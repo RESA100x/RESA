@@ -83,6 +83,13 @@ pub struct Task {
     pub linked_event_id: Option<String>,
     #[serde(default)]
     pub steps: Vec<TaskStep>,
+    // Recurring tasks store one row per occurrence; this rule is copied onto
+    // every occurrence of the series.
+    #[serde(default)]
+    pub recurrence: Option<Recurrence>,
+    // The series root's id; None on the first occurrence.
+    #[serde(default)]
+    pub recurrence_parent_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

@@ -723,6 +723,8 @@ body:has(.screen-status-island-root),
 .task-row__title { min-width: 0; padding: 0; overflow: hidden; border: 0; color: var(--text-strong); background: transparent; font-size: 0.95rem; font-weight: 600; line-height: 1.5; text-align: start; text-overflow: ellipsis; white-space: nowrap; }
 .task-row__title:hover { color: var(--color-primary-active); }
 .task-row__tags { flex: none; display: inline-flex; align-items: center; gap: 8px; overflow: hidden; }
+.task-row__repeat { flex: none; display: inline-flex; align-items: center; color: var(--text-tertiary); }
+.task-row__repeat svg { width: 14px; height: 14px; }
 .task-tag { display: inline-flex; align-items: center; gap: 2px; font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
 .task-tag__hash { color: inherit; opacity: 0.7; }
 /* The kanban lane of an open task on the board (§10.9 status badge). */
@@ -1410,6 +1412,9 @@ body:has(.screen-status-island-root),
 .task-dialog { width: min(680px, calc(100vw - 32px)); }
 .task-form { display: grid; gap: 20px; }
 .task-form__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.task-form__recurrence { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 8px; }
+.task-form__recurrence legend { padding: 0; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; line-height: 1.5; }
+.task-form__hint { margin: 0; color: var(--text-tertiary); font-size: 0.85rem; line-height: 1.5; }
 /* Quadrant picker: four radios in a 2 × 2 grid, mirroring the matrix layout. */
 .quadrant-picker { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 8px; }
 .quadrant-picker__legend { padding: 0; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; line-height: 1.5; }

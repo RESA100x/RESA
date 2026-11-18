@@ -744,6 +744,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'taskRow.complete': '完成任务：{title}',
     'taskRow.edit': '编辑任务：{title}',
     'taskRow.lane': '看板泳道：{name}',
+    'taskRow.recurring': '重复任务',
     'taskSteps.title': '步骤',
     'taskSteps.progress': '已完成 {done}/{total} 个步骤',
     'taskSteps.newLabel': '新步骤',
@@ -872,6 +873,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'taskModal.quadrant': '所属象限',
     'taskModal.dueDate': '截止日期',
     'taskModal.lane': '看板泳道',
+    'taskModal.recurrence': '重复',
+    'taskModal.recurrenceHint': '完成后会自动生成下一个任务。',
     'taskModal.deleteTitle': '永久删除“{title}”？',
 
     // NotesManagerDialog
@@ -1769,6 +1772,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'taskRow.complete': 'Complete task: {title}',
     'taskRow.edit': 'Edit task: {title}',
     'taskRow.lane': 'Board lane: {name}',
+    'taskRow.recurring': 'Recurring task',
     'taskSteps.title': 'Steps',
     'taskSteps.progress': 'Steps completed: {done}/{total}',
     'taskSteps.newLabel': 'New step',
@@ -1897,6 +1901,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'taskModal.quadrant': 'Quadrant',
     'taskModal.dueDate': 'Due date',
     'taskModal.lane': 'Board lane',
+    'taskModal.recurrence': 'Repeat',
+    'taskModal.recurrenceHint': 'Completing this task creates the next one automatically.',
     'taskModal.deleteTitle': 'Permanently delete "{title}"?',
 
     // NotesManagerDialog

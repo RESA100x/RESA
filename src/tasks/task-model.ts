@@ -1,4 +1,5 @@
 import type { HexColor } from '../lib/color';
+import type { Recurrence } from '../calendar/calendar-model';
 
 export type TaskPriority =
   | 'important_urgent'
@@ -34,6 +35,10 @@ export type Task = {
   boardPosition: number;
   tagIds: string[];
   steps: TaskStep[];
+  // Recurring tasks keep one row per occurrence; the rule is copied onto each.
+  recurrence?: Recurrence | null;
+  // The series root's id; null on the first occurrence.
+  recurrenceParentId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -132,13 +137,19 @@ export function normalizeTaskWorkspace(snapshot: TaskWorkspaceSnapshot): TaskWor
     ...snapshot,
     defaultLaneId: snapshot.defaultLaneId ?? null,
     tasks: snapshot.tasks.map((task) =>
-      Array.isArray(task.steps) && isTaskPriority(task.priority) && task.completedAt !== undefined
+      Array.isArray(task.steps) &&
+      isTaskPriority(task.priority) &&
+      task.completedAt !== undefined &&
+      task.recurrence !== undefined &&
+      task.recurrenceParentId !== undefined
         ? task
         : {
             ...task,
             steps: Array.isArray(task.steps) ? task.steps : [],
             priority: isTaskPriority(task.priority) ? task.priority : defaultTaskPriority,
-            completedAt: task.completedAt ?? null
+            completedAt: task.completedAt ?? null,
+            recurrence: task.recurrence ?? null,
+            recurrenceParentId: task.recurrenceParentId ?? null
           }
     )
   };

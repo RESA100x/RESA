@@ -29,6 +29,8 @@ import { isContentEmpty } from '../components/rich-text/content';
 import { normalizeBarMenu } from '../app/bar-menu';
 import { isQuickCreateKind } from '../quick-create/request';
 import { alarmToDraft, defaultTimeSettings, type Alarm, type AlarmDraft, type AlarmNotice, type TimeSettings } from '../time/time-model';
+import { formatDate, nextTaskDueDate } from '../lib/task-recurrence';
+import type { Recurrence } from '../calendar/calendar-model';
 
 type Dict = Record<string, unknown>;
 
@@ -379,6 +381,38 @@ export function installBrowserTauriBackend() {
     } catch {
       /* storage disabled; keep running from in-memory state */
     }
+  };
+
+  // Mirrors the Rust backend: completing a recurring task writes the next
+  // occurrence (same lane, tags and steps, steps reset to open).
+  const spawnBrowserOccurrence = (task: Dict) => {
+    const rule = task.recurrence as Recurrence | null | undefined;
+    if (!rule) return;
+    const anchor = (task.dueDate as string | null) ?? formatDate(new Date());
+    const root = (task.recurrenceParentId as string | null) ?? (task.id as string);
+    const occurrences = store.tasks.filter((item) => item.id === root || item.recurrenceParentId === root).length;
+    const next = nextTaskDueDate(rule, anchor, anchor || formatDate(new Date()), occurrences);
+    if (!next) return;
+    if (store.tasks.some((item) =>
+      (item.id === root || item.recurrenceParentId === root) && item.dueDate === next && item.completed !== true
+    )) return;
+    const laneId = (task.laneId as string | null) ?? null;
+    store.tasks.push({
+      ...task,
+      id: id('t'),
+      dueDate: next,
+      completed: false,
+      completedAt: null,
+      linkedEventId: null,
+      recurrenceParentId: root,
+      boardPosition: laneId === null ? 0 : store.tasks.filter((item) => item.laneId === laneId).length,
+      steps: Array.isArray(task.steps)
+        ? (task.steps as Dict[]).map((step) => ({ ...step, id: id('step'), completed: false }))
+        : [],
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    });
+    persist();
   };
 
   persist();
@@ -747,6 +781,7 @@ export function installBrowserTauriBackend() {
         ? { ...current, completed: true, completedAt: nowIso(), updatedAt: nowIso() }
         : { ...current, completed: false, completedAt: null, boardPosition: current.laneId ? -1 : current.boardPosition, updatedAt: nowIso() };
       store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
+      if (a.completed) spawnBrowserOccurrence(updated);
       if (!a.completed && updated.laneId) {
         const lane = store.tasks.filter((task) => task.laneId === updated.laneId)
           .sort((left, right) => Number(left.boardPosition) - Number(right.boardPosition));
@@ -755,6 +790,21 @@ export function installBrowserTauriBackend() {
       }
       persist();
       return store.tasks.find((task) => task.id === a.id);
+    },
+    set_task_recurrence: (a) => {
+      const current = store.tasks.find((task) => task.id === a.id);
+      if (!current) return undefined;
+      const rule = (a.recurrence as Recurrence | null) ?? null;
+      const updated: Dict = {
+        ...current,
+        recurrence: rule,
+        recurrenceParentId: null,
+        dueDate: rule ? current.dueDate ?? formatDate(new Date()) : current.dueDate,
+        updatedAt: nowIso()
+      };
+      store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
+      persist();
+      return updated;
     },
     move_task_to_lane: (a) => {
       const moving = store.tasks.find((task) => task.id === a.id);

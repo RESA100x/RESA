@@ -4,8 +4,10 @@ use crate::models::{
     Task, TaskDraft, TaskLane, TaskLaneDraft, TaskStep, TaskStepDraft, TaskTag, TaskTagDraft,
     TaskWorkspaceSnapshot,
 };
+use crate::recurrence::{Recurrence, RecurrenceEnd};
+use crate::task_recurrence;
 use crate::write_scope::DomainWrite;
-use chrono::{NaiveDate, SecondsFormat, Utc};
+use chrono::{Local, NaiveDate, SecondsFormat, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -133,6 +135,11 @@ fn read_task_base(row: &Row<'_>) -> rusqlite::Result<Task> {
         tag_ids: Vec::new(),
         linked_event_id: row.get(8)?,
         steps: Vec::new(),
+        recurrence: row
+            .get::<_, Option<String>>(12)?
+            .as_deref()
+            .and_then(task_recurrence::rule_from_json),
+        recurrence_parent_id: row.get(13)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
     })
@@ -169,7 +176,8 @@ fn task_by_id(connection: &Connection, id: &str) -> Result<Option<Task>, Command
     let mut task = connection
         .query_row(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
-                    linked_event_id,created_at,updated_at,completed_at
+                    linked_event_id,created_at,updated_at,completed_at,
+                    recurrence,recurrence_parent_id
              FROM tasks WHERE id=?1",
             [id],
             read_task_base,
@@ -186,7 +194,8 @@ fn list_tasks(connection: &Connection) -> Result<Vec<Task>, CommandError> {
     let mut tasks = connection
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
-                    linked_event_id,created_at,updated_at,completed_at
+                    linked_event_id,created_at,updated_at,completed_at,
+                    recurrence,recurrence_parent_id
              FROM tasks ORDER BY lane_id,board_position,id",
         )
         .map_err(CommandError::database)?
@@ -713,6 +722,197 @@ fn set_completed_value(
         .map_err(sql_write_error)?;
     if !completed {
         renumber_lane(&transaction, existing.lane_id.as_deref())?;
+    } else {
+        spawn_next_occurrence(&transaction, &existing, &now)?;
+    }
+    let task =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(task)
+}
+
+fn parse_date(value: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()
+}
+
+/// Completing a recurring task writes its next occurrence in the same
+/// transaction, so the series never loses a step if the write is rolled back.
+/// The next date is derived from the completed occurrence's due date; a rule
+/// that has ended (until/count) simply produces nothing.
+fn spawn_next_occurrence(
+    transaction: &Connection,
+    task: &Task,
+    now: &str,
+) -> Result<(), CommandError> {
+    let Some(rule) = task.recurrence.as_ref() else {
+        return Ok(());
+    };
+    let root = task
+        .recurrence_parent_id
+        .clone()
+        .unwrap_or_else(|| task.id.clone());
+    let stored_anchor: Option<String> = transaction
+        .query_row(
+            "SELECT recurrence_anchor_date FROM tasks WHERE id=?1",
+            [&task.id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(CommandError::database)?
+        .flatten();
+    let Some(anchor) = stored_anchor
+        .as_deref()
+        .and_then(parse_date)
+        .or_else(|| task.due_date.as_deref().and_then(parse_date))
+    else {
+        return Ok(());
+    };
+    let current = task
+        .due_date
+        .as_deref()
+        .and_then(parse_date)
+        .unwrap_or(anchor);
+    let occurrences: i64 = transaction
+        .query_row(
+            "SELECT COUNT(*) FROM tasks WHERE id=?1 OR recurrence_parent_id=?1",
+            [&root],
+            |row| row.get(0),
+        )
+        .map_err(CommandError::database)?;
+    let occurrences = u32::try_from(occurrences).unwrap_or(u32::MAX);
+    let Some(next) = task_recurrence::next_due_date(rule, anchor, current, occurrences) else {
+        return Ok(());
+    };
+    let next_date = next.format("%Y-%m-%d").to_string();
+    // Reopening and re-completing the same occurrence must not duplicate it.
+    let already_open: bool = transaction
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM tasks
+                            WHERE (id=?1 OR recurrence_parent_id=?1) AND due_date=?2 AND completed=0)",
+            params![root, next_date],
+            |row| row.get(0),
+        )
+        .map_err(CommandError::database)?;
+    if already_open {
+        return Ok(());
+    }
+    let id = Uuid::new_v4().hyphenated().to_string();
+    let position = next_position(transaction, task.lane_id.as_deref())?;
+    let rule_json = task_recurrence::rule_to_json(rule);
+    let anchor_text = anchor.format("%Y-%m-%d").to_string();
+    transaction
+        .execute(
+            "INSERT INTO tasks(id,title,description,priority,due_date,completed,lane_id,
+                               board_position,linked_event_id,created_at,updated_at,
+                               completed_at,recurrence,recurrence_parent_id,
+                               recurrence_anchor_date)
+             VALUES (?1,?2,?3,?4,?5,0,?6,?7,NULL,?8,?8,NULL,?9,?10,?11)",
+            params![
+                id,
+                task.title,
+                task.description,
+                task.priority,
+                next_date,
+                task.lane_id,
+                position,
+                now,
+                rule_json,
+                root,
+                anchor_text
+            ],
+        )
+        .map_err(sql_write_error)?;
+    transaction
+        .execute(
+            "INSERT INTO task_tag_links(task_id,tag_id)
+             SELECT ?1,tag_id FROM task_tag_links WHERE task_id=?2",
+            params![id, task.id],
+        )
+        .map_err(sql_write_error)?;
+    let steps = transaction
+        .prepare(
+            "SELECT title,position FROM task_steps WHERE task_id=?1
+             ORDER BY position,created_at,id",
+        )
+        .map_err(CommandError::database)?
+        .query_map([&task.id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+        .map_err(CommandError::database)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(CommandError::database)?;
+    for (title, position) in steps {
+        transaction
+            .execute(
+                "INSERT INTO task_steps(id,task_id,title,completed,position,created_at,updated_at)
+                 VALUES (?1,?2,?3,0,?4,?5,?5)",
+                params![
+                    Uuid::new_v4().hyphenated().to_string(),
+                    id,
+                    title,
+                    position,
+                    now
+                ],
+            )
+            .map_err(sql_write_error)?;
+    }
+    Ok(())
+}
+
+/// Sets or clears the recurrence rule of a task. The task's due date becomes
+/// the series anchor (and is filled with today when it had none), so the first
+/// occurrence is always visible in the matrix.
+pub fn set_recurrence(
+    connection: &Connection,
+    id: &str,
+    recurrence: Option<Recurrence>,
+) -> Result<Task, CommandError> {
+    if let Some(rule) = recurrence.as_ref() {
+        task_recurrence::validate(rule)?;
+    }
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    let existing =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    let now = timestamp();
+    match recurrence.as_ref() {
+        Some(rule) => {
+            let anchor = existing
+                .due_date
+                .as_deref()
+                .and_then(parse_date)
+                .unwrap_or_else(|| Local::now().date_naive());
+            let anchor_text = anchor.format("%Y-%m-%d").to_string();
+            if let RecurrenceEnd::Until { date } = &rule.end {
+                if date.as_str() < anchor_text.as_str() {
+                    return Err(CommandError::validation(
+                        "recurrence",
+                        "结束日期不能早于任务日期。",
+                    ));
+                }
+            }
+            transaction
+                .execute(
+                    "UPDATE tasks SET recurrence=?2,recurrence_parent_id=NULL,
+                            recurrence_anchor_date=?3,due_date=COALESCE(due_date,?3),
+                            updated_at=?4
+                     WHERE id=?1",
+                    params![
+                        id,
+                        task_recurrence::rule_to_json(rule),
+                        anchor_text,
+                        now
+                    ],
+                )
+                .map_err(sql_write_error)?;
+        }
+        None => {
+            transaction
+                .execute(
+                    "UPDATE tasks SET recurrence=NULL,recurrence_parent_id=NULL,
+                            recurrence_anchor_date=NULL,updated_at=?2
+                     WHERE id=?1",
+                    params![id, now],
+                )
+                .map_err(sql_write_error)?;
+        }
     }
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
@@ -1027,6 +1227,19 @@ pub fn set_task_completed(
 }
 
 #[tauri::command]
+pub fn set_task_recurrence(
+    db: State<'_, AppDb>,
+    id: String,
+    recurrence: Option<Recurrence>,
+) -> Result<Task, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    let task = set_recurrence(&mut connection, &id, recurrence)?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(task)
+}
+
+#[tauri::command]
 pub fn move_task_to_lane(
     db: State<'_, AppDb>,
     id: String,
@@ -1174,9 +1387,10 @@ pub fn set_task_view_preferences(
 
 #[cfg(test)]
 mod tests {
-    use super::{create, create_tag_value, snapshot};
+    use super::{create, create_tag_value, set_completed_value, set_recurrence, snapshot};
     use crate::db::migrate;
     use crate::models::{TaskDraft, TaskStepDraft, TaskTagDraft};
+    use crate::recurrence::{Freq, Recurrence, RecurrenceEnd};
     use rusqlite::Connection;
 
     fn bare_database() -> Connection {
@@ -1220,6 +1434,80 @@ mod tests {
 
     fn stored(connection: &Connection, id: &str) -> crate::models::Task {
         snapshot(connection).unwrap().tasks.into_iter().find(|task| task.id == id).unwrap()
+    }
+
+    fn daily() -> Recurrence {
+        Recurrence {
+            freq: Freq::Daily,
+            interval: 1,
+            by_day: Vec::new(),
+            end: RecurrenceEnd::Never,
+        }
+    }
+
+    #[test]
+    fn completing_a_recurring_task_opens_the_next_occurrence() {
+        let connection = database();
+        let task = create(&connection, TaskDraft {
+            tag_ids: vec![create_tag_value(&connection, TaskTagDraft {
+                name: "习惯".into(), color: "#2563EB".into(),
+            }).unwrap().id],
+            steps: Some(vec![step(None, "喝水", false)]),
+            ..draft()
+        }).unwrap();
+        let task = set_recurrence(&connection, &task.id, Some(daily())).unwrap();
+        assert_eq!(task.recurrence.as_ref().map(|rule| rule.freq), Some(Freq::Daily));
+
+        set_completed_value(&connection, &task.id, true).unwrap();
+
+        let tasks = snapshot(&connection).unwrap().tasks;
+        assert_eq!(tasks.len(), 2);
+        let next = tasks.iter().find(|item| item.id != task.id).unwrap();
+        assert_eq!(next.due_date.as_deref(), Some("2026-08-27"));
+        assert!(!next.completed);
+        assert_eq!(next.recurrence_parent_id.as_deref(), Some(task.id.as_str()));
+        assert_eq!(next.tag_ids, task.tag_ids);
+        assert_eq!(next.steps.len(), 1);
+        assert!(!next.steps[0].completed);
+        assert_eq!(next.lane_id.as_deref(), Some("kanban-lane-todo"));
+    }
+
+    #[test]
+    fn reopening_and_recompleting_does_not_duplicate_the_next_occurrence() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        let task = set_recurrence(&connection, &task.id, Some(daily())).unwrap();
+        set_completed_value(&connection, &task.id, true).unwrap();
+        set_completed_value(&connection, &task.id, false).unwrap();
+        set_completed_value(&connection, &task.id, true).unwrap();
+        assert_eq!(snapshot(&connection).unwrap().tasks.len(), 2);
+    }
+
+    #[test]
+    fn a_count_limited_series_stops_at_the_last_occurrence() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        let rule = Recurrence {
+            end: RecurrenceEnd::Count { count: 2 },
+            ..daily()
+        };
+        let task = set_recurrence(&connection, &task.id, Some(rule)).unwrap();
+        set_completed_value(&connection, &task.id, true).unwrap();
+        let next = snapshot(&connection).unwrap().tasks.into_iter()
+            .find(|item| item.id != task.id).unwrap();
+        set_completed_value(&connection, &next.id, true).unwrap();
+        assert_eq!(snapshot(&connection).unwrap().tasks.len(), 2);
+    }
+
+    #[test]
+    fn clearing_the_rule_stops_future_occurrences() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        let task = set_recurrence(&connection, &task.id, Some(daily())).unwrap();
+        let cleared = set_recurrence(&connection, &task.id, None).unwrap();
+        assert!(cleared.recurrence.is_none());
+        set_completed_value(&connection, &task.id, true).unwrap();
+        assert_eq!(snapshot(&connection).unwrap().tasks.len(), 1);
     }
 
     #[test]
