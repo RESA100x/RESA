@@ -137,6 +137,51 @@ export function isContentEmpty(content: string): boolean {
   return envelope ? deltaOpsAreEmpty(envelope.ops) : false;
 }
 
+/** Alignment a preview should use, mirroring the editor's align control. */
+export type ContentAlign = 'start' | 'center' | 'right' | 'justify';
+
+function normalizeAlign(value: unknown): ContentAlign {
+  if (value === 'center' || value === 'right' || value === 'justify') return value;
+  // Quill also writes `left`; in an RTL document the default is already the
+  // right edge, so both map to the document's start edge.
+  return 'start';
+}
+
+/**
+ * The alignment of the first non-empty line, for surfaces that show a note as
+ * plain text (sticky notes, list rows).
+ *
+ * Alignment is a block format: Quill stores it on the newline that ends the
+ * line, so the text of a line has to be tracked until its terminator arrives.
+ * The first line wins because that is the line a preview leads with — mixing
+ * per-line alignment into a clamped, flattened preview is not expressible.
+ */
+export function contentTextAlign(content: string): ContentAlign {
+  const envelope = parseEnvelope(content);
+  if (!envelope) return 'start';
+  // Quill writes block formats on the newline that ends the line, so the align
+  // of a line is only known once its terminator arrives. Inline attributes are
+  // kept as a fallback for content that carries align on the text itself.
+  let lineHasText = false;
+  let inlineAlign: unknown;
+  for (const op of envelope.ops) {
+    if (typeof op.insert !== 'string') continue;
+    const align = op.attributes?.align;
+    for (const character of op.insert) {
+      if (character === '\n') {
+        if (lineHasText) return normalizeAlign(align ?? inlineAlign);
+        lineHasText = false;
+        inlineAlign = undefined;
+        continue;
+      }
+      if (!character.trim()) continue;
+      lineHasText = true;
+      if (inlineAlign === undefined) inlineAlign = align;
+    }
+  }
+  return lineHasText ? normalizeAlign(inlineAlign) : 'start';
+}
+
 /**
  * Flatten stored content to plain text for previews and list rows.
  *

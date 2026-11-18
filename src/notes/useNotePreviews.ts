@@ -1,11 +1,13 @@
 import { useEffect, useMemo } from 'react';
-import { contentAttachments, contentToPlainText } from '../components/rich-text/content';
+import { contentAttachments, contentTextAlign, contentToPlainText, type ContentAlign } from '../components/rich-text/content';
 import { useAttachments } from '../components/rich-text/useAttachments';
 import type { Note } from './notes-model';
 
 export type NotePreview = {
   /** Content flattened to text, for the line-clamped body. */
   text: string;
+  /** Alignment of the note's first line, so previews match the editor. */
+  align: ContentAlign;
   /** Object URL of the note's first image, once fetched. */
   thumbnailUrl: string | null;
   /** Attached files, for the paperclip badge. Images are not counted. */
@@ -27,11 +29,12 @@ export function useNotePreviews(notes: readonly Note[]): ReadonlyMap<string, Not
   const { resolveIds, resolved } = useAttachments();
 
   const parsed = useMemo(() => {
-    const map = new Map<string, { text: string; firstImageId: string | null; count: number }>();
+    const map = new Map<string, { text: string; align: ContentAlign; firstImageId: string | null; count: number }>();
     for (const note of notes) {
       const { imageIds, fileIds } = contentAttachments(note.content);
       map.set(note.id, {
         text: contentToPlainText(note.content),
+        align: contentTextAlign(note.content),
         firstImageId: imageIds[0] ?? null,
         // Files only. An inline image is content the note already shows as a
         // thumbnail, not an attachment, so counting it would double-report the
@@ -62,6 +65,7 @@ export function useNotePreviews(notes: readonly Note[]): ReadonlyMap<string, Not
     for (const [id, entry] of parsed) {
       map.set(id, {
         text: entry.text,
+        align: entry.align,
         thumbnailUrl: entry.firstImageId ? resolved.get(entry.firstImageId)?.objectUrl ?? null : null,
         attachmentCount: entry.count
       });

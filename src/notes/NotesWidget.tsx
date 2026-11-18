@@ -123,8 +123,8 @@ export function NotesWidget({
                 >
                   {iconFor(note) ? null : <span className="sticky-note__tape" aria-hidden="true" />}
                   {iconFor(note) ? <span className={`sticky-note__icon sticky-note__icon--${iconAnchorFor(note)}`} aria-hidden="true">{iconFor(note)}</span> : null}
-                  <span className="sticky-note__title">{noteTitle(note.content)}</span>
-                  <span className="sticky-note__content">{preview?.text}</span>
+                  <span className="sticky-note__title" style={{ textAlign: preview?.align }}>{noteTitle(note.content)}</span>
+                  <span className="sticky-note__content" style={{ textAlign: preview?.align }}>{preview?.text}</span>
                   {preview?.thumbnailUrl ? (
                     <img className="sticky-note__thumb" src={preview.thumbnailUrl} alt="" />
                   ) : null}
@@ -150,12 +150,12 @@ export function NotesWidget({
                   className="note"
                   style={colorStyle(note.color)}
                 >
-                  <div className="note-title">{iconFor(note) ? <span className="note-icon" aria-hidden="true">{iconFor(note)}</span> : null}<span className="note-title__text">{noteTitle(note.content)}</span></div>
+                  <div className="note-title">{iconFor(note) ? <span className="note-icon" aria-hidden="true">{iconFor(note)}</span> : null}<span className="note-title__text" style={{ textAlign: preview?.align }}>{noteTitle(note.content)}</span></div>
                   <div className="note-row">
                     {preview?.thumbnailUrl ? (
                       <img className="note-thumb" src={preview.thumbnailUrl} alt="" />
                     ) : null}
-                    <div className="note-content">{preview?.text}</div>
+                    <div className="note-content" style={{ textAlign: preview?.align }}>{preview?.text}</div>
                   </div>
                   {preview?.attachmentCount ? (
                     <span className="note-clip" aria-label={t('notesWidget.attachments', { count: preview.attachmentCount })}>

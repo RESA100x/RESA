@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   contentAttachments,
+  contentTextAlign,
   contentToPlainText,
   deltaOpsAreEmpty,
   isContentEmpty,
@@ -12,6 +13,44 @@ import {
 import type { DeltaOp } from './delta';
 
 const envelope = (ops: DeltaOp[]) => JSON.stringify({ v: 1, ops });
+
+describe('preview alignment', () => {
+  // Quill stores block formats on the newline that ends the line, so the align
+  // of the first line only shows up on its terminator.
+  it('reads the alignment of the first line', () => {
+    expect(
+      contentTextAlign(
+        envelope([
+          { insert: '标题' },
+          { insert: '\n', attributes: { align: 'center' } },
+          { insert: '正文' },
+          { insert: '\n' }
+        ])
+      )
+    ).toBe('center');
+  });
+
+  it('defaults to the document start edge', () => {
+    expect(contentTextAlign(envelope([{ insert: '标题' }, { insert: '\n' }]))).toBe('start');
+    // Quill's `left` is the same edge as the RTL default, so it is not a special case.
+    expect(
+      contentTextAlign(envelope([{ insert: '标题' }, { insert: '\n', attributes: { align: 'left' } }]))
+    ).toBe('start');
+  });
+
+  it('skips leading empty lines and tolerates legacy content', () => {
+    expect(
+      contentTextAlign(
+        envelope([
+          { insert: '\n' },
+          { insert: '标题' },
+          { insert: '\n', attributes: { align: 'justify' } }
+        ])
+      )
+    ).toBe('justify');
+    expect(contentTextAlign('plain text')).toBe('start');
+  });
+});
 
 describe('the empty document invariant', () => {
   // Drafts start at `content:''` / `description:''` and dirty checks compare whole

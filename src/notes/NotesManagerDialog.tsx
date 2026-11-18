@@ -25,10 +25,10 @@ export function NotesManagerDialog({notes,onClose,onCreate,onEdit,restoreFocusRe
         const preview = previews.get(note.id);
         return (
         <button key={note.id} type="button" className="note" style={colorStyle(note.color)} aria-label={t('notesManager.editNote', { title: noteTitle(note.content) })} onClick={(e)=>onEdit(note,e.currentTarget)}>
-          <div className="note-title">{note.pinned ? <Pin aria-label={t('notesManager.pinned')} /> : null}{noteIconSymbol(note.icon) ? <span className="note-icon" aria-hidden="true">{noteIconSymbol(note.icon)}</span> : null}<span className="note-title__text">{noteTitle(note.content)}</span></div>
+          <div className="note-title">{note.pinned ? <Pin aria-label={t('notesManager.pinned')} /> : null}{noteIconSymbol(note.icon) ? <span className="note-icon" aria-hidden="true">{noteIconSymbol(note.icon)}</span> : null}<span className="note-title__text" style={{ textAlign: preview?.align }}>{noteTitle(note.content)}</span></div>
           <div className="note-row">
             {preview?.thumbnailUrl ? <img className="note-thumb" src={preview.thumbnailUrl} alt="" /> : null}
-            <div className="note-content">{preview?.text || t('notesManager.noContent')}</div>
+            <div className="note-content" style={{ textAlign: preview?.align }}>{preview?.text || t('notesManager.noContent')}</div>
           </div>
           {preview?.attachmentCount ? (
             <span className="note-clip" aria-label={t('notesWidget.attachments', { count: preview.attachmentCount })}>

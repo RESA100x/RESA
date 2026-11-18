@@ -51,6 +51,22 @@ describe('NotesWidget', () => {
     expect(screen.getByTestId('notes-scroll')).toBeInTheDocument();
     expect(screen.getByRole('button', {name:'查看全部便签'})).toBeInTheDocument();
   });
+  it('carries the editor alignment into the sticky note and list row', () => {
+    const aligned = {
+      ...sampleNotes[0],
+      content: content([
+        { insert: '标题' },
+        { insert: '\n', attributes: { align: 'center' } },
+        { insert: '正文' },
+        { insert: '\n' }
+      ])
+    };
+    const { rerender } = render(<NotesWidget notes={[aligned]} status="ready" view="board" {...props} />);
+    expect(document.querySelector('.sticky-note__content')).toHaveStyle({ textAlign: 'center' });
+    expect(document.querySelector('.sticky-note__title')).toHaveStyle({ textAlign: 'center' });
+    rerender(<NotesWidget notes={[aligned]} status="ready" view="list" {...props} />);
+    expect(document.querySelector('.note-content')).toHaveStyle({ textAlign: 'center' });
+  });
   it('derives a changing first-line title and falls back for image-only notes', () => {
     const { rerender } = render(<NotesWidget notes={[{...sampleNotes[0], content:'\n首行\n正文'}]} status="ready" {...props} />);
     expect(document.querySelector('.note-title__text')).toHaveTextContent('首行');

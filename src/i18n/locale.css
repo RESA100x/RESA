@@ -94,6 +94,17 @@
 }
 [dir="rtl"] .rich-editor .ql-editor ol,
 [dir="rtl"] .rich-editor .ql-editor li { padding-left: 0; padding-right: 1.5em; }
+/* Quill pins every picker's caret to the physical right edge — exactly where
+   RTL text starts — so the label ran underneath the arrow. Mirror the caret to
+   the start edge and reserve its width, otherwise the two overlap again. */
+[dir="rtl"] .rich-editor .ql-toolbar.ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) svg {
+  right: auto;
+  left: 0;
+}
+[dir="rtl"] .rich-editor .ql-toolbar.ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) .ql-picker-label {
+  padding-left: 22px;
+  padding-right: 8px;
+}
 [dir="rtl"] .rich-editor .ql-editor li > .ql-ui::before {
   margin-left: 0.3em;
   margin-right: -1.5em;
