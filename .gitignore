@@ -84,6 +84,7 @@ dev-modules/*
 !docs/privacy-and-data.en.md
 !docs/calendar-sharing.fa.md
 !docs/axelor-sync.fa.md
+!docs/resa-new-features.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/
