@@ -1058,6 +1058,8 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Command palette
     'commandPalette.title': '命令面板',
+    'commandPalette.open': '全局搜索',
+    'commandPalette.openHint': '搜索与命令（Ctrl+K）',
     'commandPalette.placeholder': '搜索任务、日程或便签…',
     'commandPalette.empty': '没有结果',
     'commandPalette.searching': '搜索中…',
@@ -2121,6 +2123,8 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Command palette
     'commandPalette.title': 'Command palette',
+    'commandPalette.open': 'Global search',
+    'commandPalette.openHint': 'Search and commands (Ctrl+K)',
     'commandPalette.placeholder': 'Search tasks, events or notes…',
     'commandPalette.empty': 'No results',
     'commandPalette.searching': 'Searching…',

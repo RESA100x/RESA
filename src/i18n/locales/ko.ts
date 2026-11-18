@@ -1266,6 +1266,8 @@ export const ko: Record<string, string> = {
 
   // Command palette
   'commandPalette.title': '명령 팔레트',
+  'commandPalette.open': '전체 검색',
+  'commandPalette.openHint': '검색 및 명령 (Ctrl+K)',
   'commandPalette.placeholder': '작업, 일정, 메모 검색…',
   'commandPalette.empty': '결과가 없습니다',
   'commandPalette.searching': '검색 중…',

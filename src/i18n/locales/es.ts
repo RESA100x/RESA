@@ -1265,6 +1265,8 @@ export const es: Record<string, string> = {
 
   // Command palette
   'commandPalette.title': 'Paleta de comandos',
+  'commandPalette.open': 'Búsqueda global',
+  'commandPalette.openHint': 'Búsqueda y comandos (Ctrl+K)',
   'commandPalette.placeholder': 'Buscar tareas, eventos o notas…',
   'commandPalette.empty': 'Sin resultados',
   'commandPalette.searching': 'Buscando…',

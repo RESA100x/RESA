@@ -1266,6 +1266,8 @@ export const zhHant: Record<string, string> = {
 
   // Command palette
   "commandPalette.title": "命令面板",
+  "commandPalette.open": "全域搜尋",
+  "commandPalette.openHint": "搜尋與命令（Ctrl+K）",
   "commandPalette.placeholder": "搜尋工作項目、行程或便籤…",
   "commandPalette.empty": "沒有結果",
   "commandPalette.searching": "搜尋中…",

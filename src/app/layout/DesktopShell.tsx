@@ -1,4 +1,4 @@
-import { Check, LayoutGrid, MonitorDown, Plus, Settings } from '../../components/icons';
+import { Check, LayoutGrid, MonitorDown, Plus, Search, Settings } from '../../components/icons';
 import { useState, type ReactNode } from 'react';
 import {
   builtinDefinitions,
@@ -28,6 +28,8 @@ type DesktopShellProps = {
   onSetWallpaper?: () => void;
   onWallpaperDoubleClick?: () => void;
   onOpenSettings?: () => void;
+  // Opens the command palette (Ctrl+K); the topbar button keeps it discoverable.
+  onOpenSearch?: () => void;
   configurations?: Partial<Record<WidgetId, () => void>>;
   // Hide the topbar and module headers as wallpaper. Defaults on; all headers
   // return in the foreground.
@@ -57,6 +59,7 @@ export function DesktopShell({
   onSetWallpaper,
   onWallpaperDoubleClick,
   onOpenSettings,
+  onOpenSearch,
   configurations,
   hideTopbarInWallpaper = true,
   hideModuleBackgroundInWallpaper = false,
@@ -111,6 +114,14 @@ export function DesktopShell({
           <p>{summary}</p>
         </div>
         <div className="top-actions">
+          {foreground ? (
+            <Tip content={t('commandPalette.openHint')}>
+              <button type="button" className="btn btn-icon topbar-search" aria-label={t('commandPalette.open')} onClick={onOpenSearch}>
+                <Search aria-hidden="true" />
+                <kbd className="topbar-search__kbd" aria-hidden="true">Ctrl K</kbd>
+              </button>
+            </Tip>
+          ) : null}
           {foreground ? (
             <Tip content={t('about.open')}>
               <button type="button" className="btn btn-icon about-button" aria-label={t('about.open')} onClick={() => setAboutOpen(true)}>

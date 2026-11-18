@@ -504,6 +504,10 @@ body:has(.screen-status-island-root),
 .btn-primary { color: var(--text-inverse); background: var(--color-primary); border-color: var(--color-primary); }
 .btn-primary:hover { color: var(--text-inverse); background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
 .btn-icon { width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; }
+/* The palette lives behind Ctrl+K; this button keeps it visible. */
+.topbar-search { width: auto; min-width: 40px; padding-inline: 10px; display: inline-flex; align-items: center; gap: 8px; }
+.topbar-search__kbd { font-size: 0.7rem; font-weight: 500; color: var(--text-tertiary); direction: ltr; }
+.topbar-search:hover .topbar-search__kbd { color: inherit; }
 .btn svg { width: 18px; height: 18px; flex: none; }
 .calendar-body { min-height: 0; flex: 1; padding: 12px 24px 24px; display: flex; flex-direction: column; }
 .calendar-scroll-region { overflow-x: hidden; overflow-y: scroll; }

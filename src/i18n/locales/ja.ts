@@ -1266,6 +1266,8 @@ export const ja: Record<string, string> = {
 
   // Command palette
   'commandPalette.title': 'コマンドパレット',
+  'commandPalette.open': '全体検索',
+  'commandPalette.openHint': '検索とコマンド（Ctrl+K）',
   'commandPalette.placeholder': 'タスク・予定・メモを検索…',
   'commandPalette.empty': '結果がありません',
   'commandPalette.searching': '検索中…',

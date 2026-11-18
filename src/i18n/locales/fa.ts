@@ -1281,6 +1281,8 @@ export const fa: Record<string, string> = {
 
   // Command palette
   'commandPalette.title': 'پالت فرمان',
+  'commandPalette.open': 'جستجوی سراسری',
+  'commandPalette.openHint': 'جستجو و فرمان‌ها (Ctrl+K)',
   'commandPalette.placeholder': 'جستجوی وظیفه، رویداد یا یادداشت…',
   'commandPalette.empty': 'نتیجه‌ای پیدا نشد',
   'commandPalette.searching': 'در حال جستجو…',
