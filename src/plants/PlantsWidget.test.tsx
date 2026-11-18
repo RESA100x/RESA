@@ -119,11 +119,20 @@ describe('PlantsWidget', () => {
     expect(screen.getByRole('button', { name: t('common.retry') })).toBeInTheDocument();
   });
 
-  it('locks every action when the module is read-only', async () => {
-    renderWidget(repository([thirsty('a', 'Dry one')]), true);
-    const add = await screen.findByRole('button', { name: t('plantsWidget.addPlant') });
-    expect(add).toBeDisabled();
-    const water = screen.getByRole('button', { name: t('plantsWidget.waterPlant', { name: 'Dry one' }) });
-    expect(water).toBeDisabled();
+  it('shows the slideshow with no editable controls when the module is read-only', async () => {
+    renderWidget(repository([thirsty('a', 'Dry one'), healthy('b', 'Happy')]), true);
+    expect(await screen.findByTestId('plants-spotlight')).toBeInTheDocument();
+    expect(screen.getByText('Dry one')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t('plantsWidget.addPlant') })).toBeNull();
+    expect(screen.queryByRole('button', { name: t('plantsWidget.viewList') })).toBeNull();
+    expect(screen.queryByRole('button', { name: t('plantsWidget.waterPlant', { name: 'Dry one' }) })).toBeNull();
+  });
+
+  it('switches between the list and the slideshow from the module header', async () => {
+    renderWidget(repository([thirsty('a', 'Dry one')]));
+    await userEvent.click(await screen.findByRole('button', { name: t('plantsWidget.viewSpotlight') }));
+    expect(await screen.findByTestId('plants-spotlight')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: t('plantsWidget.viewList') }));
+    expect(await screen.findByTestId('plants-scroll')).toBeInTheDocument();
   });
 });

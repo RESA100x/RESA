@@ -65,7 +65,7 @@ describe('widget definitions', () => {
 
   it('exposes plants as an addable built-in that is not in the default layout', () => {
     const all = buildDefinitions();
-    expect(getWidgetDefinition('plants', all)).toMatchObject({ minW: 3, minH: 3, category: 'builtin' });
+    expect(getWidgetDefinition('plants', all)).toMatchObject({ minW: 2, minH: 3, category: 'builtin' });
     expect(defaultLayout.map(item => item.id)).not.toContain('plants');
   });
 });

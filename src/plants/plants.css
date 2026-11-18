@@ -121,3 +121,280 @@
 @container (max-width: 260px) {
   .plants-card { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------------------------------------------------------------------------
+   Spotlight: the wallpaper face of the module. One plant at a time, drawn
+   large over a scene tinted by its own thirst. It advances on its own, but it
+   is a real slider: drag it, tap a dot, or use the arrow keys.
+   --------------------------------------------------------------------------- */
+
+.plants-spotlight {
+  /* Room the caption and the dots take at the foot of the block. The plant is
+     centred above that, so the pot is never hidden behind its own card. */
+  --spotlight-foot-space: 132px;
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-default);
+  outline: 0;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.plants-spotlight:active { cursor: grabbing; }
+.plants-spotlight:focus-visible { box-shadow: 0 0 0 4px var(--focus-ring); }
+
+.plants-spotlight__stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+
+.plants-spotlight__slide {
+  --spotlight-tint: var(--color-success);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.015);
+  transition: opacity 520ms ease, transform 520ms ease;
+  pointer-events: none;
+}
+
+.plants-spotlight__slide[data-active="true"] { opacity: 1; transform: none; pointer-events: auto; }
+.plants-spotlight[data-reduced="true"] .plants-spotlight__slide { transition: none; transform: none; }
+.plants-spotlight__slide[data-status="dueSoon"] { --spotlight-tint: var(--color-warning); }
+.plants-spotlight__slide[data-status="needsWater"] { --spotlight-tint: var(--color-danger); }
+.plants-spotlight__slide[data-status="wilted"] { --spotlight-tint: var(--color-danger-active); }
+
+/* The scene IS the plant: a blown-up, out-of-focus copy of the very drawing
+   above it, so the background breathes with the plant's own thirst. */
+.plants-spotlight__scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 78% at 50% -8%, color-mix(in srgb, var(--spotlight-tint) 30%, transparent) 0%, transparent 64%),
+    linear-gradient(180deg, color-mix(in srgb, var(--spotlight-tint) 10%, var(--bg-surface)) 0%, var(--bg-surface) 72%);
+}
+
+.plants-spotlight__ghost {
+  position: absolute;
+  inset-block-start: -18%;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: min(130%, 560px);
+  aspect-ratio: 1;
+  opacity: 0.45;
+  filter: blur(13px) saturate(1.15);
+  pointer-events: none;
+}
+
+.plants-spotlight__dragger {
+  position: absolute;
+  inset: 0;
+  transition: transform 260ms ease;
+}
+
+.plants-spotlight__figure {
+  position: absolute;
+  inset-block: var(--space-3) var(--spotlight-foot-space);
+  inset-inline: var(--space-3);
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 18px 22px color-mix(in srgb, var(--spotlight-tint) 26%, transparent));
+}
+
+.plants-spotlight__plant { width: auto; height: 100%; max-width: 100%; }
+
+.plants-spotlight__foot {
+  position: absolute;
+  inset-inline: var(--space-3);
+  inset-block-end: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.plants-spotlight__foot > * { pointer-events: auto; }
+
+.plants-spotlight__caption {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 460px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--spotlight-tint) 24%, var(--border-subtle));
+  border-radius: var(--radius-default);
+  background: color-mix(in srgb, var(--bg-surface) 76%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
+  text-align: start;
+  animation: plants-spotlight-caption 420ms ease;
+}
+
+@keyframes plants-spotlight-caption {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.plants-spotlight[data-reduced="true"] .plants-spotlight__caption { animation: none; }
+
+.plants-spotlight__heading { display: flex; align-items: center; gap: var(--space-2); }
+
+.plants-spotlight__name {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plants-spotlight__species,
+.plants-spotlight__gap {
+  margin: 2px 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.plants-spotlight__gap { color: var(--text-secondary); font-weight: 500; }
+.plants-spotlight__water { margin-top: var(--space-2); }
+.plants-spotlight__water svg { width: 16px; height: 16px; }
+
+.plants-spotlight__arrow {
+  position: absolute;
+  z-index: 2;
+  /* Centred on the plant, not on the block: the caption owns the foot. */
+  inset-block: 0 var(--spotlight-foot-space);
+  margin-block: auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 72%, transparent);
+  backdrop-filter: blur(8px);
+  opacity: 0.55;
+  transition: opacity 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.plants-spotlight__arrow:hover,
+.plants-spotlight__arrow:focus-visible { color: var(--text-primary); opacity: 1; transform: scale(1.06); }
+.plants-spotlight__arrow svg { width: 16px; height: 16px; }
+
+.plants-spotlight__arrow--prev { inset-inline-start: var(--space-2); }
+.plants-spotlight__arrow--next { inset-inline-end: var(--space-2); }
+
+.plants-spotlight__play {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 68%, transparent);
+  backdrop-filter: blur(8px);
+  opacity: 0.5;
+  transition: opacity 180ms ease, color 180ms ease;
+}
+
+.plants-spotlight__play:hover,
+.plants-spotlight__play:focus-visible { opacity: 1; color: var(--text-primary); }
+.plants-spotlight__play svg { width: 12px; height: 12px; }
+
+.plants-spotlight__dots { display: flex; align-items: center; gap: 6px; }
+
+.plants-spotlight__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  transition: width 200ms ease, background 200ms ease;
+}
+
+.plants-spotlight__dot[data-status="healthy"] { background: color-mix(in srgb, var(--color-success) 70%, transparent); }
+.plants-spotlight__dot[data-status="dueSoon"] { background: color-mix(in srgb, var(--color-warning) 80%, transparent); }
+.plants-spotlight__dot[data-status="needsWater"] { background: color-mix(in srgb, var(--color-danger) 85%, transparent); }
+.plants-spotlight__dot[data-status="wilted"] { background: var(--color-danger-active); }
+
+.plants-spotlight__dot[aria-selected="true"] {
+  width: 20px;
+  background: color-mix(in srgb, var(--spotlight-tint, var(--color-primary)) 90%, transparent);
+}
+
+.plants-spotlight__dot[aria-selected="true"][data-status="healthy"] { background: var(--color-success-active); }
+.plants-spotlight__dot[aria-selected="true"][data-status="dueSoon"] { background: var(--color-warning-active); }
+.plants-spotlight__dot[aria-selected="true"][data-status="needsWater"],
+.plants-spotlight__dot[aria-selected="true"][data-status="wilted"] { background: var(--color-danger-active); }
+
+/* How long this slide has left: two pixels of the plant's own colour. */
+.plants-spotlight__progress {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 30%, transparent));
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: plants-spotlight-progress var(--spotlight-interval, 9000ms) linear forwards;
+}
+
+[dir="rtl"] .plants-spotlight__progress { transform-origin: right; }
+
+.plants-spotlight[data-paused="true"] .plants-spotlight__progress { animation-play-state: paused; }
+.plants-spotlight[data-reduced="true"] .plants-spotlight__progress { display: none; }
+
+@keyframes plants-spotlight-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* The visible name/status pair for assistive tech; the drawing is decorative. */
+.plants-spotlight__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* The slideshow is the whole module: no list chrome, just the plant. */
+.plants-widget--spotlight { position: relative; gap: var(--space-2); }
+
+.plants-widget__view-toggle {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  opacity: 0.6;
+}
+
+.plants-widget__view-toggle:hover,
+.plants-widget__view-toggle:focus-visible { opacity: 1; }
+
+/* Short modules lose the fine print before they lose the plant: the drawing is
+   the point of this view, the species name and the last watering are not. */
+@container (max-height: 420px) {
+  .plants-spotlight { --spotlight-foot-space: 112px; }
+  .plants-spotlight__species { display: none; }
+}
+
+@container (max-height: 260px) {
+  .plants-spotlight { --spotlight-foot-space: 92px; }
+  .plants-spotlight__gap { display: none; }
+}
+
+@container (max-width: 260px) {
+  .plants-spotlight__figure { width: 100%; }
+  .plants-spotlight__caption { padding: var(--space-2) var(--space-3); }
+  .plants-spotlight__name { font-size: 0.95rem; }
+  .plants-spotlight__arrow { display: none; }
+}

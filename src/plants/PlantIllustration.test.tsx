@@ -40,10 +40,30 @@ describe('PlantIllustration', () => {
     expect(label).toContain('·');
   });
 
-  it('fades the foliage through one saturation filter', () => {
-    const { container } = render(<PlantIllustration species="croton" wiltProgress={1} animate={false} />);
+  it.each(PLANT_SPECIES)('ages %s through one filter, colour only', (species) => {
+    const { container } = render(<PlantIllustration species={species} wiltProgress={1} animate={false} />);
     const foliage = container.querySelector<HTMLElement>('[data-plant-part="wilting"]');
-    expect(foliage?.style.filter).toMatch(/^saturate\(0\.\d+\) brightness\(0\.\d+\)$/);
+    // Colour only: the drawn leaves keep their shape and their geometry.
+    expect(foliage?.style.filter).toMatch(/^saturate\(0\.\d+\) brightness\(0\.\d+\) hue-rotate\(-?\d+(\.\d+)?deg\)$/);
+  });
+
+  it.each(PLANT_SPECIES)('leaves a thirsty %s exactly where the artist drew it', (species) => {
+    const { container } = render(<PlantIllustration species={species} wiltProgress={1} animate={false} />);
+    const shapes = [...container.querySelectorAll('svg path')];
+    expect(shapes.length).toBeGreaterThan(20);
+    // Not one shape is moved, rotated or scaled as the plant dries.
+    for (const shape of shapes) expect(shape.getAttribute('transform')).toBeNull();
+  });
+
+  it.each(PLANT_SPECIES)('keeps the pot of %s out of the aging filter', (species) => {
+    const { container } = render(<PlantIllustration species={species} wiltProgress={1} animate={false} />);
+    const wilting = container.querySelector<HTMLElement>('[data-plant-part="wilting"]');
+    const pot = container.querySelector<HTMLElement>('[data-plant-part="pot"]');
+    expect(pot).not.toBeNull();
+    expect(pot?.querySelectorAll('path').length).toBeGreaterThan(0);
+    // The china is not what a watering state is about, so it stays outside the
+    // group that carries the colour filter.
+    expect(wilting?.contains(pot as Node)).toBe(false);
   });
 
   it('gives every species its own drawing', () => {

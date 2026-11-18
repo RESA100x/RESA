@@ -98,9 +98,9 @@ export const plantsDefinition: WidgetDefinition = {
   get name() { return t('widget.plants.name'); },
   get description() { return t('widget.plants.desc'); },
   category: 'builtin',
-  minW: 3,
+  minW: 2,
   minH: 3,
-  default: { x: 0, y: 0, w: 5, h: 5 }
+  default: { x: 0, y: 0, w: 4, h: 5 }
 };
 
 export const stickersDefinition: WidgetDefinition = {

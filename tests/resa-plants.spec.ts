@@ -25,6 +25,11 @@ test.beforeEach(async ({ page }) => {
         updatedAt: now.toISOString()
       }
     ];
+    // `addInitScript` replays on every reload, so anything a test creates has to
+    // survive in storage to behave like the real database.
+    try {
+      plants.push(...JSON.parse(localStorage.getItem('__resa_extra_plants__') ?? '[]'));
+    } catch { /* ignore a corrupt fixture */ }
     const settings = {
       wallpaperEnabled: false, launchAtLogin: false, targetMonitorId: null,
       density: 'balanced', weekStart: 'monday', dateFormat: 'localized',
@@ -46,6 +51,12 @@ test.beforeEach(async ({ page }) => {
             return args.layout;
           }
           if (command === 'list_plants') return plants;
+          if (command === 'create_plant') {
+            const draft = args.draft as Record<string, unknown>;
+            const created = { ...draft, id: `plant-${plants.length + 1}`, createdAt: now.toISOString(), updatedAt: now.toISOString() };
+            plants.push(created as (typeof plants)[number]);
+            return created;
+          }
           if (command === 'water_plant') {
             const target = plants.find((item) => item.id === args.id);
             if (!target) throw { code: 'not_found', message: 'nope' };
@@ -100,4 +111,38 @@ test('watering the plant records it and the plant recovers', async ({ page }) =>
   await expect(page.getByText(HEALTHY)).toBeVisible();
   await expect.poll(async () => Number(await svg.getAttribute('data-wilt'))).toBeLessThan(0.05);
   expect(await page.evaluate(() => Reflect.get(window, '__watered__'))).toEqual(['plant-monstera']);
+});
+
+test('the slide view walks the plants one at a time', async ({ page }) => {
+  // The stubbed bridge is rebuilt from scratch on every load, so a plant that has
+  // to survive the reload below goes into storage instead of a one-off `invoke`.
+  await page.evaluate(() => {
+    const now = new Date().toISOString();
+    localStorage.setItem('__resa_extra_plants__', JSON.stringify([
+      {
+        id: 'plant-yucca',
+        name: 'Happy yucca',
+        species: 'yucca',
+        wateringIntervalDays: 14,
+        lastWateredAt: now,
+        createdAt: now,
+        updatedAt: now
+      }
+    ]));
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: '幻灯片视图' }).click();
+  const spotlight = page.getByTestId('plants-spotlight');
+  await expect(spotlight).toBeVisible();
+  // Thirstiest first, so the overdue monstera owns the first slide.
+  await expect(spotlight.locator('.plants-spotlight__caption')).toContainText('Dry one');
+  await expect(spotlight.locator('.plants-spotlight__slide[data-active="true"]')).toHaveCount(1);
+  await expect(page.getByRole('tab')).toHaveCount(2);
+
+  await page.getByRole('button', { name: '下一株植物' }).click();
+  await expect(spotlight.locator('.plants-spotlight__caption')).toContainText('Happy yucca');
+
+  await page.getByRole('button', { name: '列表视图' }).click();
+  await expect(page.getByTestId('plants-scroll')).toBeVisible();
 });
