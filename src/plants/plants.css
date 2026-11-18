@@ -1,0 +1,123 @@
+/* The watering module. Colours, spacing and radii all come from the shared
+   tokens so the module keeps the app's look in either direction. */
+
+.plants-widget { display: flex; flex-direction: column; min-height: 0; }
+.plants-widget .panel-body { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.plants-widget__alert {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-danger-active);
+  background: var(--color-danger-light);
+  border-radius: var(--radius-default);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.plants-widget__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.plants-widget__empty p { margin: 0; font-size: 0.9rem; line-height: 1.6; }
+
+.plants-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plants-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-inline-start-width: 3px;
+  border-radius: var(--radius-default);
+}
+
+/* One glance down the list: green is fine, amber is soon, red is now. */
+.plants-card--healthy { border-inline-start-color: var(--color-success); }
+.plants-card--dueSoon { border-inline-start-color: var(--color-warning); }
+.plants-card--needsWater { border-inline-start-color: var(--color-danger); }
+.plants-card--wilted { border-inline-start-color: var(--color-danger-active); background: var(--color-danger-light); }
+
+.plants-card__visual {
+  flex: none;
+  width: 84px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+}
+
+.plants-card__illustration { width: 100%; height: 100%; }
+
+.plants-card__body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.plants-card__heading { display: flex; align-items: center; gap: var(--space-2); }
+
+.plants-card__name {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plants-card__species,
+.plants-card__gap {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.plants-card__gap { color: var(--text-secondary); font-weight: 500; }
+.plants-card__separator { margin-inline: var(--space-1); color: var(--text-muted); }
+.plants-card__last { color: var(--text-tertiary); font-weight: 400; }
+
+.plants-card__actions { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.plants-card__water svg { width: 16px; height: 16px; }
+
+.plants-chip {
+  flex: none;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.plants-chip--healthy { color: var(--color-success-active); background: var(--color-success-light); }
+.plants-chip--dueSoon { color: var(--color-warning-active); background: var(--color-warning-light); }
+.plants-chip--needsWater { color: var(--color-danger-active); background: var(--color-danger-light); }
+.plants-chip--wilted { color: var(--text-inverse); background: var(--color-danger); }
+
+.plant-form { display: flex; flex-direction: column; gap: var(--space-4); }
+.plant-form__hint { color: var(--text-tertiary); font-size: 0.8rem; line-height: 1.5; }
+.plant-dialog__actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.plant-dialog__actions .good-button--danger-ghost { margin-inline-end: auto; }
+.plant-dialog__actions .dialog-error { margin-inline-end: auto; }
+
+/* Very narrow modules: the picture goes above the text instead of squeezing it. */
+@container (max-width: 260px) {
+  .plants-card { flex-direction: column; align-items: flex-start; }
+}

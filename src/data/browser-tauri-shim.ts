@@ -25,6 +25,8 @@ import { getBrowserStickerBoard, saveBrowserStickerBoard, uploadBrowserStickerIm
 import type { StickerBoard } from '../stickers/sticker-model';
 import { validateNoteForm, toNoteDraft } from '../lib/note-draft';
 import type { NoteDraft } from '../notes/notes-model';
+import { toPlantDraft, validatePlantForm } from '../plants/plant-draft';
+import type { PlantDraft } from '../plants/plant-model';
 import { contentToPlainText, isContentEmpty } from '../components/rich-text/content';
 import { normalizeBarMenu } from '../app/bar-menu';
 import { isQuickCreateKind } from '../quick-create/request';
@@ -49,6 +51,7 @@ type Store = {
   externalEvents: Dict[];
   tasks: Dict[];
   notes: Dict[];
+  plants: Dict[];
   settings: Dict;
   moduleLayout: Dict[];
   focusSessions: Dict[];
@@ -95,6 +98,7 @@ function emptyStore(): Store {
     externalEvents: [],
     tasks: [],
     notes: [],
+    plants: [],
     settings: { ...defaultSettings },
     moduleLayout: [],
     focusSessions: [],
@@ -126,6 +130,7 @@ function loadStore(): Store {
         Reflect.deleteProperty(migrated, 'title');
         return migrated;
       }),
+      plants: parsed.plants ?? [],
       kanban: { ...base.kanban, ...(parsed.kanban ?? {}) }
     };
   } catch {
@@ -1002,6 +1007,46 @@ export function installBrowserTauriBackend() {
     delete_note: (a) => {
       store.notes = store.notes.filter((n) => n.id !== a.id);
       persist();
+    },
+
+    // Plants
+    list_plants: () => store.plants,
+    create_plant: (a) => {
+      const draft = toPlantDraft(a.draft as PlantDraft);
+      const errors = validatePlantForm(a.draft as PlantDraft);
+      const field = Object.keys(errors)[0];
+      if (field) throw { code: 'validation_error', field, message: errors[field as keyof typeof errors] };
+      const plant = { id: id('plant'), createdAt: nowIso(), updatedAt: nowIso(), ...draft };
+      store.plants.push(plant);
+      persist();
+      return plant;
+    },
+    update_plant: (a) => {
+      const existing = store.plants.find((plant) => plant.id === a.id);
+      if (!existing) throw { code: 'validation_error', field: 'id', message: '未找到该植物。' };
+      const errors = validatePlantForm(a.draft as PlantDraft);
+      const field = Object.keys(errors)[0];
+      if (field) throw { code: 'validation_error', field, message: errors[field as keyof typeof errors] };
+      let updated: Dict | undefined;
+      store.plants = store.plants.map((plant) =>
+        plant.id === a.id ? (updated = { ...plant, ...toPlantDraft(a.draft as PlantDraft), updatedAt: nowIso() }) : plant
+      );
+      persist();
+      return updated;
+    },
+    delete_plant: (a) => {
+      store.plants = store.plants.filter((plant) => plant.id !== a.id);
+      persist();
+    },
+    water_plant: (a) => {
+      const existing = store.plants.find((plant) => plant.id === a.id);
+      if (!existing) throw { code: 'validation_error', field: 'id', message: '未找到该植物。' };
+      let updated: Dict | undefined;
+      store.plants = store.plants.map((plant) =>
+        plant.id === a.id ? (updated = { ...plant, lastWateredAt: a.wateredAt, updatedAt: nowIso() }) : plant
+      );
+      persist();
+      return updated;
     },
 
     // Rich text attachments. Bytes stay in memory rather than in localStorage:

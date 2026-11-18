@@ -85,6 +85,7 @@ dev-modules/*
 !docs/calendar-sharing.fa.md
 !docs/axelor-sync.fa.md
 !docs/resa-new-features.fa.md
+!docs/resa-plants.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/

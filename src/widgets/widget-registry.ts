@@ -88,8 +88,20 @@ export const timeDefinition: WidgetDefinition = {
 };
 
 export function buildDefinitions(): WidgetDefinition[] {
-  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, ...extensionDefinitions];
+  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, ...extensionDefinitions];
 }
+
+// The watering reminder is a module the user adds when they need it, like the
+// board and the clock: a plant list is not part of a fresh workspace.
+export const plantsDefinition: WidgetDefinition = {
+  id: 'plants',
+  get name() { return t('widget.plants.name'); },
+  get description() { return t('widget.plants.desc'); },
+  category: 'builtin',
+  minW: 3,
+  minH: 3,
+  default: { x: 0, y: 0, w: 5, h: 5 }
+};
 
 export const stickersDefinition: WidgetDefinition = {
   id: 'stickers',

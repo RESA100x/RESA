@@ -23,6 +23,7 @@ import type {
 import type { MatrixTask, TaskDraft } from '../matrix/matrix-model';
 import type { Attachment } from '../lib/attachment';
 import type { Note, NoteDraft } from '../notes/notes-model';
+import type { Plant, PlantDraft } from '../plants/plant-model';
 import type {
   Task as WorkspaceTask,
   TaskDraft as WorkspaceTaskDraft,
@@ -127,6 +128,12 @@ export type NowlyRepository = {
   uploadStickerImage?(fileName: string, bytes: Uint8Array): Promise<StickerAsset>;
   readStickerImage?(id: string): Promise<Uint8Array>;
   discardStickerImages?(ids: string[]): Promise<void>;
+  // 浇水提醒模块：植物本体 + 「上次浇水时间」。状态由时间实时推导，不存历史流水。
+  listPlants?(): Promise<Plant[]>;
+  createPlant?(draft: PlantDraft): Promise<Plant>;
+  updatePlant?(id: string, draft: PlantDraft): Promise<Plant>;
+  deletePlant?(id: string): Promise<void>;
+  waterPlant?(id: string, wateredAt: string): Promise<Plant>;
   getTimeSettings(): Promise<TimeSettings>;
   saveTimeSettings(settings: TimeSettings): Promise<TimeSettings>;
   listAlarms(): Promise<Alarm[]>;

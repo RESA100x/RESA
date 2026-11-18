@@ -28,6 +28,7 @@ mod net;
 mod notes;
 mod oauth;
 mod oauth_config;
+mod plants;
 mod quick_panel;
 mod quick_create;
 mod recurrence;
@@ -672,6 +673,11 @@ fn main() {
             update::check_for_update,
             layout::list_module_layout,
             layout::save_module_layout,
+            plants::list_plants,
+            plants::create_plant,
+            plants::update_plant,
+            plants::delete_plant,
+            plants::water_plant,
             focus::create_focus_session,
             focus::list_focus_sessions,
             focus::get_focus_statistics,

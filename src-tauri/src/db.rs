@@ -71,6 +71,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (41, migration_41_reset_tasks_for_free_lanes),
     (42, migration_42_axelor_sources),
     (43, migration_43_task_recurrence),
+    (44, crate::plants::migrate),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would

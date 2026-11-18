@@ -31,6 +31,7 @@ import { useCurrentTime } from './useCurrentTime';
 import { t, useTranslation, getLocale } from '../i18n';
 import { TimeModule } from '../time/TimeModule';
 import { StickersWidget } from '../stickers/StickersWidget';
+import { PlantsWidget } from '../plants/PlantsWidget';
 import { TimeSettingsDialog } from '../time/TimeSettingsDialog';
 import { useFocusTimer } from '../focus/FocusTimerContext';
 import { FocusStatisticsDialog } from '../focus/FocusStatisticsDialog';
@@ -149,6 +150,7 @@ function AppContent() {
   const summary = t('app.summary', { events: todayEventCount, tasks: importantTaskCount, notes: notes.length });
   const modules: Partial<Record<WidgetId, ReactNode>> = {};
   modules.stickers = <StickersWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+  modules.plants = <PlantsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   {
     modules.calendar = (
       <CalendarWidget

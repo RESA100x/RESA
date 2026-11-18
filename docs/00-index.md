@@ -8,6 +8,7 @@
 - 隐私与数据（含 AI、Google/Microsoft/ICS、存储与联网边界）：[中文](privacy-and-data.zh.md) / [English](privacy-and-data.en.md)
 - 日历共享（两人共用一份日历，含 OAuth 凭证配置）：[فارسی](calendar-sharing.fa.md)
 - 新功能（重复任务、命令面板、一键备份）：[فارسی](resa-new-features.fa.md)
+- 植物模块（浇水提醒，每个物种独立动画）：[فارسی](resa-plants.fa.md)
 - 自定义模块：当前检出无相关文档或运行时；见 [产品边界](product-definition.md)。不将外部技能描述当作已实现功能；若恢复文档，须在此链接并核对其契约。
 
 ## 项目入口
