@@ -1279,5 +1279,22 @@ export const fr: Record<string, string> = {
   'commandPalette.openNotes': 'Toutes les notes',
   'commandPalette.hintNavigate': '↑↓ pour naviguer',
   'commandPalette.hintOpen': 'Entrée pour ouvrir',
-  'commandPalette.hintClose': 'Échap pour fermer'
+  'commandPalette.hintClose': 'Échap pour fermer',
+
+  // Backup & data transfer
+  'settings.data': 'Données',
+  'backup.description': 'Toutes vos tâches, événements, notes et pièces jointes sont enregistrés dans un seul fichier de sauvegarde, à conserver ou à transférer vers un autre ordinateur.',
+  'backup.unavailable': 'La sauvegarde n’est pas disponible dans l’aperçu du navigateur.',
+  'backup.export': 'Créer une sauvegarde',
+  'backup.exporting': 'Création de la sauvegarde…',
+  'backup.exportHint': 'Un fichier .resa contenant la base de données et les pièces jointes.',
+  'backup.exported': 'Sauvegarde enregistrée dans {path} ({size}).',
+  'backup.import': 'Restaurer une sauvegarde',
+  'backup.importing': 'Restauration…',
+  'backup.importHint': 'Les données actuelles seront remplacées par le contenu du fichier.',
+  'backup.imported': 'Sauvegarde restaurée ; l’application va se recharger.',
+  'backup.confirmTitle': 'Restaurer cette sauvegarde ?',
+  'backup.confirmDesc': 'Les données actuelles seront remplacées par le contenu de la sauvegarde. Une copie de la base actuelle est conservée.',
+  'backup.importConfirm': 'Restaurer',
+  'backup.failed': 'L’opération de sauvegarde a échoué.'
 };

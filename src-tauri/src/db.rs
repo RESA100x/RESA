@@ -272,6 +272,12 @@ fn migration_43_task_recurrence(transaction: &Transaction<'_>) -> Result<()> {
     crate::assistant::store::install_triggers(transaction)
 }
 
+/// Highest schema version this build knows about; used by the backup importer
+/// to refuse databases written by a newer release.
+pub fn latest_migration() -> i64 {
+    MIGRATIONS.last().map(|(version, _)| *version).unwrap_or(0)
+}
+
 /// Lanes the pre-41 schema seeded; tests that exercise lane behaviour add them.
 #[cfg(test)]
 pub fn seed_test_lanes(connection: &Connection) {

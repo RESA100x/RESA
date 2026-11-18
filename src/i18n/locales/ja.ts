@@ -1280,5 +1280,22 @@ export const ja: Record<string, string> = {
   'commandPalette.openNotes': 'すべてのメモ',
   'commandPalette.hintNavigate': '↑↓ で移動',
   'commandPalette.hintOpen': 'Enter で開く',
-  'commandPalette.hintClose': 'Esc で閉じる'
+  'commandPalette.hintClose': 'Esc で閉じる',
+
+  // Backup & data transfer
+  'settings.data': 'データ',
+  'backup.description': 'タスク・予定・メモ・添付ファイルを 1 つのバックアップファイルに保存します。保管したり、別のパソコンへ移したりできます。',
+  'backup.unavailable': 'ブラウザプレビューではバックアップを利用できません。',
+  'backup.export': 'バックアップを作成',
+  'backup.exporting': 'バックアップを作成中…',
+  'backup.exportHint': 'データベースと添付ファイルを含む .resa ファイルです。',
+  'backup.exported': 'バックアップを {path} に保存しました（{size}）。',
+  'backup.import': 'バックアップを復元',
+  'backup.importing': '復元中…',
+  'backup.importHint': '現在のデータはファイルの内容に置き換わります。',
+  'backup.imported': '復元しました。アプリを再読み込みします。',
+  'backup.confirmTitle': 'このバックアップを復元しますか？',
+  'backup.confirmDesc': '現在のデータはバックアップの内容に置き換わります。現在のデータベースのコピーは保持されます。',
+  'backup.importConfirm': '復元',
+  'backup.failed': 'バックアップ操作に失敗しました。'
 };

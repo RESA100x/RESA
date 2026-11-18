@@ -1429,6 +1429,14 @@ body:has(.screen-status-island-root),
 .task-quadrants { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: 0; }
 .task-quadrants legend { width: 100%; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; }
 .task-dialog__actions { width: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.backup-panel { display: grid; gap: 16px; }
+.backup-panel__intro { margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
+.backup-panel__hint { color: var(--text-tertiary); font-size: 0.8rem; line-height: 1.5; }
+.backup-panel__actions { display: grid; gap: 16px; }
+.backup-panel__action { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.backup-panel__action button { display: inline-flex; align-items: center; gap: 8px; }
+.backup-panel__action button svg { width: 16px; height: 16px; }
+.backup-panel__status { margin: 0; color: var(--color-primary-active); font-size: 0.85rem; line-height: 1.5; overflow-wrap: anywhere; }
 .task-dialog__actions .dialog-error { margin: 0 auto 0 0; }
 /* Task steps in the task dialog (design.md §10.14). */
 .task-steps { min-width: 0; display: grid; gap: 8px; }

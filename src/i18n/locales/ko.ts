@@ -1280,5 +1280,22 @@ export const ko: Record<string, string> = {
   'commandPalette.openNotes': '모든 메모',
   'commandPalette.hintNavigate': '↑↓ 이동',
   'commandPalette.hintOpen': 'Enter 열기',
-  'commandPalette.hintClose': 'Esc 닫기'
+  'commandPalette.hintClose': 'Esc 닫기',
+
+  // Backup & data transfer
+  'settings.data': '데이터',
+  'backup.description': '모든 작업, 일정, 메모와 첨부 파일을 하나의 백업 파일로 저장합니다. 보관하거나 다른 컴퓨터로 옮길 수 있습니다.',
+  'backup.unavailable': '브라우저 미리보기에서는 백업을 사용할 수 없습니다.',
+  'backup.export': '백업 만들기',
+  'backup.exporting': '백업 만드는 중…',
+  'backup.exportHint': '데이터베이스와 첨부 파일이 담긴 .resa 파일입니다.',
+  'backup.exported': '백업을 {path}에 저장했습니다({size}).',
+  'backup.import': '백업 복원',
+  'backup.importing': '복원 중…',
+  'backup.importHint': '현재 데이터가 파일 내용으로 바뀝니다.',
+  'backup.imported': '복원했습니다. 앱을 다시 불러옵니다.',
+  'backup.confirmTitle': '이 백업을 복원할까요?',
+  'backup.confirmDesc': '현재 데이터가 백업 내용으로 바뀝니다. 현재 데이터베이스 사본은 보관됩니다.',
+  'backup.importConfirm': '복원',
+  'backup.failed': '백업 작업에 실패했습니다.'
 };

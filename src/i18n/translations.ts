@@ -1072,7 +1072,24 @@ export const translations: Record<Language, Record<string, string>> = {
     'commandPalette.openNotes': '全部便签',
     'commandPalette.hintNavigate': '↑↓ 移动',
     'commandPalette.hintOpen': 'Enter 打开',
-    'commandPalette.hintClose': 'Esc 关闭'
+    'commandPalette.hintClose': 'Esc 关闭',
+
+    // Backup & data transfer
+    'settings.data': '数据',
+    'backup.description': '所有任务、日程、便签与附件都会存成一个备份文件，方便保存或搬到另一台电脑。',
+    'backup.unavailable': '浏览器预览无法使用备份功能。',
+    'backup.export': '创建备份',
+    'backup.exporting': '正在创建备份…',
+    'backup.exportHint': '一个 .resa 文件，内含数据库与附件。',
+    'backup.exported': '备份已保存到 {path}（{size}）。',
+    'backup.import': '还原备份',
+    'backup.importing': '正在还原…',
+    'backup.importHint': '当前数据会被文件内容替换。',
+    'backup.imported': '已还原备份，应用将重新加载。',
+    'backup.confirmTitle': '要还原这份备份吗？',
+    'backup.confirmDesc': '当前数据会被备份内容替换，同时会保留当前数据库的副本。',
+    'backup.importConfirm': '还原',
+    'backup.failed': '备份操作失败。'
   },
   en: {
     ...nativeErrorTranslations.en,
@@ -2118,6 +2135,23 @@ export const translations: Record<Language, Record<string, string>> = {
     'commandPalette.openNotes': 'All notes',
     'commandPalette.hintNavigate': '↑↓ to navigate',
     'commandPalette.hintOpen': 'Enter to open',
-    'commandPalette.hintClose': 'Esc to close'
+    'commandPalette.hintClose': 'Esc to close',
+
+    // Backup & data transfer
+    'settings.data': 'Data',
+    'backup.description': 'Every task, event, note and attachment is saved into a single backup file you can keep or move to another computer.',
+    'backup.unavailable': 'Backups are not available in the browser preview.',
+    'backup.export': 'Create backup',
+    'backup.exporting': 'Creating backup…',
+    'backup.exportHint': 'One .resa file holding the database and its attachments.',
+    'backup.exported': 'Backup saved to {path} ({size}).',
+    'backup.import': 'Restore backup',
+    'backup.importing': 'Restoring…',
+    'backup.importHint': 'The current data will be replaced by the file contents.',
+    'backup.imported': 'Backup restored; the app will reload.',
+    'backup.confirmTitle': 'Restore this backup?',
+    'backup.confirmDesc': 'The current data will be replaced by the backup. A copy of the current database is kept.',
+    'backup.importConfirm': 'Restore',
+    'backup.failed': 'The backup operation failed.'
   }
 };

@@ -5,6 +5,7 @@ mod assistant;
 mod attachments;
 mod autostart;
 mod axelor;
+mod backup;
 mod package;
 mod package_policy;
 mod calendar_api;
@@ -157,6 +158,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(native_language::plugin())
+        .plugin(tauri_plugin_dialog::init())
         .manage(assistant::commands::Requests::default())
         .manage(screen_capture::ActiveCapture::default())
         .manage(screen_capture::FrameStore::default())
@@ -634,6 +636,8 @@ fn main() {
             task_workspace::set_task_completed,
             task_workspace::set_task_recurrence,
             search::search_all,
+            backup::export_backup,
+            backup::import_backup,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,

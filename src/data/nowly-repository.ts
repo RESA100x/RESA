@@ -40,6 +40,7 @@ import type { SoundSettings } from '../settings/sound-settings';
 import type { StickerAsset, StickerBoard } from '../stickers/sticker-model';
 import type { WorldClock, TimeSettings, Alarm, AlarmDraft } from '../time/time-model';
 import type { SearchHit } from '../lib/search';
+import type { BackupSummary } from '../lib/backup';
 export type { WorldClock, TimeSettings, Alarm, AlarmDraft };
 
 export type AppSettings = {
@@ -202,6 +203,9 @@ export type NowlyRepository = {
   setTaskRecurrence?(id: string, recurrence: Recurrence | null): Promise<WorkspaceTask>;
   // Global search for the command palette: events, tasks and notes.
   searchAll?(query: string, limit?: number): Promise<SearchHit[]>;
+  // One-click backup and transfer; both write/read a single `.resa` file.
+  exportBackup?(path: string): Promise<BackupSummary>;
+  importBackup?(path: string): Promise<BackupSummary>;
   moveTaskToLane?(id: string, laneId: string, targetIndex: number): Promise<WorkspaceTask>;
   moveTaskToPriority?(id: string, priority: WorkspaceTask['priority']): Promise<WorkspaceTask>;
   moveTaskToDate?(id: string, dueDate: string | null): Promise<WorkspaceTask>;

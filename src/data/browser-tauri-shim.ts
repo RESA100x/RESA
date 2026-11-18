@@ -839,6 +839,14 @@ export function installBrowserTauriBackend() {
         });
       return [...events, ...tasks, ...notes];
     },
+    // Backups write real files through the native dialog plugin, which the
+    // browser preview does not have.
+    export_backup: () => {
+      throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
+    },
+    import_backup: () => {
+      throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
+    },
     move_task_to_lane: (a) => {
       const moving = store.tasks.find((task) => task.id === a.id);
       if (!moving) return undefined;

@@ -1281,4 +1281,21 @@ export const zhHant: Record<string, string> = {
   "commandPalette.hintNavigate": "↑↓ 移動",
   "commandPalette.hintOpen": "Enter 開啟",
   "commandPalette.hintClose": "Esc 關閉",
+
+  // Backup & data transfer
+  "settings.data": "資料",
+  "backup.description": "所有工作項目、行程、便籤與附件都會存成一個備份檔案，方便保存或搬到另一台電腦。",
+  "backup.unavailable": "瀏覽器預覽無法使用備份功能。",
+  "backup.export": "建立備份",
+  "backup.exporting": "正在建立備份…",
+  "backup.exportHint": "一個 .resa 檔案，內含資料庫與附件。",
+  "backup.exported": "備份已儲存到 {path}（{size}）。",
+  "backup.import": "還原備份",
+  "backup.importing": "正在還原…",
+  "backup.importHint": "目前的資料會被檔案內容取代。",
+  "backup.imported": "已還原備份，應用程式將重新載入。",
+  "backup.confirmTitle": "要還原這份備份嗎？",
+  "backup.confirmDesc": "目前的資料會被備份內容取代，同時會保留目前資料庫的副本。",
+  "backup.importConfirm": "還原",
+  "backup.failed": "備份操作失敗。",
 };

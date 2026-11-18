@@ -1279,5 +1279,22 @@ export const es: Record<string, string> = {
   'commandPalette.openNotes': 'Todas las notas',
   'commandPalette.hintNavigate': '↑↓ para navegar',
   'commandPalette.hintOpen': 'Intro para abrir',
-  'commandPalette.hintClose': 'Esc para cerrar'
+  'commandPalette.hintClose': 'Esc para cerrar',
+
+  // Backup & data transfer
+  'settings.data': 'Datos',
+  'backup.description': 'Todas tus tareas, eventos, notas y archivos adjuntos se guardan en un único archivo de copia de seguridad que puedes conservar o llevar a otro equipo.',
+  'backup.unavailable': 'La copia de seguridad no está disponible en la vista previa del navegador.',
+  'backup.export': 'Crear copia de seguridad',
+  'backup.exporting': 'Creando la copia…',
+  'backup.exportHint': 'Un archivo .resa con la base de datos y los adjuntos.',
+  'backup.exported': 'Copia guardada en {path} ({size}).',
+  'backup.import': 'Restaurar copia',
+  'backup.importing': 'Restaurando…',
+  'backup.importHint': 'Los datos actuales se reemplazarán por el contenido del archivo.',
+  'backup.imported': 'Copia restaurada; la aplicación se recargará.',
+  'backup.confirmTitle': '¿Restaurar esta copia de seguridad?',
+  'backup.confirmDesc': 'Los datos actuales se reemplazarán por el contenido de la copia. Se conserva una copia de la base actual.',
+  'backup.importConfirm': 'Restaurar',
+  'backup.failed': 'La operación de copia de seguridad falló.'
 };

@@ -5,6 +5,7 @@
   "windows": ["main", "quick-panel-handle", "quick-create"],
   "permissions": [
     "core:default",
-    "core:event:default"
+    "core:event:default",
+    "dialog:default"
   ]
 }

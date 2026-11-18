@@ -1295,5 +1295,22 @@ export const fa: Record<string, string> = {
   'commandPalette.openNotes': 'همه یادداشت‌ها',
   'commandPalette.hintNavigate': '↑↓ برای جابه‌جایی',
   'commandPalette.hintOpen': 'Enter برای باز کردن',
-  'commandPalette.hintClose': 'Esc برای بستن'
+  'commandPalette.hintClose': 'Esc برای بستن',
+
+  // Backup & data transfer
+  'settings.data': 'داده‌ها',
+  'backup.description': 'همه وظیفه‌ها، رویدادها، یادداشت‌ها و پیوست‌ها در یک فایل پشتیبان ذخیره می‌شوند تا بتوانید آن را نگه دارید یا به رایانه دیگری منتقل کنید.',
+  'backup.unavailable': 'پشتیبان‌گیری در پیش‌نمایش مرورگر فعال نیست.',
+  'backup.export': 'ساخت پشتیبان',
+  'backup.exporting': 'در حال ساخت پشتیبان…',
+  'backup.exportHint': 'یک فایل ‎.resa‎ شامل پایگاه داده و پیوست‌ها.',
+  'backup.exported': 'پشتیبان در {path} ذخیره شد ({size}).',
+  'backup.import': 'بازگرداندن پشتیبان',
+  'backup.importing': 'در حال بازگرداندن…',
+  'backup.importHint': 'داده‌های فعلی با محتوای فایل پشتیبان جایگزین می‌شود.',
+  'backup.imported': 'پشتیبان بازگردانده شد؛ برنامه دوباره بارگذاری می‌شود.',
+  'backup.confirmTitle': 'بازگرداندن این پشتیبان؟',
+  'backup.confirmDesc': 'داده‌های کنونی با محتوای پشتیبان جایگزین می‌شود. یک نسخه از پایگاه داده فعلی نگه داشته می‌شود.',
+  'backup.importConfirm': 'بازگرداندن',
+  'backup.failed': 'عملیات پشتیبان‌گیری ناموفق بود.'
 };

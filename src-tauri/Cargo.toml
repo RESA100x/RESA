@@ -56,6 +56,11 @@ windows = { version = "0.61", features = [
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.4.3"
 tauri-plugin-global-shortcut = "2.3.2"
+tauri-plugin-dialog = "2"
+# Backups are one portable file; the database and attachments are already
+# compressed, so a plain deflate zip keeps the archive small without pulling in
+# another compression stack.
+zip = { version = "2", default-features = false, features = ["deflate"] }
 webview2-com = "0.38"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 # The capture overlays fetch their frozen frame over a custom URI scheme, and

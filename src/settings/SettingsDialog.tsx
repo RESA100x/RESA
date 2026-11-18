@@ -3,6 +3,7 @@ import type { IconStyle } from '../components/icon-style';
 import { useEffect, useState } from 'react';
 import { BarMenuSettings } from './BarMenuSettings';
 import { SoundSettingsPanel } from './SoundSettingsPanel';
+import { BackupPanel } from './BackupPanel';
 import { normalizeSoundSettings } from './sound-settings';
 import { normalizeBarMenu } from '../app/bar-menu';
 import { ShortcutRecorder, normalizeShortcut } from './ShortcutRecorder';
@@ -14,7 +15,7 @@ import type { AppSettings, MonitorInfo } from '../data/nowly-repository';
 import { t, useTranslation, SUPPORTED_LANGUAGES, LOCALES, type Language } from '../i18n';
 
 type Props={settings:AppSettings;monitors?:MonitorInfo[];onClose():void;onSave(settings:AppSettings):Promise<AppSettings>};
-type SettingsTab='interface'|'desktop'|'notifications'|'sound'|'shortcuts';
+type SettingsTab='interface'|'desktop'|'notifications'|'sound'|'shortcuts'|'data';
 type ShortcutField='screenshotShortcut'|'screenshotHistoryShortcut'|'quickCreateEventShortcut'|'quickCreateTaskShortcut'|'quickCreateNoteShortcut';
 const QUICK_CREATE_SHORTCUTS=[
  {field:'quickCreateEventShortcut',id:'settings-quick-create-event-shortcut',label:'settings.quickCreateEventShortcut'},
@@ -48,7 +49,7 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
   const [screenshotShortcut,screenshotHistoryShortcut,quickCreateEventShortcut,quickCreateTaskShortcut,quickCreateNoteShortcut]=shortcuts as string[];
   setSaving(true);setError(null);try{await onSave({...draft,screenshotShortcut,screenshotHistoryShortcut,quickCreateEventShortcut,quickCreateTaskShortcut,quickCreateNoteShortcut,quickPanelEnabled:true});onClose();}catch(reason){setError(typeof reason==='object'&&reason!==null&&'field'in reason&&(SHORTCUT_FIELDS as readonly string[]).includes(String(reason.field))?t('settings.shortcutConflict'):errorMessage(reason));}finally{setSaving(false)}
  }
- const tabs:TabItem<SettingsTab>[]=[{id:'interface',label:t('settings.interface')},{id:'desktop',label:t('settings.desktopStartup')},{id:'notifications',label:t('settings.notifications')},{id:'sound',label:t('settings.sound')},{id:'shortcuts',label:t('settings.shortcuts')}];
+ const tabs:TabItem<SettingsTab>[]=[{id:'interface',label:t('settings.interface')},{id:'desktop',label:t('settings.desktopStartup')},{id:'notifications',label:t('settings.notifications')},{id:'sound',label:t('settings.sound')},{id:'shortcuts',label:t('settings.shortcuts')},{id:'data',label:t('settings.data')}];
  return <Dialog title={t('settings.title')} ariaLabelledBy="settings-title" onRequestClose={onClose} className="settings-dialog" headerActions={<button className="good-icon-button" aria-label={t('settings.close')} onClick={onClose}><X aria-hidden="true"/></button>} footer={<><button className="good-button" onClick={onClose}>{t('common.cancel')}</button><button className="good-button good-button--primary" disabled={saving} onClick={()=>void save()}>{saving?t('common.saving'):t('settings.saveSettings')}</button></>}>
   <div className="settings-form">
    <Tabs idPrefix="settings" label={t('settings.title')} items={tabs} value={tab} onChange={setTab}/>
@@ -92,6 +93,9 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
       {QUICK_CREATE_SHORTCUTS.map(({field,id,label})=><ShortcutRecorder key={field} id={id} label={t(label)} value={draft[field]} otherValues={others(field)} optional disabled={saving} onChange={value=>setDraft(current=>({...current,[field]:value}))}/>)}
      </fieldset>
     </div>
+   </TabPanel>
+   <TabPanel idPrefix="settings" tabId="data" active={tab==='data'}>
+    <BackupPanel/>
    </TabPanel>
    {error?<div className="dialog-error" role="alert">{error}</div>:null}
   </div>
