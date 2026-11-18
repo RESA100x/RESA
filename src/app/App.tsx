@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   buildDefinitions,
   type WidgetId
@@ -37,6 +37,8 @@ import { FocusStatisticsDialog } from '../focus/FocusStatisticsDialog';
 import { FocusWallpaperOverlay } from '../focus/FocusWallpaperOverlay';
 import { OnboardingGuide, type GuideStep } from './onboarding/OnboardingGuide';
 import { useOnboarding } from './onboarding/useOnboarding';
+import { CommandPalette, type PaletteAction } from '../command-palette/CommandPalette';
+import type { SearchHit } from '../lib/search';
 import type { NativeStatusIslandSnapshot } from '../quick-panel/useStatusIslandSnapshot';
 import { RECORDS_CHANGED_EVENT, recordsChangedKind, type RecordsChangedKind } from '../quick-create/events';
 import { effectiveWeekStart } from '../lib/date';
@@ -63,7 +65,7 @@ function AppContent() {
   const eventsFeature = useEvents({ weekStart });
   const categoriesFeature = useCategories();
   const tasksFeature = useWorkspaceTasks();
-  const { refresh: refreshWorkspace } = useTaskWorkspace();
+  const { refresh: refreshWorkspace, workspace: taskWorkspace } = useTaskWorkspace();
   const notesFeature = useNotes();
   const notesView = useNotesView();
   const refreshEvents = useCallback(() => eventsFeature.retryEvents(), [eventsFeature]);
@@ -71,6 +73,7 @@ function AppContent() {
   const tasks = tasksFeature.tasks.data;
   const notes = notesFeature.notes.data;
   const [modal, setModal] = useState<ModalState>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<CalendarSubscription[]>([]);
   const loadSubscriptions = useCallback(() => {
     void repository.listCalendarSubscriptions().then(setSubscriptions).catch(() => setSubscriptions([]));
@@ -323,6 +326,58 @@ function AppContent() {
     }).catch(() => undefined);
   }
 
+  // Ctrl+K (or Cmd+K) opens the command palette from anywhere.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'k' || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      event.preventDefault();
+      setPaletteOpen((open) => !open);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const searchAll = useCallback(
+    (query: string) => repository.searchAll ? repository.searchAll(query) : Promise.resolve([]),
+    [repository]
+  );
+
+  const paletteActions = useMemo<PaletteAction[]>(() => [
+    { id: 'new-event', label: t('commandPalette.newEvent'), icon: 'event',
+      run: () => openModalInForeground({ type: 'event-create', dateIso: todayIso, trigger: null }) },
+    { id: 'new-task', label: t('commandPalette.newTask'), icon: 'task',
+      run: () => openModalInForeground({ type: 'task-create', dueDate: todayIso, trigger: null }) },
+    { id: 'new-note', label: t('commandPalette.newNote'), icon: 'note',
+      run: () => openModalInForeground({ type: 'note-create', trigger: null }) },
+    { id: 'open-notes', label: t('commandPalette.openNotes'), icon: 'notes',
+      run: () => openModalInForeground({ type: 'notes-manager', trigger: null }) },
+    { id: 'open-settings', label: t('commandPalette.openSettings'), icon: 'settings',
+      run: () => openModalInForeground({ type: 'settings', trigger: null }) }
+    // `openModalInForeground` reads the current window mode, so the list is
+    // rebuilt whenever the day or the mode changes.
+  ], [todayIso, windowMode]);
+
+  const openSearchHit = useCallback((hit: SearchHit) => {
+    if (hit.kind === 'task') {
+      const task = taskWorkspace.data.tasks.find((item) => item.id === hit.id);
+      if (task) openModalInForeground({ type: 'workspace-task-edit', task, trigger: null });
+      return;
+    }
+    if (hit.kind === 'note') {
+      const note = notes.find((item) => item.id === hit.id);
+      if (note) openModalInForeground({ type: 'note-edit', note, trigger: null });
+      return;
+    }
+    const event = events.find((item) => item.id === hit.id);
+    if (event) {
+      openModalInForeground(event.subscriptionId && !isEventWritable(event)
+        ? { type: 'external-detail', event, trigger: null }
+        : { type: 'event-edit', event, trigger: null });
+    } else if (hit.date) {
+      openModalInForeground({ type: 'date', isoDate: hit.date.slice(0, 10), trigger: null });
+    }
+  }, [events, notes, taskWorkspace.data.tasks, windowMode]);
+
   function openTimeDialog(createAlarm = false) {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     void runWindowModeSwitch(async () => {
@@ -361,6 +416,13 @@ function AppContent() {
       />
       {timeDialog ? <TimeSettingsDialog createAlarm={timeDialog.createAlarm} trigger={timeDialog.trigger} onClose={() => setTimeDialog(null)} /> : null}
       {focusStatisticsOpen ? <FocusStatisticsDialog onClose={() => setFocusStatisticsOpen(false)} /> : null}
+      <CommandPalette
+        open={paletteOpen}
+        actions={paletteActions}
+        search={searchAll}
+        onOpenHit={openSearchHit}
+        onClose={() => setPaletteOpen(false)}
+      />
       <OnboardingGuide
         open={onboarding.shouldShow && windowMode === 'foreground'}
         steps={onboardingSteps}

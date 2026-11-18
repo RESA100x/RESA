@@ -1263,4 +1263,22 @@ export const ja: Record<string, string> = {
   'time.zone.America/New_York': 'ニューヨーク',
   'time.zone.America/Los_Angeles': 'ロサンゼルス',
   'time.zone.Australia/Sydney': 'シドニー',
+
+  // Command palette
+  'commandPalette.title': 'コマンドパレット',
+  'commandPalette.placeholder': 'タスク・予定・メモを検索…',
+  'commandPalette.empty': '結果がありません',
+  'commandPalette.searching': '検索中…',
+  'commandPalette.noActions': '入力して検索',
+  'commandPalette.kindEvent': '予定',
+  'commandPalette.kindTask': 'タスク',
+  'commandPalette.kindNote': 'メモ',
+  'commandPalette.newEvent': '新しい予定',
+  'commandPalette.newTask': '新しいタスク',
+  'commandPalette.newNote': '新しいメモ',
+  'commandPalette.openSettings': '設定',
+  'commandPalette.openNotes': 'すべてのメモ',
+  'commandPalette.hintNavigate': '↑↓ で移動',
+  'commandPalette.hintOpen': 'Enter で開く',
+  'commandPalette.hintClose': 'Esc で閉じる'
 };

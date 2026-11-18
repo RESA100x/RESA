@@ -38,6 +38,7 @@ mod screen_capture;
 mod screenshot_shortcuts;
 mod screenshot_windows;
 mod screenshot_pins;
+mod search;
 mod settings;
 mod shell;
 mod sound_settings;
@@ -632,6 +633,7 @@ fn main() {
             task_workspace::delete_task,
             task_workspace::set_task_completed,
             task_workspace::set_task_recurrence,
+            search::search_all,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,

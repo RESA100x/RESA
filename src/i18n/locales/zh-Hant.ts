@@ -1263,4 +1263,22 @@ export const zhHant: Record<string, string> = {
   "timeBar.snooze": "5 分鐘後再提醒",
   "timeBar.expiredAlarms": "已關閉的過期鬧鐘",
   "timeBar.actionFailed": "鬧鐘操作失敗，請重試。",
+
+  // Command palette
+  "commandPalette.title": "命令面板",
+  "commandPalette.placeholder": "搜尋工作項目、行程或便籤…",
+  "commandPalette.empty": "沒有結果",
+  "commandPalette.searching": "搜尋中…",
+  "commandPalette.noActions": "輸入以搜尋",
+  "commandPalette.kindEvent": "行程",
+  "commandPalette.kindTask": "工作項目",
+  "commandPalette.kindNote": "便籤",
+  "commandPalette.newEvent": "新增行程",
+  "commandPalette.newTask": "新增工作項目",
+  "commandPalette.newNote": "新增便籤",
+  "commandPalette.openSettings": "設定",
+  "commandPalette.openNotes": "所有便籤",
+  "commandPalette.hintNavigate": "↑↓ 移動",
+  "commandPalette.hintOpen": "Enter 開啟",
+  "commandPalette.hintClose": "Esc 關閉",
 };

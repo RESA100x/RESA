@@ -25,7 +25,7 @@ import { getBrowserStickerBoard, saveBrowserStickerBoard, uploadBrowserStickerIm
 import type { StickerBoard } from '../stickers/sticker-model';
 import { validateNoteForm, toNoteDraft } from '../lib/note-draft';
 import type { NoteDraft } from '../notes/notes-model';
-import { isContentEmpty } from '../components/rich-text/content';
+import { contentToPlainText, isContentEmpty } from '../components/rich-text/content';
 import { normalizeBarMenu } from '../app/bar-menu';
 import { isQuickCreateKind } from '../quick-create/request';
 import { alarmToDraft, defaultTimeSettings, type Alarm, type AlarmDraft, type AlarmNotice, type TimeSettings } from '../time/time-model';
@@ -805,6 +805,39 @@ export function installBrowserTauriBackend() {
       store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
       persist();
       return updated;
+    },
+    search_all: (a) => {
+      const query = String(a.query ?? '').trim().toLowerCase();
+      if (!query) return [];
+      const limit = Math.max(1, Math.min(Number(a.limit ?? 8), 20));
+      const matches = (text: unknown) => typeof text === 'string' && text.toLowerCase().includes(query);
+      const snippet = (text: string) => text.trim().slice(0, 120);
+      const events = store.events
+        .filter((event) => matches(event.title) || matches(event.note))
+        .slice(0, limit)
+        .map((event) => ({
+          kind: 'event', id: event.id, title: event.title,
+          snippet: snippet(String(event.note ?? '')), date: event.startAt ?? null
+        }));
+      const tasks = store.tasks
+        .filter((task) => matches(task.title) || matches(task.description))
+        .slice(0, limit)
+        .map((task) => ({
+          kind: 'task', id: task.id, title: task.title,
+          snippet: snippet(String(task.description ?? '')), date: (task.dueDate as string | null) ?? null
+        }));
+      const notes = store.notes
+        .filter((note) => matches(contentToPlainText(String(note.content ?? ''))))
+        .slice(0, limit)
+        .map((note) => {
+          const text = contentToPlainText(String(note.content ?? ''));
+          return {
+            kind: 'note', id: note.id,
+            title: text.split('\n').map((line) => line.trim()).find(Boolean)?.slice(0, 60) ?? '',
+            snippet: snippet(text), date: (note.updatedAt as string | null) ?? null
+          };
+        });
+      return [...events, ...tasks, ...notes];
     },
     move_task_to_lane: (a) => {
       const moving = store.tasks.find((task) => task.id === a.id);

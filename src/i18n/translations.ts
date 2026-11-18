@@ -1054,7 +1054,25 @@ export const translations: Record<Language, Record<string, string>> = {
     'widget.kanban.name': '看板',
     'widget.kanban.desc': '用泳道管理任务状态的看板。',
     'widget.focusTimer.name': '专注计时',
-    'widget.focusTimer.desc': '番茄钟式专注计时，帮助保持节奏。'
+    'widget.focusTimer.desc': '番茄钟式专注计时，帮助保持节奏。',
+
+    // Command palette
+    'commandPalette.title': '命令面板',
+    'commandPalette.placeholder': '搜索任务、日程或便签…',
+    'commandPalette.empty': '没有结果',
+    'commandPalette.searching': '搜索中…',
+    'commandPalette.noActions': '输入以搜索',
+    'commandPalette.kindEvent': '日程',
+    'commandPalette.kindTask': '任务',
+    'commandPalette.kindNote': '便签',
+    'commandPalette.newEvent': '新建日程',
+    'commandPalette.newTask': '新建任务',
+    'commandPalette.newNote': '新建便签',
+    'commandPalette.openSettings': '设置',
+    'commandPalette.openNotes': '全部便签',
+    'commandPalette.hintNavigate': '↑↓ 移动',
+    'commandPalette.hintOpen': 'Enter 打开',
+    'commandPalette.hintClose': 'Esc 关闭'
   },
   en: {
     ...nativeErrorTranslations.en,
@@ -2082,6 +2100,24 @@ export const translations: Record<Language, Record<string, string>> = {
     'widget.kanban.name': 'Kanban',
     'widget.kanban.desc': 'A board that manages task status with lanes.',
     'widget.focusTimer.name': 'Focus timer',
-    'widget.focusTimer.desc': 'Pomodoro-style focus timer to keep your rhythm.'
+    'widget.focusTimer.desc': 'Pomodoro-style focus timer to keep your rhythm.',
+
+    // Command palette
+    'commandPalette.title': 'Command palette',
+    'commandPalette.placeholder': 'Search tasks, events or notes…',
+    'commandPalette.empty': 'No results',
+    'commandPalette.searching': 'Searching…',
+    'commandPalette.noActions': 'Type to search',
+    'commandPalette.kindEvent': 'Event',
+    'commandPalette.kindTask': 'Task',
+    'commandPalette.kindNote': 'Note',
+    'commandPalette.newEvent': 'New event',
+    'commandPalette.newTask': 'New task',
+    'commandPalette.newNote': 'New note',
+    'commandPalette.openSettings': 'Settings',
+    'commandPalette.openNotes': 'All notes',
+    'commandPalette.hintNavigate': '↑↓ to navigate',
+    'commandPalette.hintOpen': 'Enter to open',
+    'commandPalette.hintClose': 'Esc to close'
   }
 };

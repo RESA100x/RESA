@@ -82,6 +82,7 @@ export const tauriNowlyRepository: NowlyRepository = {
   deleteWorkspaceTask: (id) => invalidating(invoke('delete_task', { id })),
   setWorkspaceTaskCompleted: (id, completed) => invalidating(invoke('set_task_completed', { id, completed })),
   setTaskRecurrence: (id, recurrence) => invalidating(invoke('set_task_recurrence', { id, recurrence })),
+  searchAll: (query, limit) => invoke('search_all', { query, limit }),
   moveTaskToLane: (id, laneId, targetIndex) => invalidating(invoke('move_task_to_lane', { id, laneId, targetIndex })),
   moveTaskToPriority: (id, priority) => invalidating(invoke('move_task_to_priority', { id, priority })),
   moveTaskToDate: (id, dueDate) => invalidating(invoke('move_task_to_date', { id, dueDate })),

@@ -1263,4 +1263,22 @@ export const ko: Record<string, string> = {
   'time.zone.America/New_York': '뉴욕',
   'time.zone.America/Los_Angeles': '로스앤젤레스',
   'time.zone.Australia/Sydney': '시드니',
+
+  // Command palette
+  'commandPalette.title': '명령 팔레트',
+  'commandPalette.placeholder': '작업, 일정, 메모 검색…',
+  'commandPalette.empty': '결과가 없습니다',
+  'commandPalette.searching': '검색 중…',
+  'commandPalette.noActions': '검색어를 입력하세요',
+  'commandPalette.kindEvent': '일정',
+  'commandPalette.kindTask': '작업',
+  'commandPalette.kindNote': '메모',
+  'commandPalette.newEvent': '새 일정',
+  'commandPalette.newTask': '새 작업',
+  'commandPalette.newNote': '새 메모',
+  'commandPalette.openSettings': '설정',
+  'commandPalette.openNotes': '모든 메모',
+  'commandPalette.hintNavigate': '↑↓ 이동',
+  'commandPalette.hintOpen': 'Enter 열기',
+  'commandPalette.hintClose': 'Esc 닫기'
 };

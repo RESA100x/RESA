@@ -52,6 +52,33 @@ describe('browser task lane deletion', () => {
   });
 });
 
+describe('browser search and recurring tasks', () => {
+  it('spawns the next occurrence when a recurring task is completed', async () => {
+    installBrowserTauriBackend();
+    const created = await invoke()('create_task', {
+      draft: { title: '喝水', description: '', priority: 'important_urgent', dueDate: '2026-03-01', completed: false, laneId: null, tagIds: [], steps: [] }
+    }) as { id: string };
+    await invoke()('set_task_recurrence', {
+      id: created.id,
+      recurrence: { freq: 'daily', interval: 1, byDay: [], end: { kind: 'never' } }
+    });
+    await invoke()('set_task_completed', { id: created.id, completed: true });
+    const workspace = await invoke()('get_task_workspace_snapshot') as { tasks: { id: string; dueDate: string | null; completed: boolean }[] };
+    expect(workspace.tasks).toHaveLength(2);
+    expect(workspace.tasks.find((task) => task.id !== created.id)).toMatchObject({ dueDate: '2026-03-02', completed: false });
+  });
+
+  it('searches tasks, events and notes from one command', async () => {
+    installBrowserTauriBackend();
+    await invoke()('create_task', {
+      draft: { title: 'گزارش هفتگی', description: '', priority: 'important_urgent', dueDate: null, completed: false, laneId: null, tagIds: [], steps: [] }
+    });
+    const results = await invoke()('search_all', { query: 'گزارش', limit: 8 }) as { kind: string; title: string }[];
+    expect(results).toEqual([expect.objectContaining({ kind: 'task', title: 'گزارش هفتگی' })]);
+    expect(await invoke()('search_all', { query: '  ', limit: 8 })).toEqual([]);
+  });
+});
+
 describe('browser note persistence', () => {
   it('drops old titles without changing content or other note fields', async () => {
     const content = JSON.stringify({ v: 1, ops: [{ insert: '正文\n' }] });

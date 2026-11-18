@@ -1277,5 +1277,23 @@ export const fa: Record<string, string> = {
   'widget.kanban.name': 'کانبان',
   'widget.kanban.desc': 'بوردی که وضعیت وظایف را با ستون‌ها مدیریت می‌کند.',
   'widget.focusTimer.name': 'تایمر تمرکز',
-  'widget.focusTimer.desc': 'تایمر تمرکز به سبک پومودورو برای حفظ ریتم.'
+  'widget.focusTimer.desc': 'تایمر تمرکز به سبک پومودورو برای حفظ ریتم.',
+
+  // Command palette
+  'commandPalette.title': 'پالت فرمان',
+  'commandPalette.placeholder': 'جستجوی وظیفه، رویداد یا یادداشت…',
+  'commandPalette.empty': 'نتیجه‌ای پیدا نشد',
+  'commandPalette.searching': 'در حال جستجو…',
+  'commandPalette.noActions': 'برای جستجو تایپ کنید',
+  'commandPalette.kindEvent': 'رویداد',
+  'commandPalette.kindTask': 'وظیفه',
+  'commandPalette.kindNote': 'یادداشت',
+  'commandPalette.newEvent': 'رویداد جدید',
+  'commandPalette.newTask': 'وظیفه جدید',
+  'commandPalette.newNote': 'یادداشت جدید',
+  'commandPalette.openSettings': 'تنظیمات',
+  'commandPalette.openNotes': 'همه یادداشت‌ها',
+  'commandPalette.hintNavigate': '↑↓ برای جابه‌جایی',
+  'commandPalette.hintOpen': 'Enter برای باز کردن',
+  'commandPalette.hintClose': 'Esc برای بستن'
 };

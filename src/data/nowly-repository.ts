@@ -39,6 +39,7 @@ import type { BarMenuItem } from '../app/bar-menu';
 import type { SoundSettings } from '../settings/sound-settings';
 import type { StickerAsset, StickerBoard } from '../stickers/sticker-model';
 import type { WorldClock, TimeSettings, Alarm, AlarmDraft } from '../time/time-model';
+import type { SearchHit } from '../lib/search';
 export type { WorldClock, TimeSettings, Alarm, AlarmDraft };
 
 export type AppSettings = {
@@ -199,6 +200,8 @@ export type NowlyRepository = {
   setWorkspaceTaskCompleted?(id: string, completed: boolean): Promise<WorkspaceTask>;
   // Sets or clears the recurrence rule of a task (habits / repeating tasks).
   setTaskRecurrence?(id: string, recurrence: Recurrence | null): Promise<WorkspaceTask>;
+  // Global search for the command palette: events, tasks and notes.
+  searchAll?(query: string, limit?: number): Promise<SearchHit[]>;
   moveTaskToLane?(id: string, laneId: string, targetIndex: number): Promise<WorkspaceTask>;
   moveTaskToPriority?(id: string, priority: WorkspaceTask['priority']): Promise<WorkspaceTask>;
   moveTaskToDate?(id: string, dueDate: string | null): Promise<WorkspaceTask>;

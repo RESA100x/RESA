@@ -1262,4 +1262,22 @@ export const fr: Record<string, string> = {
   'time.zone.America/New_York': 'New York',
   'time.zone.America/Los_Angeles': 'Los Angeles',
   'time.zone.Australia/Sydney': 'Sydney',
+
+  // Command palette
+  'commandPalette.title': 'Palette de commandes',
+  'commandPalette.placeholder': 'Rechercher une tâche, un événement ou une note…',
+  'commandPalette.empty': 'Aucun résultat',
+  'commandPalette.searching': 'Recherche…',
+  'commandPalette.noActions': 'Saisissez pour rechercher',
+  'commandPalette.kindEvent': 'Événement',
+  'commandPalette.kindTask': 'Tâche',
+  'commandPalette.kindNote': 'Note',
+  'commandPalette.newEvent': 'Nouvel événement',
+  'commandPalette.newTask': 'Nouvelle tâche',
+  'commandPalette.newNote': 'Nouvelle note',
+  'commandPalette.openSettings': 'Paramètres',
+  'commandPalette.openNotes': 'Toutes les notes',
+  'commandPalette.hintNavigate': '↑↓ pour naviguer',
+  'commandPalette.hintOpen': 'Entrée pour ouvrir',
+  'commandPalette.hintClose': 'Échap pour fermer'
 };
