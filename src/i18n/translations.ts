@@ -2893,7 +2893,7 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Backup & data transfer
     'settings.data': 'Data',
-    'backup.description': 'Every task, event, note and attachment is saved into a single backup file you can keep or move to another computer.',
+    'backup.description': 'Everything is saved into one backup file: tasks with their status and archive, projects, calendar, notes, phone book, plants, settings, and attachment and sticker images.',
     'backup.unavailable': 'Backups are not available in the browser preview.',
     'backup.export': 'Create backup',
     'backup.exporting': 'Creating backup…',

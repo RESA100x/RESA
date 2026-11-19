@@ -20,6 +20,10 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 const MANIFEST_NAME: &str = "manifest.json";
 const DATABASE_NAME: &str = "nowly.sqlite";
 const ATTACHMENTS_DIR: &str = "attachments";
+// Image bytes live beside the database, not inside it: note attachments and
+// the sticker board's uploaded pictures. Both travel with the backup.
+const STICKERS_DIR: &str = "stickers";
+const ASSET_DIRS: [&str; 2] = [ATTACHMENTS_DIR, STICKERS_DIR];
 const FORMAT: &str = "resa-backup";
 const FORMAT_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -85,6 +89,18 @@ fn attachment_files(dir: &Path) -> Result<Vec<PathBuf>, CommandError> {
     Ok(files)
 }
 
+/// Every on-disk asset directory paired with its files, so the archive keeps
+/// the folder each file came from.
+fn asset_files(app_data_dir: &Path) -> Result<Vec<(&'static str, PathBuf)>, CommandError> {
+    let mut assets = Vec::new();
+    for dir in ASSET_DIRS {
+        for file in attachment_files(&app_data_dir.join(dir))? {
+            assets.push((dir, file));
+        }
+    }
+    Ok(assets)
+}
+
 pub fn export(
     connection: &Connection,
     app_data_dir: &Path,
@@ -94,7 +110,8 @@ pub fn export(
     let scratch = app_data_dir.join(format!("backup-{}.sqlite", file_timestamp()));
     let result = (|| -> Result<BackupSummary, CommandError> {
         snapshot_database(connection, &scratch)?;
-        let attachments = attachment_files(&app_data_dir.join(ATTACHMENTS_DIR))?;
+        let assets = asset_files(app_data_dir)?;
+        let attachments = assets.iter().filter(|(dir, _)| *dir == ATTACHMENTS_DIR).count();
         let file = fs::File::create(destination).map_err(CommandError::system)?;
         let mut zip = ZipWriter::new(file);
         let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
@@ -103,7 +120,7 @@ pub fn export(
             version: FORMAT_VERSION,
             app_version: APP_VERSION.into(),
             created_at: timestamp(),
-            attachments: attachments.len(),
+            attachments,
         };
         zip.start_file(MANIFEST_NAME, options)
             .map_err(CommandError::system)?;
@@ -117,12 +134,12 @@ pub fn export(
             .map_err(CommandError::system)?;
         let mut database = fs::File::open(&scratch).map_err(CommandError::system)?;
         std::io::copy(&mut database, &mut zip).map_err(CommandError::system)?;
-        for file in &attachments {
+        for (dir, file) in &assets {
             let name = file
                 .file_name()
                 .and_then(|value| value.to_str())
-                .ok_or_else(|| CommandError::system("attachment name is not valid UTF-8"))?;
-            zip.start_file(format!("{ATTACHMENTS_DIR}/{name}"), options)
+                .ok_or_else(|| CommandError::system("asset name is not valid UTF-8"))?;
+            zip.start_file(format!("{dir}/{name}"), options)
                 .map_err(CommandError::system)?;
             let mut source = fs::File::open(file).map_err(CommandError::system)?;
             std::io::copy(&mut source, &mut zip).map_err(CommandError::system)?;
@@ -131,7 +148,7 @@ pub fn export(
         let byte_size = fs::metadata(destination).map_err(CommandError::system)?.len();
         Ok(BackupSummary {
             path: destination.to_string_lossy().to_string(),
-            attachments: attachments.len(),
+            attachments,
             byte_size,
             safety_copy: None,
         })
@@ -186,7 +203,6 @@ impl Drop for Staging {
 fn extract(source: &Path, staging: &Staging) -> Result<usize, CommandError> {
     let file = fs::File::open(source).map_err(CommandError::system)?;
     let mut archive = ZipArchive::new(file).map_err(CommandError::system)?;
-    let attachments_root = staging.root.join(ATTACHMENTS_DIR);
     let mut attachments = 0;
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(CommandError::system)?;
@@ -199,13 +215,18 @@ fn extract(source: &Path, staging: &Staging) -> Result<usize, CommandError> {
                 .map_err(CommandError::system)?;
             std::io::copy(&mut entry, &mut output).map_err(CommandError::system)?;
             output.sync_all().map_err(CommandError::system)?;
-        } else if name.starts_with(ATTACHMENTS_DIR) && entry.is_file() {
+        } else if entry.is_file() {
+            let Some(dir) = ASSET_DIRS.iter().find(|dir| name.starts_with(dir)) else {
+                continue;
+            };
             let Some(file_name) = name.file_name() else { continue };
-            fs::create_dir_all(&attachments_root).map_err(CommandError::system)?;
-            let mut output =
-                fs::File::create(attachments_root.join(file_name)).map_err(CommandError::system)?;
+            let target = staging.root.join(dir);
+            fs::create_dir_all(&target).map_err(CommandError::system)?;
+            let mut output = fs::File::create(target.join(file_name)).map_err(CommandError::system)?;
             std::io::copy(&mut entry, &mut output).map_err(CommandError::system)?;
-            attachments += 1;
+            if *dir == ATTACHMENTS_DIR {
+                attachments += 1;
+            }
         }
     }
     Ok(attachments)
@@ -242,26 +263,26 @@ fn verify_database(path: &Path) -> Result<(), CommandError> {
     Ok(())
 }
 
-fn replace_attachments(
-    app_data_dir: &Path,
-    staged: &Path,
-) -> Result<Option<PathBuf>, CommandError> {
-    let target = app_data_dir.join(ATTACHMENTS_DIR);
+/// Swaps one asset directory for the staged copy. A directory the backup does
+/// not carry (an older archive) is left untouched instead of being emptied.
+fn replace_dir(app_data_dir: &Path, staged: &Path, name: &str) -> Result<Option<PathBuf>, CommandError> {
+    if !staged.exists() {
+        return Ok(None);
+    }
+    let target = app_data_dir.join(name);
     let mut previous = None;
     if target.exists() {
-        let retired = app_data_dir.join(format!("attachments.pre-import-{}", file_timestamp()));
+        let retired = app_data_dir.join(format!("{name}.pre-import-{}", file_timestamp()));
         fs::rename(&target, &retired).map_err(CommandError::system)?;
         previous = Some(retired);
     }
-    if staged.exists() {
-        fs::create_dir_all(&target).map_err(CommandError::system)?;
-        for entry in fs::read_dir(staged).map_err(CommandError::system)? {
-            let entry = entry.map_err(CommandError::system)?;
-            if !entry.path().is_file() {
-                continue;
-            }
-            fs::rename(entry.path(), target.join(entry.file_name())).map_err(CommandError::system)?;
+    fs::create_dir_all(&target).map_err(CommandError::system)?;
+    for entry in fs::read_dir(staged).map_err(CommandError::system)? {
+        let entry = entry.map_err(CommandError::system)?;
+        if !entry.path().is_file() {
+            continue;
         }
+        fs::rename(entry.path(), target.join(entry.file_name())).map_err(CommandError::system)?;
     }
     Ok(previous)
 }
@@ -292,7 +313,11 @@ pub fn import(
         let _ = fs::remove_file(app_data_dir.join(format!("{DATABASE_NAME}{suffix}")));
     }
     fs::copy(&staged_database, &live_database).map_err(CommandError::system)?;
-    let previous_attachments = replace_attachments(app_data_dir, &staging.root.join(ATTACHMENTS_DIR))?;
+    let mut previous_attachments = None;
+    for dir in ASSET_DIRS {
+        let previous = replace_dir(app_data_dir, &staging.root.join(dir), dir)?;
+        previous_attachments = previous_attachments.or(previous);
+    }
 
     *connection = db::open_database(live_database.clone()).map_err(CommandError::database)?;
     let byte_size = fs::metadata(source).map_err(CommandError::system)?.len();
@@ -368,6 +393,9 @@ mod tests {
         let attachments = source_dir.join("attachments");
         std::fs::create_dir_all(&attachments).unwrap();
         std::fs::write(attachments.join("logo.txt"), b"image-bytes").unwrap();
+        let stickers = source_dir.join("stickers");
+        std::fs::create_dir_all(&stickers).unwrap();
+        std::fs::write(stickers.join("asset-1"), b"sticker-bytes").unwrap();
         let archive = source_dir.join("export.resa");
 
         let summary = export(&connection, &source_dir, &archive).unwrap();
@@ -386,6 +414,10 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(target_dir.join("attachments/logo.txt")).unwrap(),
             "image-bytes"
+        );
+        assert_eq!(
+            std::fs::read_to_string(target_dir.join("stickers/asset-1")).unwrap(),
+            "sticker-bytes"
         );
         let notes: i64 = target
             .query_row("SELECT COUNT(*) FROM notes WHERE id='n1'", [], |row| row.get(0))
