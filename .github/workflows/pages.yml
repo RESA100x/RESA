@@ -2,10 +2,11 @@ name: Pages
 
 # Publishes the static site in `website/` to GitHub Pages.
 #
-# One-time setup: repository Settings -> Pages -> Build and deployment ->
-# Source: GitHub Actions. After that the site is served at
-# https://<owner>.github.io/<repo>/ — the same URL as `officialDomain` in
-# website/config.json.
+# The site is served at https://<owner>.github.io/<repo>/ — the same URL as
+# `officialDomain` in website/config.json. `enablement: true` below turns Pages
+# on (source: GitHub Actions) the first time this runs, so a fresh fork or a
+# repository that never had the setting flipped does not fail here; it is a
+# no-op once Pages exists.
 #
 # The site build reads repository files only (it needs Node 22+ for
 # `stripTypeScriptTypes`), so no dependencies have to be installed.
@@ -52,6 +53,8 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload the site
         uses: actions/upload-pages-artifact@v3
