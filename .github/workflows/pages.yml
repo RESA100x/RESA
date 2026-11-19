@@ -3,10 +3,15 @@ name: Pages
 # Publishes the static site in `website/` to GitHub Pages.
 #
 # The site is served at https://<owner>.github.io/<repo>/ — the same URL as
-# `officialDomain` in website/config.json. `enablement: true` below turns Pages
-# on (source: GitHub Actions) the first time this runs, so a fresh fork or a
-# repository that never had the setting flipped does not fail here; it is a
-# no-op once Pages exists.
+# `officialDomain` in website/config.json.
+#
+# Pages has to exist before anything can be published to it, and creating it
+# needs repository admin rights, which the workflow token does not have. So the
+# first step asks whether Pages is on: when it is, the deploy runs as usual;
+# when it is not, the run warns and skips instead of turning red on every push
+# that touches the site. Turn it on once in Settings -> Pages -> Source:
+# GitHub Actions (or `enablement: true` with an admin PAT) and the next push
+# publishes.
 #
 # The site build reads repository files only (it needs Node 22+ for
 # `stripTypeScriptTypes`), so no dependencies have to be installed.
@@ -51,16 +56,31 @@ jobs:
       - name: Build the static site
         run: node website/scripts/build.mjs
 
+      # `gh` is preinstalled on the hosted runner; the API answers 404 when the
+      # repository has no Pages site yet.
+      - name: Check that Pages is enabled
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages is not enabled for this repository, so the site was not published. Turn it on in Settings -> Pages -> Source: GitHub Actions."
+          fi
+
       - name: Configure Pages
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload the site
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist
 
       - name: Deploy to GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
