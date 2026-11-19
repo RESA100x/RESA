@@ -20,6 +20,7 @@ import {
   type TaskLane,
   type TaskLaneDraft,
   type TaskPriority,
+  type TaskStatus,
   type TaskTagDraft,
   type TaskViewPreferences,
   type TaskWorkspaceSnapshot
@@ -48,6 +49,8 @@ type TaskWorkspaceContextValue = {
   deleteTask(id: string): Promise<void>;
   setTaskCompleted(id: string, completed: boolean): Promise<Task>;
   setTaskRecurrence(id: string, recurrence: Recurrence | null): Promise<Task>;
+  setTaskStatus(id: string, status: TaskStatus): Promise<Task>;
+  setTaskProject(id: string, projectId: string | null): Promise<Task>;
   moveTaskToLane(id: string, laneId: string, targetIndex: number): Promise<Task>;
   moveTaskToPriority(id: string, priority: TaskPriority): Promise<Task>;
   moveTaskToDate(id: string, dueDate: string | null): Promise<Task>;
@@ -276,6 +279,18 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     return taskWrite(id, () => write(id, recurrence));
   }, [repository, taskWrite]);
 
+  const setTaskStatus = useCallback((id: string, status: TaskStatus) => {
+    const write = repository.setTaskStatus;
+    if (!write) return Promise.reject(new Error(missing('setTaskStatus')));
+    return taskWrite(id, () => write(id, status));
+  }, [repository, taskWrite]);
+
+  const setTaskProject = useCallback((id: string, projectId: string | null) => {
+    const write = repository.setTaskProject;
+    if (!write) return Promise.reject(new Error(missing('setTaskProject')));
+    return taskWrite(id, () => write(id, projectId));
+  }, [repository, taskWrite]);
+
   const moveTaskToLane = useCallback((id: string, laneId: string, targetIndex: number) => {
     const write = repository.moveTaskToLane ?? (() => missing('moveTaskToLane'));
     const previous = dataRef.current;
@@ -342,6 +357,8 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     deleteTask,
     setTaskCompleted,
     setTaskRecurrence,
+    setTaskStatus,
+    setTaskProject,
     moveTaskToLane,
     moveTaskToPriority,
     moveTaskToDate,
@@ -364,6 +381,7 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspace, pendingTaskIds, operationError, retry, refresh, createTask, updateTask, deleteTask,
     setTaskCompleted, setTaskRecurrence, moveTaskToLane, moveTaskToPriority, moveTaskToDate,
+    setTaskStatus, setTaskProject,
     snapshotWrite, reloadAfter, repository
   ]);
 
@@ -374,4 +392,10 @@ export function useTaskWorkspace() {
   const value = useContext(TaskWorkspaceContext);
   if (!value) throw new Error('useTaskWorkspace must be used inside TaskWorkspaceProvider');
   return value;
+}
+
+// For widgets that also work standalone (and in tests) but should refresh the
+// shared board after writing a task behind the context's back.
+export function useOptionalTaskWorkspace() {
+  return useContext(TaskWorkspaceContext);
 }

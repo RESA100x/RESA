@@ -90,6 +90,16 @@ pub struct Task {
     // The series root's id; None on the first occurrence.
     #[serde(default)]
     pub recurrence_parent_id: Option<String>,
+    // open | in_progress | done | suspended | cancelled | delayed. `completed`
+    // is derived from `status == "done"` and stays for the older callers.
+    #[serde(default = "default_task_status")]
+    pub status: String,
+    // The project this task belongs to, if any.
+    #[serde(default)]
+    pub project_id: Option<String>,
+    // Set when the task was deleted from the board (kept for history).
+    #[serde(default)]
+    pub archived_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -265,6 +275,22 @@ pub struct CategoryDraft {
 /// 迁移前的旧订阅、以及前端未显式给出 provider 时的默认来源。
 fn default_provider() -> String {
     "ics".to_owned()
+}
+
+/// A task without an explicit status is simply open.
+fn default_task_status() -> String {
+    "open".to_owned()
+}
+
+/// One recorded change on a task, shown as the task's action history.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEvent {
+    pub id: String,
+    pub task_id: String,
+    pub kind: String,
+    pub detail: Option<String>,
+    pub at: String,
 }
 
 /// 一个 OAuth 日历账户（一次登录 = 一个账户，可暴露多个日历）。

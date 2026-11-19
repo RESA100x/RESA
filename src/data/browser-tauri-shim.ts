@@ -57,6 +57,8 @@ type Store = {
   plants: Dict[];
   contacts: Dict[];
   contactCategories: Dict[];
+  projects: Dict[];
+  taskEvents: Dict[];
   settings: Dict;
   moduleLayout: Dict[];
   focusSessions: Dict[];
@@ -106,6 +108,8 @@ function emptyStore(): Store {
     plants: [],
     contacts: [],
     contactCategories: [],
+    projects: [],
+    taskEvents: [],
     settings: { ...defaultSettings },
     moduleLayout: [],
     focusSessions: [],
@@ -140,6 +144,8 @@ function loadStore(): Store {
       plants: parsed.plants ?? [],
       contacts: parsed.contacts ?? [],
       contactCategories: parsed.contactCategories ?? [],
+      projects: parsed.projects ?? [],
+      taskEvents: parsed.taskEvents ?? [],
       kanban: { ...base.kanban, ...(parsed.kanban ?? {}) }
     };
   } catch {
@@ -400,7 +406,7 @@ export function installBrowserTauriBackend() {
   const attachmentRecords = new Map<string, Dict>();
 
   const taskWorkspaceSnapshot = () => ({
-    tasks: store.tasks,
+    tasks: store.tasks.filter((task) => !task.archivedAt),
     lanes: store.kanban.lanes,
     tags: store.kanban.tags.map((tag) => ({ archivedAt: null, ...tag })),
     // Like the native store: the saved lane while it exists, else the first lane.
@@ -409,6 +415,126 @@ export function installBrowserTauriBackend() {
       : [...store.kanban.lanes].sort((a, b) => Number(a.position) - Number(b.position))[0]?.id as string ?? null,
     viewPreferences: (store.settings.taskViewPreferences as Dict) ?? {}
   });
+
+  // Mirrors `reports::build` closely enough for the browser preview: local-day
+  // buckets, the same totals, and the same "open is a snapshot, not a window"
+  // rule. Kept here so the plain Vite page and the Playwright suite can open the
+  // report without the Rust side.
+  const buildBrowserTaskReport = (requestedDays: number) => {
+    const days = Math.max(1, Math.min(Math.trunc(requestedDays) || 30, 366));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const from = new Date(today);
+    from.setDate(from.getDate() - (days - 1));
+    const localDay = (value: unknown) => {
+      if (typeof value !== 'string' || !value) return null;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return formatDate(parsed);
+    };
+    const inRange = (iso: string | null) => iso !== null && iso >= formatDate(from) && iso <= formatDate(today);
+
+    const buckets = new Map<string, { date: string; created: number; completed: number; focusSeconds: number }>();
+    for (let index = 0; index < days; index += 1) {
+      const date = new Date(from);
+      date.setDate(from.getDate() + index);
+      const iso = formatDate(date);
+      buckets.set(iso, { date: iso, created: 0, completed: 0, focusSeconds: 0 });
+    }
+
+    let created = 0;
+    let completed = 0;
+    let open = 0;
+    let overdue = 0;
+    let archived = 0;
+    const closeDays: number[] = [];
+    const quadrants = new Map<string, { priority: string; open: number; completed: number }>();
+    const lanes = new Map<string, { id: string; name: string; open: number; completed: number }>();
+    const todayIso = formatDate(today);
+
+    for (const task of store.tasks) {
+      const createdOn = localDay(task.createdAt);
+      const completedOn = localDay(task.completedAt);
+      const archivedOn = localDay(task.archivedAt);
+      const isArchived = Boolean(task.archivedAt);
+      if (inRange(createdOn)) {
+        created += 1;
+        const bucket = buckets.get(createdOn as string);
+        if (bucket) bucket.created += 1;
+      }
+      if (inRange(completedOn)) {
+        completed += 1;
+        const bucket = buckets.get(completedOn as string);
+        if (bucket) bucket.completed += 1;
+        if (createdOn) {
+          const span = Math.round(
+            (new Date(`${completedOn}T00:00:00`).getTime() - new Date(`${createdOn}T00:00:00`).getTime()) / 86_400_000
+          );
+          if (span >= 0) closeDays.push(span);
+        }
+      }
+      if (inRange(archivedOn)) archived += 1;
+
+      const isOpen = task.completed !== true && !isArchived;
+      if (isOpen) {
+        open += 1;
+        if (typeof task.dueDate === 'string' && task.dueDate < todayIso) overdue += 1;
+      }
+      const createdInRange = inRange(createdOn);
+      const completedInRange = inRange(completedOn);
+      if (!createdInRange && !completedInRange && !isOpen) continue;
+
+      const priority = String(task.priority ?? 'not_important_not_urgent');
+      const quadrant = quadrants.get(priority) ?? { priority, open: 0, completed: 0 };
+      if (isOpen) quadrant.open += 1;
+      if (completedInRange) quadrant.completed += 1;
+      quadrants.set(priority, quadrant);
+
+      const laneId = typeof task.laneId === 'string' ? task.laneId : null;
+      if (laneId) {
+        const lane = lanes.get(laneId) ?? {
+          id: laneId,
+          name: String(store.kanban.lanes.find((item) => item.id === laneId)?.name ?? laneId),
+          open: 0,
+          completed: 0
+        };
+        if (isOpen) lane.open += 1;
+        if (completedInRange) lane.completed += 1;
+        lanes.set(laneId, lane);
+      }
+    }
+
+    const focusSessions = (store.focusSessions as Dict[] | undefined) ?? [];
+    for (const session of focusSessions) {
+      const day = localDay(session.endedAt);
+      const bucket = day ? buckets.get(day) : undefined;
+      if (bucket) bucket.focusSeconds += Number(session.focusedSeconds ?? 0);
+    }
+
+    const sorted = [...closeDays].sort((left, right) => left - right);
+    const median = sorted.length === 0
+      ? null
+      : sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[(sorted.length - 1) / 2];
+
+    return {
+      days: [...buckets.values()].sort((left, right) => left.date.localeCompare(right.date)),
+      totals: {
+        created,
+        completed,
+        open,
+        overdue,
+        archived,
+        completionRate: completed + open === 0 ? 0 : completed / (completed + open),
+        averageCloseDays: closeDays.length === 0 ? null : closeDays.reduce((sum, value) => sum + value, 0) / closeDays.length,
+        medianCloseDays: median
+      },
+      quadrants: [...quadrants.values()].sort((left, right) => left.priority.localeCompare(right.priority)),
+      lanes: [...lanes.values()].sort((left, right) => right.open + right.completed - (left.open + left.completed)),
+      generatedAt: nowIso()
+    };
+  };
 
   const persist = () => {
     try {
@@ -765,7 +891,7 @@ export function installBrowserTauriBackend() {
     // Unified tasks. Legacy command names remain accepted because both the old
     // focused tests and the new desktop IPC use create/update/delete_task.
     get_task_workspace_snapshot: taskWorkspaceSnapshot,
-    list_tasks: () => store.tasks,
+    list_tasks: () => store.tasks.filter((task) => !task.archivedAt),
     create_task: (a) => {
       const { steps, ...draft } = a.draft as Dict;
       const normalizedSteps = shimSteps(steps, []);
@@ -776,6 +902,8 @@ export function installBrowserTauriBackend() {
         description: '',
         dueDate: null,
         completed: false,
+        status: draft.completed === true ? 'done' : 'open',
+        projectId: (draft.projectId as string | null | undefined) ?? null,
         tagIds: [],
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -805,7 +933,106 @@ export function installBrowserTauriBackend() {
       return updated;
     },
     delete_task: (a) => {
-      store.tasks = store.tasks.filter((task) => task.id !== a.id);
+      // Archive, like the native store: the row stays for the report.
+      store.tasks = store.tasks.map((task) =>
+        task.id === a.id ? { ...task, archivedAt: nowIso(), updatedAt: nowIso() } : task
+      );
+      persist();
+    },
+    get_task_report: (a) => buildBrowserTaskReport(Number(a.days ?? 30)),
+    set_task_status: (a) => {
+      const status = String(a.status ?? 'open');
+      if (!['open', 'in_progress', 'done', 'suspended', 'cancelled', 'delayed'].includes(status)) {
+        throw { code: 'validation_error', field: 'status', message: '任务状态无效。' };
+      }
+      const current = store.tasks.find((task) => task.id === a.id);
+      if (!current) throw { code: 'not_found', message: '未找到该任务。' };
+      const done = status === 'done';
+      const updated: Dict = {
+        ...current,
+        status,
+        completed: done,
+        completedAt: done ? current.completedAt ?? nowIso() : null,
+        // A status write always brings the row back onto the board, matching
+        // the native command that clears archived_at.
+        archivedAt: null,
+        boardPosition: !done && current.laneId ? -1 : current.boardPosition,
+        updatedAt: nowIso()
+      };
+      store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
+      store.taskEvents.push({ id: id('ev'), taskId: a.id, kind: 'status', detail: status, at: nowIso() });
+      persist();
+      return updated;
+    },
+    set_task_project: (a) => {
+      const projectId = (a.projectId as string | null | undefined) ?? null;
+      if (projectId && !store.projects.some((project) => project.id === projectId && !project.archivedAt)) {
+        throw { code: 'validation_error', field: 'projectId', message: '项目不存在。' };
+      }
+      const current = store.tasks.find((task) => task.id === a.id);
+      if (!current) throw { code: 'not_found', message: '未找到该任务。' };
+      const updated = { ...current, projectId, updatedAt: nowIso() };
+      store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
+      store.taskEvents.push({ id: id('ev'), taskId: a.id, kind: 'project', detail: projectId, at: nowIso() });
+      persist();
+      return updated;
+    },
+    list_task_events: (a) =>
+      store.taskEvents.filter((event) => event.taskId === a.taskId).sort((left, right) => String(left.at).localeCompare(String(right.at))),
+    list_task_archive: () =>
+      store.tasks
+        .filter((task) => task.archivedAt || ['done', 'suspended', 'cancelled'].includes(String(task.status ?? (task.completed ? 'done' : 'open'))))
+        .sort((left, right) => String(right.completedAt ?? right.updatedAt).localeCompare(String(left.completedAt ?? left.updatedAt))),
+    export_task_archive: (a) => ({ path: String(a.path ?? ''), tasks: store.tasks.length }),
+    list_projects: () =>
+      store.projects.map((project) => ({
+        ...project,
+        taskCount: store.tasks.filter((task) => task.projectId === project.id).length
+      })),
+    create_project: (a) => {
+      const draft = a.draft as Dict;
+      const name = String(draft.name ?? '').replace(/\s+/g, ' ').trim();
+      if (!name) throw { code: 'validation_error', field: 'name', message: '请输入项目名称。' };
+      if (store.projects.some((project) => !project.archivedAt && String(project.name).toLowerCase() === name.toLowerCase())) {
+        throw { code: 'validation_error', field: 'name', message: '同名项目已存在。' };
+      }
+      const project = {
+        id: id('project'),
+        description: String(draft.description ?? ''),
+        color: String(draft.color ?? '#4FC9DA'),
+        status: String(draft.status ?? 'active'),
+        name,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        archivedAt: null,
+        taskCount: 0
+      };
+      store.projects.push(project);
+      persist();
+      return project;
+    },
+    update_project: (a) => {
+      const draft = a.draft as Dict;
+      const name = String(draft.name ?? '').replace(/\s+/g, ' ').trim();
+      if (!name) throw { code: 'validation_error', field: 'name', message: '请输入项目名称。' };
+      const current = store.projects.find((project) => project.id === a.id);
+      if (!current) throw { code: 'not_found', message: '未找到该项目。' };
+      const updated = {
+        ...current,
+        name,
+        description: String(draft.description ?? current.description ?? ''),
+        color: String(draft.color ?? current.color ?? '#4FC9DA'),
+        status: String(draft.status ?? current.status ?? 'active'),
+        updatedAt: nowIso()
+      };
+      store.projects = store.projects.map((project) => project.id === a.id ? updated : project);
+      persist();
+      return updated;
+    },
+    archive_project: (a) => {
+      store.projects = store.projects.map((project) =>
+        project.id === a.id ? { ...project, archivedAt: project.archivedAt ?? nowIso(), updatedAt: nowIso() } : project
+      );
       persist();
     },
     set_task_completed: (a) => {
@@ -813,8 +1040,8 @@ export function installBrowserTauriBackend() {
       if (!current || current.completed === a.completed) return current;
       // The task keeps its lane; reopening puts it back at the top of that lane.
       const updated: Dict = a.completed
-        ? { ...current, completed: true, completedAt: nowIso(), updatedAt: nowIso() }
-        : { ...current, completed: false, completedAt: null, boardPosition: current.laneId ? -1 : current.boardPosition, updatedAt: nowIso() };
+        ? { ...current, completed: true, status: 'done', completedAt: nowIso(), updatedAt: nowIso() }
+        : { ...current, completed: false, status: current.status === 'done' ? 'open' : current.status ?? 'open', completedAt: null, boardPosition: current.laneId ? -1 : current.boardPosition, updatedAt: nowIso() };
       store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
       if (a.completed) spawnBrowserOccurrence(updated);
       if (!a.completed && updated.laneId) {

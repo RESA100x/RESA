@@ -76,9 +76,16 @@ export function ModalRoot({
         restoreFocusRef={modal.type === 'date' ? { current:modal.trigger } : undefined}
         onClose={onClose}
         onCreateEvent={(isoDate) => onChangeModal({ type:'event-create', dateIso:isoDate, trigger:null, parentDate:isoDate })}
-        onEditEvent={(event, trigger) => onChangeModal(event.subscriptionId && !isEventWritable(event)
-          ? { type:'external-detail', event, trigger }
-          : { type:'event-edit', event, trigger, parentDate:date })}
+        onEditEvent={(event, trigger) => {
+          if (event.taskId) {
+            const task = workspace.workspace.data.tasks.find((item) => item.id === event.taskId);
+            if (task) onChangeModal({ type:'workspace-task-edit', task, trigger, parentDate:date });
+            return;
+          }
+          onChangeModal(event.subscriptionId && !isEventWritable(event)
+            ? { type:'external-detail', event, trigger }
+            : { type:'event-edit', event, trigger, parentDate:date });
+        }}
       />
     ) : null}
     {isEventChild ? (
@@ -114,7 +121,7 @@ export function ModalRoot({
                 createdAt:modal.task.createdAt, updatedAt:modal.task.updatedAt
               } }
         }
-        showLane={modal.type === 'workspace-task-edit'}
+        showLane={modal.type !== 'task-create'}
         restoreFocusRef={{ current:modal.trigger }}
         onClose={returnFromChild}
       />

@@ -3,6 +3,7 @@
 import { DESIGN_COLORS, type ColorPreset, type HexColor } from '../lib/color';
 import { t } from '../i18n';
 import type { TaskStep } from '../tasks/task-model';
+import type { TaskStatus } from '../tasks/task-model';
 
 export type KanbanColor = HexColor;
 
@@ -50,6 +51,9 @@ export type KanbanCard = {
   steps?: TaskStep[];
   // Mirrors the matrix completion checkbox; completed cards leave their lane.
   completed?: boolean;
+  // Lifecycle state; suspended and cancelled cards also leave the board.
+  status?: TaskStatus;
+  projectId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -118,6 +122,12 @@ export function sortSnapshot(snapshot: KanbanSnapshot): KanbanSnapshot {
 // lane but leave the column for the board's done list.
 export function cardsInLane(cards: KanbanCard[], laneId: string): KanbanCard[] {
   return cards
-    .filter((card) => card.laneId === laneId && !card.completed)
+    .filter(
+      (card) =>
+        card.laneId === laneId &&
+        !card.completed &&
+        card.status !== 'suspended' &&
+        card.status !== 'cancelled'
+    )
     .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id));
 }

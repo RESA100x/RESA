@@ -76,6 +76,8 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (46, crate::contacts::migrate_directory),
     (47, crate::contacts::migrate_photos),
     (48, crate::contacts::migrate_profiles),
+    (49, migration_49_task_archive),
+    (50, migration_50_task_status_and_projects),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -275,6 +277,60 @@ fn migration_43_task_recurrence(transaction: &Transaction<'_>) -> Result<()> {
             WHERE recurrence_parent_id IS NOT NULL;",
     )?;
     crate::assistant::store::install_triggers(transaction)
+}
+
+/// Tasks stop being deleted outright: `archived_at` hides a task from every
+/// view while keeping its row, so the reports module can still count what was
+/// finished and what was dropped. `task_events` records the state changes that
+/// the task row itself cannot express (who moved what, when, and to where).
+fn migration_49_task_archive(transaction: &Transaction<'_>) -> Result<()> {
+    if !column_exists(transaction, "tasks", "archived_at")? {
+        transaction.execute_batch("ALTER TABLE tasks ADD COLUMN archived_at TEXT;")?;
+    }
+    transaction.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_archived ON tasks(archived_at);
+         CREATE TABLE IF NOT EXISTS task_events (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            detail TEXT,
+            at TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS idx_task_events_task ON task_events(task_id, at);
+         CREATE INDEX IF NOT EXISTS idx_task_events_at ON task_events(at);",
+    )
+}
+
+/// Task status beyond the completion flag, and projects that group tasks.
+///
+/// `completed` stays the single source of truth for "this task is finished";
+/// `status` adds the states the board needs (in progress, suspended, cancelled,
+/// delayed) and is kept in sync with it by `task_workspace`.
+fn migration_50_task_status_and_projects(transaction: &Transaction<'_>) -> Result<()> {
+    if !column_exists(transaction, "tasks", "status")? {
+        transaction.execute_batch(
+            "ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'open';",
+        )?;
+    }
+    if !column_exists(transaction, "tasks", "project_id")? {
+        transaction.execute_batch("ALTER TABLE tasks ADD COLUMN project_id TEXT;")?;
+    }
+    transaction.execute_batch(
+        "CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            color TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            archived_at TEXT
+         );
+         CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
+         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+         UPDATE tasks SET status = CASE WHEN completed=1 THEN 'done' ELSE 'open' END
+          WHERE status IS NULL OR status='';",
+    )
 }
 
 /// Highest schema version this build knows about; used by the backup importer

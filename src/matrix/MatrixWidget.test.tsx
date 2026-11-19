@@ -142,4 +142,29 @@ describe('MatrixWidget', () => {
     await user.click(screen.getByRole('button', { name: '关闭错误提示' }));
     expect(dismiss).toHaveBeenCalledOnce();
   });
+
+  it('keeps finished tasks out of the quadrants until they are revealed', async () => {
+    const user = userEvent.setup();
+    const done = { ...sampleTasks[0], completed: true };
+    render(<MatrixWidget {...props({ tasks: [done] })} />);
+
+    // The quadrant still counts it, but the row is hidden by default.
+    expect(screen.getByText('0/1')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 个已完成')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '编辑任务：发布 v0.1' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '显示 1 个已完成任务' }));
+    expect(screen.getByRole('button', { name: '编辑任务：发布 v0.1' })).toBeInTheDocument();
+  });
+
+  it('archives a finished task from its row', async () => {
+    const user = userEvent.setup();
+    const archive = vi.fn();
+    const done = { ...sampleTasks[0], completed: true };
+    render(<MatrixWidget {...props({ tasks: [done], onArchiveTask: archive })} />);
+
+    await user.click(screen.getByRole('button', { name: '显示 1 个已完成任务' }));
+    await user.click(screen.getByRole('button', { name: '归档「发布 v0.1」' }));
+    expect(archive).toHaveBeenCalledWith(done);
+  });
 });

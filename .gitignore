@@ -87,6 +87,8 @@ dev-modules/*
 !docs/resa-new-features.fa.md
 !docs/resa-plants.fa.md
 !docs/resa-phonebook.fa.md
+!docs/resa-reports.fa.md
+!docs/resa-archive.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/

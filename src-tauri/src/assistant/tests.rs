@@ -536,8 +536,18 @@ fn undoing_an_ai_task_delete_restores_its_steps() {
     let task = task_with_steps(&db, "with steps");
     let p = prepare(&db, vec![Action::DeleteTask { id: task.id.clone() }]);
     store::execute(&db, &p.id, &permissions()).unwrap();
-    assert_eq!(db.query_row("SELECT count(*) FROM task_steps", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    // Deleting archives the row, so the steps stay behind while the task is
+    // gone from every view; undo has to bring the whole task back.
+    let archived: Option<String> = db
+        .query_row("SELECT archived_at FROM tasks WHERE id=?1", [&task.id], |r| r.get(0))
+        .unwrap();
+    assert!(archived.is_some());
+    assert!(crate::task_workspace::snapshot(&db).unwrap().tasks.iter().all(|t| t.id != task.id));
     store::undo(&db, &p.id, &permissions()).unwrap();
+    let restored: Option<String> = db
+        .query_row("SELECT archived_at FROM tasks WHERE id=?1", [&task.id], |r| r.get(0))
+        .unwrap();
+    assert!(restored.is_none());
     assert_eq!(stored_task(&db, &task.id).steps, task.steps);
 }
 

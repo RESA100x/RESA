@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setLanguage } from '../i18n';
 import type { KanbanCard, KanbanLane, KanbanSnapshot } from './kanban-model';
 import {
   adjacentLaneId,
@@ -58,6 +59,12 @@ describe('kanban view helpers', () => {
   it('formats due dates and recognizes today', () => {
     expect(formatDueDate('2026-07-23', '2026-07-23')).toBe('今天到期');
     expect(formatDueDate('2026-07-23', '2026-07-24')).toBe('7 月 23 日');
+  });
+
+  it('shows the due date in the Jalali calendar for Persian', () => {
+    setLanguage('fa');
+    expect(formatDueDate('2026-07-23', '2026-07-24')).toBe('۱ مرداد');
+    setLanguage('zh');
   });
 
   it('treats only dates before today as overdue', () => {

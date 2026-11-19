@@ -7,6 +7,7 @@ import type {
 } from './kanban-model';
 import { cardsInLane } from './kanban-model';
 import { t } from '../i18n';
+import { formatIsoDisplay, usesJalaliCalendar } from '../lib/calendar-system';
 
 // A card enriched with the resolved global fields it references, so the view
 // can render names / colors without repeatedly looking them up by id.
@@ -39,6 +40,9 @@ export function colorClass(color: string): string {
 // Human-friendly due date, e.g. "7 月 23 日" or "今天" when it matches today.
 export function formatDueDate(dueDate: string, todayIso: string): string {
   if (dueDate === todayIso) return t('kanbanDue.today');
+  // The board follows the app's calendar system: a Jalali user must not read a
+  // Gregorian month/day here.
+  if (usesJalaliCalendar()) return formatIsoDisplay(dueDate, 'short');
   const month = Number(dueDate.slice(5, 7));
   const day = Number(dueDate.slice(8, 10));
   if (!month || !day) return dueDate;
@@ -80,7 +84,7 @@ export function cardIndexInLane(snapshot: KanbanSnapshot, card: KanbanCard): num
 
 // How many cards a lane holds, used in delete confirmations and counts.
 export function laneCardCount(snapshot: KanbanSnapshot, laneId: string): number {
-  return snapshot.cards.filter((card) => card.laneId === laneId).length;
+  return cardsInLane(snapshot.cards, laneId).length;
 }
 
 // How many cards reference a given priority / tag, shown before

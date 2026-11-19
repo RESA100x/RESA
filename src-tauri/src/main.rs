@@ -31,11 +31,13 @@ mod notes;
 mod oauth;
 mod oauth_config;
 mod plants;
+mod projects;
 mod quick_panel;
 mod quick_create;
 mod recurrence;
 mod reminders;
 mod remote_events;
+mod reports;
 mod rrule_bridge;
 mod rrule_engine;
 mod screen_capture;
@@ -654,6 +656,16 @@ fn main() {
             task_workspace::archive_task_tag,
             task_workspace::delete_task_tag,
             task_workspace::set_task_view_preferences,
+    task_workspace::set_task_status,
+    task_workspace::set_task_project,
+    task_workspace::list_task_events,
+    task_workspace::list_task_archive,
+    task_workspace::export_task_archive,
+    projects::list_projects,
+    projects::create_project,
+    projects::update_project,
+    projects::archive_project,
+    reports::get_task_report,
             notes::list_notes,
             monitors::list_monitors,
             notes::create_note,

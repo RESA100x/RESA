@@ -35,13 +35,16 @@ import type {
 import type {
   Task as WorkspaceTask,
   TaskDraft as WorkspaceTaskDraft,
+  TaskEvent,
   TaskLane,
   TaskLaneDraft,
+  TaskStatus,
   TaskTag,
   TaskTagDraft,
   TaskViewPreferences,
   TaskWorkspaceSnapshot
 } from '../tasks/task-model';
+import type { Project, ProjectDraft } from '../projects/project-model';
 import type { HexColor } from '../lib/color';
 import type { IconStyle } from '../components/icon-style';
 import type { BarMenuItem } from '../app/bar-menu';
@@ -49,6 +52,7 @@ import type { SoundSettings } from '../settings/sound-settings';
 import type { StickerAsset, StickerBoard } from '../stickers/sticker-model';
 import type { WorldClock, TimeSettings, Alarm, AlarmDraft } from '../time/time-model';
 import type { SearchHit } from '../lib/search';
+import type { TaskReport } from '../reports/report-model';
 import type { BackupSummary } from '../lib/backup';
 export type { WorldClock, TimeSettings, Alarm, AlarmDraft };
 
@@ -230,6 +234,22 @@ export type NowlyRepository = {
   setWorkspaceTaskCompleted?(id: string, completed: boolean): Promise<WorkspaceTask>;
   // Sets or clears the recurrence rule of a task (habits / repeating tasks).
   setTaskRecurrence?(id: string, recurrence: Recurrence | null): Promise<WorkspaceTask>;
+  // Lifecycle state and project membership. Kept as their own commands so the
+  // board can change them without opening the full task form.
+  setTaskStatus?(id: string, status: TaskStatus): Promise<WorkspaceTask>;
+  setTaskProject?(id: string, projectId: string | null): Promise<WorkspaceTask>;
+  // The action history of one task, oldest first.
+  listTaskEvents?(taskId: string): Promise<TaskEvent[]>;
+  // Everything that left the board: done, suspended, cancelled and deleted.
+  listTaskArchive?(): Promise<WorkspaceTask[]>;
+  exportTaskArchive?(path: string): Promise<{ path: string; tasks: number }>;
+  listProjects?(): Promise<Project[]>;
+  createProject?(draft: ProjectDraft): Promise<Project>;
+  updateProject?(id: string, draft: ProjectDraft): Promise<Project>;
+  archiveProject?(id: string): Promise<void>;
+  // Aggregated task statistics for the reports module (created / completed /
+  // open over the last `days` days, plus the current backlog snapshot).
+  getTaskReport?(days: number): Promise<TaskReport>;
   // Global search for the command palette: events, tasks and notes.
   searchAll?(query: string, limit?: number): Promise<SearchHit[]>;
   // One-click backup and transfer; both write/read a single `.resa` file.

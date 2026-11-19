@@ -7,6 +7,28 @@ export type TaskPriority =
   | 'not_important_urgent'
   | 'not_important_not_urgent';
 
+// The lifecycle of a task. `done` is the only state that also sets
+// `completed`; suspended and cancelled leave the board without being finished.
+export const TASK_STATUSES = [
+  'open',
+  'in_progress',
+  'done',
+  'suspended',
+  'cancelled',
+  'delayed'
+] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const DEFAULT_TASK_STATUS: TaskStatus = 'open';
+
+// Statuses that keep a task on the board; the rest live in the archive.
+export const BOARD_STATUSES: TaskStatus[] = ['open', 'in_progress', 'delayed'];
+
+export function taskStatus(task: { status?: TaskStatus; completed?: boolean }): TaskStatus {
+  if (task.status) return task.status;
+  return task.completed ? 'done' : 'open';
+}
+
 export type TaskStep = {
   id: string;
   title: string;
@@ -39,8 +61,22 @@ export type Task = {
   recurrence?: Recurrence | null;
   // The series root's id; null on the first occurrence.
   recurrenceParentId?: string | null;
+  // Lifecycle state; older rows carry only `completed`.
+  status?: TaskStatus;
+  // The project this task belongs to, if any.
+  projectId?: string | null;
+  // Set when the task was deleted from the board; it stays readable in the archive.
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TaskEvent = {
+  id: string;
+  taskId: string;
+  kind: string;
+  detail: string | null;
+  at: string;
 };
 
 export type TaskDraft = {

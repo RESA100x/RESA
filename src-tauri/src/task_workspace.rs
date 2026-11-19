@@ -1,8 +1,8 @@
 use crate::db::AppDb;
 use crate::error::CommandError;
 use crate::models::{
-    Task, TaskDraft, TaskLane, TaskLaneDraft, TaskStep, TaskStepDraft, TaskTag, TaskTagDraft,
-    TaskWorkspaceSnapshot,
+    Task, TaskDraft, TaskEvent, TaskLane, TaskLaneDraft, TaskStep, TaskStepDraft, TaskTag,
+    TaskTagDraft, TaskWorkspaceSnapshot,
 };
 use crate::recurrence::{Recurrence, RecurrenceEnd};
 use crate::task_recurrence;
@@ -20,6 +20,17 @@ const PRIORITIES: &[&str] = &[
     "important_not_urgent",
     "not_important_urgent",
     "not_important_not_urgent",
+];
+
+// The states a task can be in. `done` is the only one that also sets
+// `completed`; `suspended` and `cancelled` leave the board without being done.
+pub const TASK_STATUSES: &[&str] = &[
+    "open",
+    "in_progress",
+    "done",
+    "suspended",
+    "cancelled",
+    "delayed",
 ];
 // Quadrant for tasks created without one (board quick add, assistant, etc.).
 pub const DEFAULT_PRIORITY: &str = "not_important_not_urgent";
@@ -40,6 +51,24 @@ fn sql_write_error(error: rusqlite::Error) -> CommandError {
         }
         _ => CommandError::database(error),
     }
+}
+
+// One row per state change that the task row cannot express on its own. The
+// reports module counts completions from `tasks.completed_at` and reads this
+// log for everything else (moves, edits, archiving).
+pub(crate) fn record_event(
+    connection: &Connection,
+    task_id: &str,
+    kind: &str,
+    detail: Option<&str>,
+) -> Result<(), CommandError> {
+    connection
+        .execute(
+            "INSERT INTO task_events(id,task_id,kind,detail,at) VALUES (?1,?2,?3,?4,?5)",
+            params![Uuid::new_v4().hyphenated().to_string(), task_id, kind, detail, timestamp()],
+        )
+        .map_err(sql_write_error)?;
+    Ok(())
 }
 
 fn read_setting<T: DeserializeOwned>(
@@ -140,6 +169,9 @@ fn read_task_base(row: &Row<'_>) -> rusqlite::Result<Task> {
             .as_deref()
             .and_then(task_recurrence::rule_from_json),
         recurrence_parent_id: row.get(13)?,
+        status: row.get(14)?,
+        project_id: row.get(15)?,
+        archived_at: row.get(16)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
     })
@@ -177,7 +209,7 @@ fn task_by_id(connection: &Connection, id: &str) -> Result<Option<Task>, Command
         .query_row(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id
+                    recurrence,recurrence_parent_id,status,project_id,archived_at
              FROM tasks WHERE id=?1",
             [id],
             read_task_base,
@@ -195,8 +227,9 @@ fn list_tasks(connection: &Connection) -> Result<Vec<Task>, CommandError> {
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id
-             FROM tasks ORDER BY lane_id,board_position,id",
+                    recurrence,recurrence_parent_id,status,project_id,archived_at
+             FROM tasks WHERE archived_at IS NULL
+             ORDER BY lane_id,board_position,id",
         )
         .map_err(CommandError::database)?
         .query_map([], read_task_base)
@@ -406,7 +439,8 @@ fn next_position(connection: &Connection, lane_id: Option<&str>) -> Result<i64, 
     };
     connection
         .query_row(
-            "SELECT COALESCE(MAX(board_position)+1,0) FROM tasks WHERE lane_id=?1",
+            "SELECT COALESCE(MAX(board_position)+1,0) FROM tasks
+             WHERE lane_id=?1 AND archived_at IS NULL",
             [lane_id],
             |row| row.get(0),
         )
@@ -418,7 +452,10 @@ fn renumber_lane(transaction: &Connection, lane_id: Option<&str>) -> Result<(), 
         return Ok(());
     };
     let ids = transaction
-        .prepare("SELECT id FROM tasks WHERE lane_id=?1 ORDER BY board_position,created_at,id")
+        .prepare(
+            "SELECT id FROM tasks WHERE lane_id=?1 AND archived_at IS NULL
+             ORDER BY board_position,created_at,id",
+        )
         .map_err(CommandError::database)?
         .query_map([lane_id], |row| row.get::<_, String>(0))
         .map_err(CommandError::database)?
@@ -530,8 +567,10 @@ pub fn create(connection: &Connection, draft: TaskDraft) -> Result<Task, Command
     transaction
         .execute(
             "INSERT INTO tasks(id,title,description,priority,due_date,completed,lane_id,
-                               board_position,linked_event_id,created_at,updated_at,completed_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,NULL,?9,?9,CASE WHEN ?6=1 THEN ?9 END)",
+                               board_position,linked_event_id,created_at,updated_at,completed_at,
+                               status)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,NULL,?9,?9,CASE WHEN ?6=1 THEN ?9 END,
+                     CASE WHEN ?6=1 THEN 'done' ELSE 'open' END)",
             params![
                 id,
                 draft.title,
@@ -561,6 +600,10 @@ pub fn create(connection: &Connection, draft: TaskDraft) -> Result<Task, Command
     replace_task_links(&transaction, &id, &draft.tag_ids)?;
     if let Some(steps) = draft.steps.as_deref() {
         replace_task_steps(&transaction, &id, steps, &now)?;
+    }
+    record_event(&transaction, &id, "created", None)?;
+    if completed {
+        record_event(&transaction, &id, "completed", None)?;
     }
     let task = task_by_id(&transaction, &id)?
         .ok_or_else(|| CommandError::conflict("任务保存状态已变化，请重试。"))?;
@@ -595,7 +638,8 @@ pub fn update(connection: &Connection, id: &str, draft: TaskDraft) -> Result<Tas
         .execute(
             "UPDATE tasks SET title=?2,description=?3,priority=?4,due_date=?5,
                     completed_at=CASE WHEN ?6=0 THEN NULL WHEN completed=1 THEN completed_at ELSE ?10 END,
-                    completed=?6,lane_id=?7,board_position=?8,linked_event_id=?9,updated_at=?10
+                    completed=?6,lane_id=?7,board_position=?8,linked_event_id=?9,updated_at=?10,
+                    status=CASE WHEN ?6=1 THEN 'done' WHEN status='done' THEN 'open' ELSE status END
              WHERE id=?1",
             params![
                 id,
@@ -619,6 +663,28 @@ pub fn update(connection: &Connection, id: &str, draft: TaskDraft) -> Result<Tas
     if let Some(steps) = draft.steps.as_deref() {
         replace_task_steps(&transaction, id, steps, &now)?;
     }
+    let mut changed: Vec<&str> = Vec::new();
+    if existing.title != draft.title {
+        changed.push("title");
+    }
+    if existing.description != draft.description {
+        changed.push("description");
+    }
+    if existing.priority != draft.priority.as_deref().unwrap_or(DEFAULT_PRIORITY) {
+        changed.push("priority");
+    }
+    if existing.due_date != draft.due_date {
+        changed.push("dueDate");
+    }
+    if existing.lane_id != target_lane {
+        changed.push("lane");
+    }
+    if existing.completed != completed {
+        changed.push(if completed { "completed" } else { "reopened" });
+    }
+    if !changed.is_empty() {
+        record_event(&transaction, id, "updated", Some(&changed.join(",")))?;
+    }
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
     transaction.commit().map_err(sql_write_error)?;
@@ -629,18 +695,25 @@ pub fn delete(connection: &Connection, id: &str) -> Result<(), CommandError> {
     let transaction = connection.domain_write().map_err(CommandError::database)?;
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    let now = timestamp();
     if let Some(event_id) = task.linked_event_id.as_deref() {
         transaction
             .execute(
                 "UPDATE events SET linked_task_id=NULL,updated_at=?2
                  WHERE id=?1 AND linked_task_id=?3",
-                params![event_id, timestamp(), id],
+                params![event_id, now, id],
             )
             .map_err(sql_write_error)?;
     }
+    // Archive, never delete: the row keeps its completion stamp so a report
+    // still knows the task existed and how it ended.
     transaction
-        .execute("DELETE FROM tasks WHERE id=?1", [id])
+        .execute(
+            "UPDATE tasks SET archived_at=?2,updated_at=?2 WHERE id=?1",
+            params![id, now],
+        )
         .map_err(sql_write_error)?;
+    record_event(&transaction, id, "archived", None)?;
     renumber_lane(&transaction, task.lane_id.as_deref())?;
     transaction.commit().map_err(sql_write_error)
 }
@@ -661,6 +734,7 @@ fn move_to_lane(
         transaction
             .prepare(
                 "SELECT id FROM tasks WHERE lane_id=?1 AND id<>?2 AND completed=?3
+                   AND archived_at IS NULL
                  ORDER BY board_position,created_at,id",
             )
             .map_err(CommandError::database)?
@@ -676,7 +750,9 @@ fn move_to_lane(
     // Dropping a card into a lane means it is in progress again.
     transaction
         .execute(
-            "UPDATE tasks SET lane_id=?2,completed=0,completed_at=NULL,updated_at=?3 WHERE id=?1",
+            "UPDATE tasks SET lane_id=?2,completed=0,completed_at=NULL,updated_at=?3,
+                    status=CASE WHEN status='done' THEN 'open' ELSE status END
+             WHERE id=?1",
             params![id, target_lane_id, now],
         )
         .map_err(sql_write_error)?;
@@ -691,6 +767,7 @@ fn move_to_lane(
     if task.lane_id.as_deref() != Some(target_lane_id) {
         renumber_lane(&transaction, task.lane_id.as_deref())?;
     }
+    record_event(&transaction, id, "moved", Some(target_lane_id))?;
     let moved =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
     transaction.commit().map_err(sql_write_error)?;
@@ -715,6 +792,7 @@ fn set_completed_value(
         .execute(
             "UPDATE tasks SET completed=?2,completed_at=CASE WHEN ?2=1 THEN ?3 END,
                     board_position=CASE WHEN ?2=0 AND lane_id IS NOT NULL THEN -1 ELSE board_position END,
+                    status=CASE WHEN ?2=1 THEN 'done' WHEN status='done' THEN 'open' ELSE status END,
                     updated_at=?3
              WHERE id=?1",
             params![id, i64::from(completed), now],
@@ -725,10 +803,151 @@ fn set_completed_value(
     } else {
         spawn_next_occurrence(&transaction, &existing, &now)?;
     }
+    record_event(
+        &transaction,
+        id,
+        if completed { "completed" } else { "reopened" },
+        None,
+    )?;
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
     transaction.commit().map_err(sql_write_error)?;
     Ok(task)
+}
+
+fn normalize_status(status: &str) -> Result<String, CommandError> {
+    let status = status.trim();
+    if TASK_STATUSES.contains(&status) {
+        Ok(status.to_owned())
+    } else {
+        Err(CommandError::validation("status", "任务状态无效。"))
+    }
+}
+
+/// Move a task to another state. `done` also stamps completion (and opens the
+/// next occurrence of a recurring series); every other state reopens it, so the
+/// matrix checkbox and the status can never disagree.
+pub fn set_status(connection: &Connection, id: &str, status: &str) -> Result<Task, CommandError> {
+    let status = normalize_status(status)?;
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    let existing =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    // A deleted task can carry the same status it will be restored to, so the
+    // no-op shortcut only applies while the row is still on the board.
+    if existing.status == status && existing.archived_at.is_none() {
+        transaction.commit().map_err(sql_write_error)?;
+        return Ok(existing);
+    }
+    let now = timestamp();
+    let done = status == "done";
+    transaction
+        .execute(
+            "UPDATE tasks SET status=?2,
+                    completed=CASE WHEN ?2='done' THEN 1 ELSE 0 END,
+                    completed_at=CASE WHEN ?2='done' THEN COALESCE(completed_at,?3) ELSE NULL END,
+                    archived_at=NULL,
+                    board_position=CASE WHEN ?2<>'done' AND lane_id IS NOT NULL THEN -1
+                                        ELSE board_position END,
+                    updated_at=?3
+             WHERE id=?1",
+            params![id, status, now],
+        )
+        .map_err(sql_write_error)?;
+    if done {
+        if !existing.completed {
+            spawn_next_occurrence(&transaction, &existing, &now)?;
+        }
+    } else {
+        renumber_lane(&transaction, existing.lane_id.as_deref())?;
+    }
+    record_event(&transaction, id, "status", Some(&status))?;
+    if done && !existing.completed {
+        record_event(&transaction, id, "completed", None)?;
+    } else if !done && existing.completed {
+        record_event(&transaction, id, "reopened", None)?;
+    }
+    let task =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(task)
+}
+
+/// Attach a task to a project, or detach it with `None`.
+pub fn set_project(
+    connection: &Connection,
+    id: &str,
+    project_id: Option<&str>,
+) -> Result<Task, CommandError> {
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    if let Some(project_id) = project_id {
+        let exists: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1 AND archived_at IS NULL)",
+                [project_id],
+                |row| row.get(0),
+            )
+            .map_err(CommandError::database)?;
+        if !exists {
+            return Err(CommandError::validation("projectId", "项目不存在。"));
+        }
+    }
+    transaction
+        .execute(
+            "UPDATE tasks SET project_id=?2,updated_at=?3 WHERE id=?1",
+            params![id, project_id, timestamp()],
+        )
+        .map_err(sql_write_error)?;
+    record_event(&transaction, id, "project", project_id)?;
+    let task =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(task)
+}
+
+/// The action history of one task, oldest first.
+pub fn list_events(connection: &Connection, task_id: &str) -> Result<Vec<TaskEvent>, CommandError> {
+    connection
+        .prepare(
+            "SELECT id,task_id,kind,detail,at FROM task_events
+             WHERE task_id=?1 ORDER BY at,rowid",
+        )
+        .map_err(CommandError::database)?
+        .query_map([task_id], |row| {
+            Ok(TaskEvent {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                kind: row.get(2)?,
+                detail: row.get(3)?,
+                at: row.get(4)?,
+            })
+        })
+        .map_err(CommandError::database)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(CommandError::database)
+}
+
+/// Everything that has left the active board: finished, suspended, cancelled
+/// and deleted (archived) tasks. Newest first.
+pub fn list_archive(connection: &Connection) -> Result<Vec<Task>, CommandError> {
+    let mut tasks = connection
+        .prepare(
+            "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
+                    linked_event_id,created_at,updated_at,completed_at,
+                    recurrence,recurrence_parent_id,status,project_id,archived_at
+             FROM tasks
+             WHERE archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')
+             ORDER BY COALESCE(completed_at,updated_at) DESC, id",
+        )
+        .map_err(CommandError::database)?
+        .query_map([], read_task_base)
+        .map_err(CommandError::database)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(CommandError::database)?;
+    for task in &mut tasks {
+        task_links(connection, task)?;
+    }
+    Ok(tasks)
 }
 
 fn parse_date(value: &str) -> Option<NaiveDate> {
@@ -936,6 +1155,7 @@ fn update_priority(
     if affected != 1 {
         return Err(CommandError::not_found("未找到该任务。"));
     }
+    record_event(&transaction, id, "priority", Some(&priority))?;
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
     transaction.commit().map_err(sql_write_error)?;
@@ -962,6 +1182,7 @@ fn update_date(
     if affected != 1 {
         return Err(CommandError::not_found("未找到该任务。"));
     }
+    record_event(&transaction, id, "due", due_date.as_deref())?;
     let task =
         task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
     transaction.commit().map_err(sql_write_error)?;
@@ -1237,6 +1458,106 @@ pub fn set_task_recurrence(
     drop(connection);
     crate::status_island::invalidate_registered()?;
     Ok(task)
+}
+
+#[tauri::command]
+pub fn set_task_status(
+    db: State<'_, AppDb>,
+    id: String,
+    status: String,
+) -> Result<Task, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    let task = set_status(&mut connection, &id, &status)?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn set_task_project(
+    db: State<'_, AppDb>,
+    id: String,
+    project_id: Option<String>,
+) -> Result<Task, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    let task = set_project(&mut connection, &id, project_id.as_deref())?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn list_task_events(
+    db: State<'_, AppDb>,
+    task_id: String,
+) -> Result<Vec<TaskEvent>, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    list_events(&connection, &task_id)
+}
+
+#[tauri::command]
+pub fn list_task_archive(db: State<'_, AppDb>) -> Result<Vec<Task>, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    list_archive(&connection)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskArchiveExport {
+    pub path: String,
+    pub tasks: i64,
+}
+
+/// The archive as a CSV the user can sort in Excel: one row per task, with the
+/// project name resolved and the history summarised in a column.
+#[tauri::command]
+pub fn export_task_archive(
+    db: State<'_, AppDb>,
+    path: String,
+) -> Result<TaskArchiveExport, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    let tasks = list_archive(&connection)?;
+    let mut csv = String::from(
+        "title,status,project,priority,due_date,created_at,completed_at,archived,description\n",
+    );
+    for task in &tasks {
+        let project: String = match task.project_id.as_deref() {
+            Some(id) => connection
+                .query_row("SELECT name FROM projects WHERE id=?1", [id], |row| row.get(0))
+                .unwrap_or_default(),
+            None => String::new(),
+        };
+        let archived: bool = connection
+            .query_row(
+                "SELECT archived_at IS NOT NULL FROM tasks WHERE id=?1",
+                [&task.id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        let row = [
+            task.title.clone(),
+            task.status.clone(),
+            project,
+            task.priority.clone(),
+            task.due_date.clone().unwrap_or_default(),
+            task.created_at.clone(),
+            task.completed_at.clone().unwrap_or_default(),
+            if archived { "1".into() } else { String::new() },
+            task.description.clone(),
+        ];
+        csv.push_str(&row.iter().map(|value| csv_cell(value)).collect::<Vec<_>>().join(","));
+        csv.push('\n');
+    }
+    std::fs::write(&path, csv).map_err(CommandError::system)?;
+    Ok(TaskArchiveExport { path, tasks: tasks.len() as i64 })
+}
+
+fn csv_cell(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_owned()
+    }
 }
 
 #[tauri::command]
@@ -1596,15 +1917,27 @@ mod tests {
         assert!(snapshot(&connection).unwrap().tasks.is_empty());
     }
 
+    // Deleting is archiving: the row, its steps and its event log stay behind so
+    // the reports module can still count what was finished and what was dropped.
     #[test]
-    fn deleting_a_task_removes_its_steps() {
+    fn deleting_a_task_archives_it_instead_of_dropping_the_row() {
         let connection = database();
         let task = create(&connection, TaskDraft {
             steps: Some(vec![step(None, "一", false)]), ..draft()
         }).unwrap();
         super::delete(&connection, &task.id).unwrap();
-        let count: i64 = connection.query_row("SELECT COUNT(*) FROM task_steps", [], |row| row.get(0)).unwrap();
-        assert_eq!(count, 0);
+
+        assert!(snapshot(&connection).unwrap().tasks.is_empty());
+        let archived: Option<String> = connection
+            .query_row("SELECT archived_at FROM tasks WHERE id=?1", [&task.id], |row| row.get(0))
+            .unwrap();
+        assert!(archived.is_some());
+        let steps: i64 = connection.query_row("SELECT COUNT(*) FROM task_steps", [], |row| row.get(0)).unwrap();
+        assert_eq!(steps, 1);
+        let events: i64 = connection
+            .query_row("SELECT COUNT(*) FROM task_events WHERE task_id=?1", [&task.id], |row| row.get(0))
+            .unwrap();
+        assert_eq!(events, 2);
     }
 
     #[test]
@@ -1746,5 +2079,88 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.field.as_deref(), Some("name"));
+    }
+
+    #[test]
+    fn statuses_move_a_task_off_the_board_and_keep_it_findable() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+
+        let suspended = super::set_status(&connection, &task.id, "suspended").unwrap();
+        assert_eq!(suspended.status, "suspended");
+        assert!(!suspended.completed);
+        assert!(!super::list_archive(&connection).unwrap().is_empty());
+
+        let done = super::set_status(&connection, &task.id, "done").unwrap();
+        assert!(done.completed);
+        assert!(done.completed_at.is_some());
+        let archive = super::list_archive(&connection).unwrap();
+        assert_eq!(archive.len(), 1);
+        assert_eq!(archive[0].status, "done");
+
+        let events = super::list_events(&connection, &task.id).unwrap();
+        let kinds: Vec<_> = events.iter().map(|event| event.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["created", "status", "status", "completed"]);
+        assert_eq!(events[3].detail, None);
+
+        let reopened = super::set_status(&connection, &task.id, "open").unwrap();
+        assert!(!reopened.completed);
+        assert!(super::list_archive(&connection).unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_unknown_status_is_rejected() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        let error = super::set_status(&connection, &task.id, "archived").unwrap_err();
+        assert_eq!(error.field.as_deref(), Some("status"));
+    }
+
+    #[test]
+    fn restoring_a_deleted_task_brings_it_back_to_the_board() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        super::delete(&connection, &task.id).unwrap();
+        assert!(super::list_archive(&connection).unwrap()[0].archived_at.is_some());
+
+        let restored = super::set_status(&connection, &task.id, "open").unwrap();
+        assert!(restored.archived_at.is_none());
+        assert!(super::list_archive(&connection).unwrap().is_empty());
+        assert!(super::list_tasks(&connection)
+            .unwrap()
+            .iter()
+            .any(|row| row.id == task.id));
+    }
+
+    #[test]
+    fn the_matrix_checkbox_keeps_the_status_in_sync() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        let done = set_completed_value(&connection, &task.id, true).unwrap();
+        assert_eq!(done.status, "done");
+        let reopened = set_completed_value(&connection, &task.id, false).unwrap();
+        assert_eq!(reopened.status, "open");
+    }
+
+    #[test]
+    fn a_task_can_be_attached_to_a_project_and_detached_again() {
+        let connection = database();
+        let project = crate::projects::create(
+            &connection,
+            crate::projects::ProjectDraft {
+                name: "پروژه".into(),
+                description: None,
+                color: None,
+                status: None,
+            },
+        )
+        .unwrap();
+        let task = create(&connection, draft()).unwrap();
+        let attached = super::set_project(&connection, &task.id, Some(&project.id)).unwrap();
+        assert_eq!(attached.project_id.as_deref(), Some(project.id.as_str()));
+        let detached = super::set_project(&connection, &task.id, None).unwrap();
+        assert_eq!(detached.project_id, None);
+        let error = super::set_project(&connection, &task.id, Some("missing")).unwrap_err();
+        assert_eq!(error.field.as_deref(), Some("projectId"));
     }
 }

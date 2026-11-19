@@ -354,6 +354,7 @@ export function KanbanWidget({
                     onAddLaneRight={(trigger) => openDialog({ type: 'lane-create', afterLaneId: lane.id }, trigger)}
                     onDeleteLane={(trigger) => openDialog({ type: 'lane-delete', laneId: lane.id }, trigger)}
                     onOpenCard={(cardId, trigger) => openDialog({ type: 'card-edit', cardId }, trigger)}
+                    onCardStatusChange={(cardId, next) => void kanban.setCardStatus(cardId, next)}
                     onLaneDragStart={(event) => onLaneDragStart(event, lane.id)}
                     onLaneDragEnd={onDragEnd}
                     onLaneDragOver={(event, visibleIndex) => onLaneDragOver(event, lane.id, visibleIndex)}

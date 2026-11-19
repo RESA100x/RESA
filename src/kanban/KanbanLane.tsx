@@ -5,6 +5,7 @@ import { resolveCard } from './kanban-view';
 import { KanbanCard } from './KanbanCard';
 import { ActionMenu } from '../components/ActionMenu';
 import { InlineTaskAdd } from '../tasks/InlineTaskAdd';
+import type { TaskStatus } from '../tasks/task-model';
 import { t } from '../i18n';
 
 type KanbanLaneProps = {
@@ -22,6 +23,7 @@ type KanbanLaneProps = {
   onAddLaneRight: (trigger: HTMLElement | null) => void;
   onDeleteLane: (trigger: HTMLElement | null) => void;
   onOpenCard: (cardId: string, trigger: HTMLElement) => void;
+  onCardStatusChange: (cardId: string, status: TaskStatus) => void;
   onLaneDragStart: (event: DragEvent<HTMLElement>) => void;
   onLaneDragEnd: () => void;
   // `visibleIndex` positions the insertion line; `index` is the lane position
@@ -60,6 +62,7 @@ export function KanbanLane({
   onAddLaneRight,
   onDeleteLane,
   onOpenCard,
+  onCardStatusChange,
   onLaneDragStart,
   onLaneDragEnd,
   onLaneDragOver,
@@ -126,6 +129,7 @@ export function KanbanLane({
                 todayIso={todayIso}
                 dragging={dragging}
                 onOpen={() => onOpenCard(card.id, document.activeElement as HTMLElement)}
+                onStatusChange={(status) => onCardStatusChange(card.id, status)}
                 onDragStart={(event) => onCardDragStart(event, card.id)}
                 onDragEnd={onCardDragEnd}
               />

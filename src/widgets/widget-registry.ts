@@ -88,8 +88,42 @@ export const timeDefinition: WidgetDefinition = {
 };
 
 export function buildDefinitions(): WidgetDefinition[] {
-  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, ...extensionDefinitions];
+  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, reportsDefinition, archiveDefinition, projectsDefinition, ...extensionDefinitions];
 }
+
+// The archive and the project list are launchers too: one cell, one glyph, the
+// list and the history in a modal.
+export const archiveDefinition: WidgetDefinition = {
+  id: 'archive',
+  get name() { return t('widget.archive.name'); },
+  get description() { return t('widget.archive.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
+};
+
+export const projectsDefinition: WidgetDefinition = {
+  id: 'projects',
+  get name() { return t('widget.projects.name'); },
+  get description() { return t('widget.projects.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
+};
+
+// Reports is a launcher like the phone book: one cell, one glyph, and the
+// numbers live in the modal it opens.
+export const reportsDefinition: WidgetDefinition = {
+  id: 'reports',
+  get name() { return t('widget.reports.name'); },
+  get description() { return t('widget.reports.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
+};
 
 // The phone book is a one-cell launcher, not a list: a single grid cell has no
 // room for rows, so the block itself only carries the icon and the count and

@@ -51,6 +51,18 @@ export function useWorkspaceTasks() {
     await workspace.deleteTask(task.id);
   }, [workspace]);
 
+  // Archiving is the same write as deleting: the row keeps its history and
+  // leaves the board, and the archive can restore it. Failures reuse the drag
+  // banner so the matrix has a single place to report write errors.
+  const archiveTask = useCallback(async (task: MatrixTask) => {
+    setDragError(null);
+    try {
+      await workspace.deleteTask(task.id);
+    } catch (error) {
+      setDragError(error instanceof Error ? error.message : t('taskWorkspace.moveFailed'));
+    }
+  }, [workspace]);
+
   const setTaskCompleted = useCallback(async (task: MatrixTask, completed: boolean) => {
     if (workspace.pendingTaskIds.has(task.id)) return;
     setFailedCompletion(null);
@@ -91,6 +103,7 @@ export function useWorkspaceTasks() {
     quickAdd,
     updateTask,
     deleteTask,
+    archiveTask,
     setTaskCompleted,
     moveTask,
     retryFailedCompletion,

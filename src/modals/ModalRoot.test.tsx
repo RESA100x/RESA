@@ -119,7 +119,8 @@ describe('ModalRoot', () => {
 
     rerender(<ModalRoot {...base({ modal:{type:'task-edit',task:sampleTasks[0],trigger:null}, onClose })} />);
     expect(screen.getByRole('dialog', { name:'编辑任务' })).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name:'看板泳道' })).not.toBeInTheDocument();
+    // A matrix task can be attached to a board lane from its edit dialog.
+    expect(screen.getByRole('combobox', { name:'看板泳道' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name:'取消' }));
     expect(onClose).toHaveBeenCalledOnce();
 

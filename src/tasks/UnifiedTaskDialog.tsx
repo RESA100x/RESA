@@ -18,6 +18,7 @@ import {
 } from '../lib/recurrence';
 import type { Recurrence, RecurrenceFreq, Weekday } from '../calendar/calendar-model';
 import { quadrantLabel } from '../matrix/matrix-model';
+import { useProjects } from '../projects/useProjects';
 import { priorityColors } from './task-projections';
 import { useTaskWorkspace } from './TaskWorkspaceContext';
 import { TaskStepsField, type TaskStepItem } from './TaskStepsField';
@@ -50,6 +51,7 @@ type Form = {
   priority: TaskPriority;
   dueDate: string;
   laneId: string | null;
+  projectId: string | null;
   tagIds: string[];
   steps: TaskStepItem[];
   stepInput: string;
@@ -74,6 +76,7 @@ function message(error: unknown) {
 
 export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onClose, onSaved, onDirtyChange }: Props) {
   const workspace = useTaskWorkspace();
+  const { projects } = useProjects();
   const snapshot = workspace.workspace.data;
   const initial = useMemo<Form>(() => {
     if (mode.type === 'edit') {
@@ -83,6 +86,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
         priority: mode.task.priority,
         dueDate: mode.task.dueDate ?? '',
         laneId: mode.task.laneId,
+        projectId: mode.task.projectId ?? null,
         tagIds: mode.task.tagIds,
         steps: (mode.task.steps ?? []).map((step) => ({
           key: step.id, id: step.id, title: step.title, completed: step.completed
@@ -97,14 +101,16 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       priority: mode.priority ?? defaultTaskPriority,
       dueDate: mode.dueDate ?? '',
       laneId: mode.laneId !== undefined ? mode.laneId : showLane ? snapshot.defaultLaneId : null,
+      projectId: null,
       tagIds: [],
       steps: [],
       stepInput: '',
       recurrence: null
     };
   }, [mode, showLane, snapshot.defaultLaneId]);
-  // A task that is off the board has no lane to pick.
-  const laneVisible = showLane && initial.laneId !== null;
+  // Any task can join (or leave) the board from here; an empty lane means it
+  // stays a matrix-only task.
+  const laneVisible = showLane && snapshot.lanes.length > 0;
   const [form, setForm] = useState(initial);
   const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null);
   const [dialogError, setDialogError] = useState('');
@@ -120,7 +126,16 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
   const dirty = JSON.stringify(initial) !== JSON.stringify(form);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const activeTags = snapshot.tags.filter((tag) => !tag.archivedAt || form.tagIds.includes(tag.id));
-  const laneOptions = snapshot.lanes.map((lane) => ({ value: lane.id, label: lane.name }));
+  const laneOptions = [
+    { value: '', label: t('taskModal.noLane') },
+    ...snapshot.lanes.map((lane) => ({ value: lane.id, label: lane.name }))
+  ];
+  const projectOptions = [
+    { value: '', label: t('taskModal.noProject') },
+    ...projects.data
+      .filter((project) => !project.archivedAt)
+      .map((project) => ({ value: project.id, label: project.name }))
+  ];
 
   const update = <K extends keyof Form>(key: K, value: Form[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -208,6 +223,11 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       if (JSON.stringify(saved.recurrence ?? null) !== JSON.stringify(form.recurrence)) {
         saved = await workspace.setTaskRecurrence(saved.id, form.recurrence);
       }
+      // The project is its own command, so attaching one never fights the
+      // other task writers (assistant, quick add, board drag).
+      if ((saved.projectId ?? null) !== form.projectId) {
+        saved = await workspace.setTaskProject(saved.id, form.projectId);
+      }
       await onSaved?.(saved);
       onClose();
     } catch (error) {
@@ -289,11 +309,14 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
             ))}
           </div>
         </fieldset>
-        <div className={laneVisible ? 'task-form__row' : undefined}>
-          {laneVisible && form.laneId !== null ? (
-            <Select id="unified-task-lane" label={t('taskModal.lane')} options={laneOptions} value={form.laneId}
-              disabled={busy} onChange={(value) => update('laneId', value)} />
+        <div className="task-form__row">
+          {laneVisible ? (
+            <Select id="unified-task-lane" label={t('taskModal.lane')} options={laneOptions} value={form.laneId ?? ''}
+              disabled={busy} onChange={(value) => update('laneId', value || null)} />
           ) : null}
+          <Select id="unified-task-project" label={t('taskModal.project')} options={projectOptions}
+            value={form.projectId ?? ''} disabled={busy}
+            onChange={(value) => update('projectId', value || null)} />
           <DatePicker id="unified-task-due-date" label={t('taskModal.dueDate')} value={form.dueDate}
             disabled={busy} open={dateOpen} onOpenChange={setDateOpen} onChange={changeDueDate} />
         </div>

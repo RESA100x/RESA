@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { t } from '../i18n';
 import type { KanbanLaneDraft } from '../kanban/kanban-model';
+import type { TaskStatus } from './task-model';
 import { useTaskWorkspace } from './TaskWorkspaceContext';
 import { kanbanSnapshotFromWorkspace } from './task-projections';
 
@@ -49,6 +50,21 @@ export function useWorkspaceKanban() {
     }
   }, [workspace]);
 
+  // Status changes share the board's inline error surface: a rejected write
+  // must not look like it happened.
+  const setCardStatus = useCallback(async (id: string, status: TaskStatus) => {
+    setDragError(null);
+    try {
+      await workspace.setTaskStatus(id, status);
+    } catch (error) {
+      setDragError(
+        typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : t('taskWorkspace.completionFailed')
+      );
+    }
+  }, [workspace]);
+
   const reorderLanes = useCallback(async (orderedIds: string[]) => {
     setDragError(null);
     try {
@@ -76,6 +92,7 @@ export function useWorkspaceKanban() {
     deleteLane: (id: string) => workspace.deleteLane(id),
     reorderLanes,
     moveCard,
-    completeCard
+    completeCard,
+    setCardStatus
   };
 }

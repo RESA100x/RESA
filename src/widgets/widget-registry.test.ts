@@ -57,7 +57,7 @@ describe('widget definitions', () => {
 
   it('merges built-ins and extensions into the full placeable set', () => {
     const all = buildDefinitions();
-    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(8);
+    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(11);
     expect(getWidgetDefinition('stickers', all)).toMatchObject({ minW: 2, minH: 2, category: 'builtin' });
     expect(defaultLayout.map(item => item.id)).not.toContain('stickers');
     expect(all.filter((definition) => definition.category === 'extension')).toHaveLength(0);
@@ -75,6 +75,22 @@ describe('widget definitions', () => {
     expect(getWidgetDefinition('phonebook', all)?.default).toEqual({ x: 0, y: 0, w: 1, h: 1 });
     expect(defaultLayout.map(item => item.id)).not.toContain('phonebook');
   });
+
+  it('exposes reports as a one-cell launcher outside the default layout', () => {
+    const all = buildDefinitions();
+    expect(getWidgetDefinition('reports', all)).toMatchObject({ minW: 1, minH: 1, category: 'builtin' });
+    expect(getWidgetDefinition('reports', all)?.default).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+    expect(defaultLayout.map(item => item.id)).not.toContain('reports');
+  });
+
+    it('exposes the archive and projects as one-cell launchers outside the default layout', () => {
+      const all = buildDefinitions();
+      for (const id of ['archive', 'projects']) {
+        expect(getWidgetDefinition(id, all)).toMatchObject({ minW: 1, minH: 1, category: 'builtin' });
+        expect(getWidgetDefinition(id, all)?.default).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+        expect(defaultLayout.map((item) => item.id)).not.toContain(id);
+      }
+    });
 });
 
 describe('defaultLayout', () => {

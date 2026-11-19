@@ -5,16 +5,24 @@ import type { ResolvedCard } from './kanban-view';
 import { formatDueDate, isOverdue } from './kanban-view';
 import { t } from '../i18n';
 import { TaskStepCount } from '../tasks/TaskStepCount';
-import { stepProgress } from '../tasks/task-model';
+import { stepProgress, taskStatus, type TaskStatus } from '../tasks/task-model';
+import { ActionMenu } from '../components/ActionMenu';
 
 type KanbanCardProps = {
   resolved: ResolvedCard;
   todayIso: string;
   dragging?: boolean;
   onOpen: () => void;
+  // Moves the task out of "open" without opening the full form: done,
+  // suspended, cancelled or delayed.
+  onStatusChange?: (status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
 };
+
+// The states a card can move to from the board. "open" is the way back, so a
+// card that was suspended by mistake does not need the task form.
+const CARD_STATUSES: TaskStatus[] = ['open', 'in_progress', 'done', 'suspended', 'cancelled', 'delayed'];
 
 // A task card: a quadrant dot and the title, then one meta line that only
 // renders the fields the task actually has. The card body drags; the title
@@ -24,10 +32,12 @@ export function KanbanCard({
   todayIso,
   dragging = false,
   onOpen,
+  onStatusChange,
   onDragStart,
   onDragEnd
 }: KanbanCardProps) {
   const { card, priority, tags } = resolved;
+  const status = taskStatus(card);
 
   // Counting attachments is a pure content parse, so a card costs no IO to show
   // its paperclip. Files only: an inline image is content, not an attachment.
@@ -61,7 +71,28 @@ export function KanbanCard({
         <button type="button" className="kanban-card__title" onClick={onOpen}>
           {card.title}
         </button>
+        {onStatusChange ? (
+          <span
+            className="kanban-card__menu"
+            onDragStart={(event) => event.stopPropagation()}
+          >
+            <ActionMenu
+              label={t('kanbanCard.statusMenu', { title: card.title })}
+              items={CARD_STATUSES.map((value) => ({
+                id: value,
+                label: t(`taskStatus.${value}` as const),
+                onSelect: () => onStatusChange(value)
+              }))}
+            />
+          </span>
+        ) : null}
       </div>
+
+      {status !== 'open' ? (
+        <span className={`kanban-card__status kanban-card__status--${status}`}>
+          {t(`taskStatus.${status}` as const)}
+        </span>
+      ) : null}
 
       {hasMeta ? (
         <div className="kanban-card__meta">

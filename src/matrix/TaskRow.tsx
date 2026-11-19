@@ -3,7 +3,7 @@ import { formatTaskMeta } from '../lib/task-draft';
 import { colorStyle } from '../lib/color';
 import type { MatrixTask } from './matrix-model';
 import { t } from '../i18n';
-import { Repeat } from '../components/icons';
+import { History, Repeat } from '../components/icons';
 import { TaskStepCount } from '../tasks/TaskStepCount';
 import { celebrateTaskCompletion } from '../tasks/completion-celebration';
 import { priorityColors } from '../tasks/task-projections';
@@ -19,11 +19,12 @@ type TaskRowProps = {
   dragging?: boolean;
   onToggle(task: MatrixTask, completed: boolean): void;
   onOpen(task: MatrixTask, trigger: HTMLElement): void;
+  onArchive?(task: MatrixTask): void;
   onDragStart?(event: DragEvent<HTMLElement>, task: MatrixTask): void;
   onDragEnd?(): void;
 };
 
-export function TaskRow({ task, today, pending, dragging = false, onToggle, onOpen, onDragStart, onDragEnd }: TaskRowProps) {
+export function TaskRow({ task, today, pending, dragging = false, onToggle, onOpen, onArchive, onDragStart, onDragEnd }: TaskRowProps) {
   const draggable = Boolean(onDragStart);
 
   return (
@@ -100,6 +101,18 @@ export function TaskRow({ task, today, pending, dragging = false, onToggle, onOp
           <TaskStepCount steps={task.steps} />
         </div>
       </div>
+      {task.completed && onArchive ? (
+        <button
+          type="button"
+          className="btn btn-icon task-row__archive"
+          aria-label={t('matrix.archiveTask', { title: task.title })}
+          title={t('matrix.archiveTask', { title: task.title })}
+          disabled={pending}
+          onClick={() => onArchive(task)}
+        >
+          <History aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }

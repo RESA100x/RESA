@@ -1,4 +1,4 @@
-import { Plus, Settings, X } from '../components/icons';
+import { Check, ListCheck, Plus, Settings, X } from '../components/icons';
 import { type DragEvent, useMemo, useState } from 'react';
 import type { MatrixTask, MatrixTaskTag, Quadrant } from './matrix-model';
 import { quadrantLabel, quadrantOrder } from './matrix-model';
@@ -31,6 +31,9 @@ type MatrixWidgetProps = {
   onOpenSettings?: () => void;
   onOpenTask: (task: MatrixTask, trigger: HTMLElement) => void;
   onToggleTask: (task: MatrixTask, completed: boolean) => void;
+  // Sends a finished task to the archive, where it stays readable and can be
+  // restored later. The row leaves the matrix either way.
+  onArchiveTask?: (task: MatrixTask) => void;
   onMoveTask?: (task: MatrixTask, quadrant: Quadrant) => void;
   onRetryCompletion: () => void;
   onDismissCompletionError: () => void;
@@ -50,6 +53,7 @@ export function MatrixWidget({
   onOpenSettings,
   onOpenTask,
   onToggleTask,
+  onArchiveTask,
   onMoveTask,
   onRetryCompletion,
   onDismissCompletionError,
@@ -64,6 +68,10 @@ export function MatrixWidget({
   // The active tag filter. `null` means "show every task"; otherwise only tasks
   // carrying the selected tag id are visible across all quadrants.
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
+  // Finished tasks leave the quadrants by default so a long-lived matrix does
+  // not fill up with ticks; the header keeps their count and can reveal them
+  // again for review, archiving, or unticking.
+  const [showDone, setShowDone] = useState(false);
 
   const draggingTask = draggingId ? tasks.find((task) => task.id === draggingId) ?? null : null;
 
@@ -82,6 +90,7 @@ export function MatrixWidget({
   const visibleTasks = tasks.filter(
     (task) => effectiveTagId === null || task.tags.some((tag) => tag.id === effectiveTagId)
   );
+  const doneTotal = visibleTasks.filter((task) => task.completed).length;
 
   const tagOptions: FilterOption[] = [
     { value: '', label: t('filter.showAll') },
@@ -139,6 +148,17 @@ export function MatrixWidget({
           <span />
         )}
         <div className="toolbar-actions">
+          <button
+            type="button"
+            className={`btn btn-icon matrix-done-toggle${showDone ? ' btn-primary' : ''}`}
+            aria-pressed={showDone}
+            aria-label={showDone ? t('matrix.hideDone') : t('matrix.showDone', { count: doneTotal })}
+            title={showDone ? t('matrix.hideDone') : t('matrix.showDone', { count: doneTotal })}
+            onClick={() => setShowDone((value) => !value)}
+          >
+            <ListCheck aria-hidden="true" />
+            {doneTotal > 0 ? <span className="matrix-done-toggle__badge" aria-hidden="true">{doneTotal}</span> : null}
+          </button>
           {onOpenSettings ? (
             <button type="button" className="btn btn-icon" aria-label={t('kanbanWidget.manageTags')} title={t('kanbanWidget.manageTags')} onClick={onOpenSettings}>
               <Settings aria-hidden="true" />
@@ -180,6 +200,8 @@ export function MatrixWidget({
           {quadrantOrder.map((quadrant) => {
             const quadrantTasks = visibleTasks.filter((task) => task.quadrant === quadrant);
             const remaining = quadrantTasks.filter((task) => !task.completed).length;
+            const done = quadrantTasks.filter((task) => task.completed).length;
+            const rows = showDone ? quadrantTasks : quadrantTasks.filter((task) => !task.completed);
             const isDropTarget = draggingTask !== null && dropQuadrant === quadrant && draggingTask.quadrant !== quadrant;
             return (
               <section
@@ -191,13 +213,25 @@ export function MatrixWidget({
               >
                 <div className="quadrant-head">
                   <h3>{quadrantLabel(quadrant)}</h3>
-                  <span className="quadrant-count" aria-label={t('matrix.quadrantCount', { label: quadrantLabel(quadrant), remaining, total: quadrantTasks.length })}>
-                    {remaining}/{quadrantTasks.length}
+                  <span className="quadrant-head__counts">
+                    <span className="quadrant-count" aria-label={t('matrix.quadrantCount', { label: quadrantLabel(quadrant), remaining, total: quadrantTasks.length })}>
+                      {remaining}/{quadrantTasks.length}
+                    </span>
+                    {done > 0 ? (
+                      <span
+                        className="quadrant-done"
+                        aria-label={t('matrix.doneCount', { count: done })}
+                        title={t('matrix.doneCount', { count: done })}
+                      >
+                        <Check aria-hidden="true" />
+                        {done}
+                      </span>
+                    ) : null}
                   </span>
                 </div>
                 <div data-testid="quadrant-scroll" className="quadrant-tasks">
-                  {status === 'ready' && quadrantTasks.length === 0 && !onQuickAdd ? <p className="empty-copy">{t('matrix.empty')}</p> : null}
-                  {quadrantTasks.map((task) => (
+                  {status === 'ready' && rows.length === 0 && !onQuickAdd ? <p className="empty-copy">{t('matrix.empty')}</p> : null}
+                  {rows.map((task) => (
                     <TaskRow
                       key={task.id}
                       task={task}
@@ -205,6 +239,7 @@ export function MatrixWidget({
                       dragging={draggingId === task.id}
                       onToggle={onToggleTask}
                       onOpen={onOpenTask}
+                      onArchive={onArchiveTask}
                       onDragStart={onTaskDragStart}
                       onDragEnd={onTaskDragEnd}
                     />

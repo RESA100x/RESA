@@ -206,16 +206,51 @@ describe('UnifiedTaskDialog', () => {
     })));
   });
 
-  it('hides the lane when editing a task that is off the board and keeps it off', async () => {
+  it('shows the lane for a task that is off the board and keeps it off when untouched', async () => {
     const user = userEvent.setup();
     const updateWorkspaceTask = vi.fn().mockResolvedValue(created);
     const offBoard = { ...created, laneId: null };
     render(<UnifiedTaskDialog mode={{ type: 'edit', task: offBoard }} onClose={vi.fn()} />,
       { wrapper: wrapper({ getTaskWorkspaceSnapshot: vi.fn().mockResolvedValue(workspace), updateWorkspaceTask }) });
     const title = await screen.findByLabelText('任务标题');
-    expect(screen.queryByRole('combobox', { name: '看板泳道' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('combobox', { name: '看板泳道' })).toBeInTheDocument();
     await user.type(title, '!');
     await user.click(screen.getByRole('button', { name: '保存任务' }));
     await waitFor(() => expect(updateWorkspaceTask).toHaveBeenCalledWith(offBoard.id, expect.objectContaining({ laneId: null })));
+  });
+
+  it('attaches a matrix task to a board lane', async () => {
+    const user = userEvent.setup();
+    const offBoard = { ...created, laneId: null };
+    const updateWorkspaceTask = vi.fn().mockResolvedValue({ ...offBoard, laneId: 'lane-a' });
+    render(<UnifiedTaskDialog mode={{ type: 'edit', task: offBoard }} onClose={vi.fn()} />,
+      { wrapper: wrapper({ getTaskWorkspaceSnapshot: vi.fn().mockResolvedValue(workspace), updateWorkspaceTask }) });
+    await user.click(await screen.findByRole('combobox', { name: '看板泳道' }));
+    await user.click(screen.getByRole('option', { name: '待处理' }));
+    await user.click(screen.getByRole('button', { name: '保存任务' }));
+    await waitFor(() => expect(updateWorkspaceTask).toHaveBeenCalledWith(offBoard.id, expect.objectContaining({ laneId: 'lane-a' })));
+  });
+
+  it('attaches the chosen project after saving the task', async () => {
+    const user = userEvent.setup();
+    const createWorkspaceTask = vi.fn().mockResolvedValue(created);
+    const setTaskProject = vi.fn().mockResolvedValue({ ...created, projectId: 'p1' });
+    render(<UnifiedTaskDialog mode={{ type: 'create', dueDate: null }} onClose={vi.fn()} />,
+      {
+        wrapper: wrapper({
+          getTaskWorkspaceSnapshot: vi.fn().mockResolvedValue(workspace),
+          listProjects: vi.fn().mockResolvedValue([
+            { id: 'p1', name: 'عتبات', description: '', color: '#4FC9DA', status: 'active',
+              createdAt: 'x', updatedAt: 'x', archivedAt: null, taskCount: 0 }
+          ]),
+          createWorkspaceTask,
+          setTaskProject
+        })
+      });
+    await user.type(await screen.findByLabelText('任务标题'), '写周报');
+    await user.click(screen.getByRole('combobox', { name: '项目' }));
+    await user.click(await screen.findByRole('option', { name: 'عتبات' }));
+    await user.click(screen.getByRole('button', { name: '保存任务' }));
+    await waitFor(() => expect(setTaskProject).toHaveBeenCalledWith('task-1', 'p1'));
   });
 });

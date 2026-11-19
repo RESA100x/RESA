@@ -10,7 +10,7 @@ import { useEvents } from '../calendar/useEvents';
 import { useCategories } from '../calendar/useCategories';
 import type { ModalState } from '../lib/modal-store';
 import { externalToCalendarEvent, type CalendarSubscription } from '../calendar/subscription-model';
-import { isEventWritable, type EventTarget } from '../calendar/calendar-model';
+import { isEventWritable, type CalendarEvent, type EventTarget } from '../calendar/calendar-model';
 import { enterForegroundMode, enterWallpaperMode } from '../lib/window-mode';
 import { MatrixWidget } from '../matrix/MatrixWidget';
 import { KanbanWidget } from '../kanban/KanbanWidget';
@@ -18,6 +18,8 @@ import { TaskWorkspaceProvider, useTaskWorkspace } from '../tasks/TaskWorkspaceC
 import { TaskDragProvider } from '../tasks/TaskDragContext';
 import { IconStyleProvider } from '../components/icons';
 import { useWorkspaceTasks } from '../tasks/useWorkspaceTasks';
+import { BOARD_STATUSES, taskStatus } from '../tasks/task-model';
+import { priorityColors } from '../tasks/task-projections';
 import { ModalRoot } from '../modals/ModalRoot';
 import { NotesWidget } from '../notes/NotesWidget';
 import { useNotes } from '../notes/useNotes';
@@ -33,6 +35,9 @@ import { TimeModule } from '../time/TimeModule';
 import { StickersWidget } from '../stickers/StickersWidget';
 import { PlantsWidget } from '../plants/PlantsWidget';
 import { PhonebookWidget } from '../phonebook/PhonebookWidget';
+import { ReportsWidget } from '../reports/ReportsWidget';
+import { ArchiveWidget } from '../archive/ArchiveWidget';
+import { ProjectsWidget } from '../projects/ProjectsWidget';
 import { TimeSettingsDialog } from '../time/TimeSettingsDialog';
 import { useFocusTimer } from '../focus/FocusTimerContext';
 import { FocusStatisticsDialog } from '../focus/FocusStatisticsDialog';
@@ -73,6 +78,40 @@ function AppContent() {
   const refreshEvents = useCallback(() => eventsFeature.retryEvents(), [eventsFeature]);
   const events = eventsFeature.events.data;
   const tasks = tasksFeature.tasks.data;
+  // Due dates are shown on the calendar as read-only all-day chips. They are
+  // merged here, not stored as events, so completing or moving a task never
+  // leaves a stale calendar row behind.
+  const calendarEvents = useMemo<CalendarEvent[]>(() => {
+    const dueTasks = taskWorkspace.data.tasks.filter(
+      (task) => task.dueDate && BOARD_STATUSES.includes(taskStatus(task))
+    );
+    return [
+      ...events,
+      ...dueTasks.map((task) => ({
+        id: `task:${task.id}`,
+        taskId: task.id,
+        title: task.title,
+        startAt: `${task.dueDate}T00:00`,
+        endAt: `${task.dueDate}T23:59`,
+        allDay: true,
+        category: '',
+        color: priorityColors[task.priority],
+        note: '',
+        reminders: [],
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        recurrence: null,
+        startTz: null,
+        endTz: null,
+        rrule: null,
+        seriesId: null,
+        seriesStartAt: null,
+        occurrenceStartAt: null,
+        isOverridden: false,
+        subscriptionId: null
+      }))
+    ];
+  }, [events, taskWorkspace.data.tasks]);
   const notes = notesFeature.notes.data;
   const [modal, setModal] = useState<ModalState>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -144,7 +183,7 @@ function AppContent() {
   // The full set of placeable modules. Every module Nowly offers is built in.
   const definitions = buildDefinitions();
 
-  const todayEventCount = events.filter((event) => event.startAt.startsWith(todayIso)).length;
+  const todayEventCount = calendarEvents.filter((event) => event.startAt.startsWith(todayIso)).length;
   const importantTaskCount = tasks.filter(
     (task) => !task.completed && task.quadrant.startsWith('important')
   ).length;
@@ -153,13 +192,16 @@ function AppContent() {
   modules.stickers = <StickersWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   modules.plants = <PlantsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   modules.phonebook = <PhonebookWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+    modules.reports = <ReportsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+    modules.archive = <ArchiveWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+    modules.projects = <ProjectsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   {
     modules.calendar = (
       <CalendarWidget
         year={eventsFeature.year}
         monthIndex={eventsFeature.monthIndex}
         todayIso={todayIso}
-        events={events}
+        events={calendarEvents}
         categories={categoriesFeature.categories}
         status={eventsFeature.events.status}
         errorMessage={eventsFeature.events.status === 'error' ? eventsFeature.events.message : undefined}
@@ -173,11 +215,18 @@ function AppContent() {
         onToday={eventsFeature.goToToday}
         onCreateEventForDate={(dateIso) => openModalInForeground({ type: 'event-create', dateIso, trigger: null })}
         onOpenDate={(isoDate) => openModalInForeground({ type: 'date', isoDate, trigger: null })}
-        onOpenEvent={(event) =>
-          event.subscriptionId && !isEventWritable(event)
-            ? openModalInForeground({ type: 'external-detail', event, trigger: null })
-            : openModalInForeground({ type: 'event-edit', event, trigger: null })
-        }
+        onOpenEvent={(event) => {
+          if (event.taskId) {
+            const task = taskWorkspace.data.tasks.find((item) => item.id === event.taskId);
+            if (task) openModalInForeground({ type: 'workspace-task-edit', task, trigger: null });
+            return;
+          }
+          if (event.subscriptionId && !isEventWritable(event)) {
+            openModalInForeground({ type: 'external-detail', event, trigger: null });
+            return;
+          }
+          openModalInForeground({ type: 'event-edit', event, trigger: null });
+        }}
         onMoveEvent={(event, isoDate) => void eventsFeature.moveEvent(event, isoDate)}
         onMoveEventToHour={(event, isoDate, startHour) => void eventsFeature.moveEventToHour(event, isoDate, startHour)}
         onResizeEvent={(event, endIsoDate) => void eventsFeature.resizeEvent(event, endIsoDate)}
@@ -208,6 +257,7 @@ function AppContent() {
         onOpenSettings={() => openModalInForeground({ type:'task-settings', trigger:null })}
         onOpenTask={(task, trigger) => openModalInForeground({ type:'task-edit', task, trigger })}
         onToggleTask={(task, completed) => void tasksFeature.setTaskCompleted(task, completed)}
+        onArchiveTask={(task) => void tasksFeature.archiveTask(task)}
         onMoveTask={(task, quadrant) => void tasksFeature.moveTask(task, quadrant)}
         onRetryCompletion={() => void tasksFeature.retryFailedCompletion()}
         onDismissCompletionError={tasksFeature.dismissTaskError}
@@ -435,7 +485,7 @@ function AppContent() {
       />
       <ModalRoot
         modal={modal}
-        events={events}
+        events={calendarEvents}
         onClose={() => setModal(null)}
         onChangeModal={setModal}
         createEvent={eventsFeature.createEvent}

@@ -252,6 +252,9 @@ export function CalendarWidget({
   const hourDropEnabled = Boolean(onMoveEventToHour);
   const resizeEnabled = Boolean(onResizeEvent);
   const hourResizeEnabled = Boolean(onResizeEventToHour);
+  // A task's due-date chip is a pointer to the task, not a calendar event: it
+  // must not be dragged, stretched or moved to another hour.
+  const editable = (event: CalendarEvent) => !event.taskId && isEventWritable(event);
 
   // All views drive move/resize with pointer events instead of native HTML5
   // drag-and-drop. Native DnD is unreliable in the Tauri webview (drags often
@@ -595,8 +598,8 @@ export function CalendarWidget({
     const width = ((lastVisible - firstVisible + 1) / visibleCount) * 100;
     // A bar that runs off the right edge of the week keeps that side square and
     // hides the resize handle there (you resize from the true end segment).
-    const resizableHere = resizeEnabled && !continuesAfter && isEventWritable(event);
-    const barMovable = dropEnabled && isEventWritable(event);
+    const resizableHere = resizeEnabled && !continuesAfter && editable(event);
+    const barMovable = dropEnabled && editable(event);
     return (
       <button
         type="button"
@@ -638,7 +641,7 @@ export function CalendarWidget({
   // A single-day event that flows inside a per-column stack so each cell can
   // vertically center its own events (with an even gap) independently.
   function renderCellEvent(event: CalendarEvent) {
-    const cellMovable = dropEnabled && isEventWritable(event);
+    const cellMovable = dropEnabled && editable(event);
     return (
       <button
         type="button"
@@ -657,7 +660,7 @@ export function CalendarWidget({
         {event.subscriptionId ? (
           <span className="event__source-badge" aria-label={t('calendar.externalBadge')} />
         ) : null}
-        {resizeEnabled && isEventWritable(event) ? (
+        {resizeEnabled && editable(event) ? (
           <span
             className="event-bar__resize-handle"
             aria-hidden="true"
@@ -875,9 +878,9 @@ export function CalendarWidget({
                 key={occurrenceKey(event)}
                 draggable={false}
                 aria-label={eventLabel(event, categories)}
-                onPointerDown={hourDropEnabled ? (pointerEvent) => handleHourMovePointerDown(pointerEvent, event, iso) : undefined}
+                onPointerDown={hourDropEnabled && editable(event) ? (pointerEvent) => handleHourMovePointerDown(pointerEvent, event, iso) : undefined}
                 onClick={() => handleBarClick(event)}
-                className={`day-grid__event${coloredClass(event)}${hourDropEnabled ? ' event--movable' : ''}`}
+                className={`day-grid__event${coloredClass(event)}${hourDropEnabled && editable(event) ? ' event--movable' : ''}`}
                 style={{
                   ...coloredStyle(event),
                   '--day-event-start': start,
@@ -890,7 +893,7 @@ export function CalendarWidget({
                   {event.startAt.slice(11, 16)} – {event.endAt.slice(11, 16)}
                 </span>
                 <span className="day-grid__event-title">{repeatMark(event)}{event.title}</span>
-                {hourResizeEnabled && isEventWritable(event) ? (
+                {hourResizeEnabled && editable(event) ? (
                   <span
                     className="day-grid__resize-handle"
                     aria-hidden="true"
