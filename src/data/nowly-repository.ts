@@ -25,6 +25,14 @@ import type { Attachment } from '../lib/attachment';
 import type { Note, NoteDraft } from '../notes/notes-model';
 import type { Plant, PlantDraft } from '../plants/plant-model';
 import type {
+  Contact,
+  ContactCategory,
+  ContactCategoryDraft,
+  ContactDraft,
+  ContactsExportSummary,
+  ContactsImportSummary
+} from '../phonebook/contact-model';
+import type {
   Task as WorkspaceTask,
   TaskDraft as WorkspaceTaskDraft,
   TaskLane,
@@ -134,6 +142,20 @@ export type NowlyRepository = {
   updatePlant?(id: string, draft: PlantDraft): Promise<Plant>;
   deletePlant?(id: string): Promise<void>;
   waterPlant?(id: string, wateredAt: string): Promise<Plant>;
+  // 电话簿模块：姓名 + 电话 + 分组 + 备注。搜索在界面层完成（联系人数量有上限，
+  // 过滤是同步的），这里只负责存取。
+  listContacts?(): Promise<Contact[]>;
+  createContact?(draft: ContactDraft): Promise<Contact>;
+  updateContact?(id: string, draft: ContactDraft): Promise<Contact>;
+  deleteContact?(id: string): Promise<void>;
+  // The whole directory as one Excel-friendly CSV; the same file imports back.
+  exportContacts?(path: string): Promise<ContactsExportSummary>;
+  importContacts?(path: string, commit: boolean): Promise<ContactsImportSummary>;
+  // 电话簿分组：名称 + 颜色。颜色属于分组本身，联系人只存 categoryId。
+  listContactCategories?(): Promise<ContactCategory[]>;
+  createContactCategory?(draft: ContactCategoryDraft): Promise<ContactCategory>;
+  updateContactCategory?(id: string, draft: ContactCategoryDraft): Promise<ContactCategory>;
+  deleteContactCategory?(id: string): Promise<void>;
   getTimeSettings(): Promise<TimeSettings>;
   saveTimeSettings(settings: TimeSettings): Promise<TimeSettings>;
   listAlarms(): Promise<Alarm[]>;

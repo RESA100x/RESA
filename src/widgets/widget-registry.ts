@@ -88,8 +88,22 @@ export const timeDefinition: WidgetDefinition = {
 };
 
 export function buildDefinitions(): WidgetDefinition[] {
-  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, ...extensionDefinitions];
+  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, ...extensionDefinitions];
 }
+
+// The phone book is a one-cell launcher, not a list: a single grid cell has no
+// room for rows, so the block itself only carries the icon and the count and
+// opens the searchable list in a modal. That is the shape any future small
+// block should copy — the cell stays a door, never a cramped page.
+export const phonebookDefinition: WidgetDefinition = {
+  id: 'phonebook',
+  get name() { return t('widget.phonebook.name'); },
+  get description() { return t('widget.phonebook.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
+};
 
 // The watering reminder is a module the user adds when they need it, like the
 // board and the clock: a plant list is not part of a fresh workspace.

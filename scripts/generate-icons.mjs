@@ -68,6 +68,7 @@ const ICON_SOURCES = {
   Paperclip: 'paperclip',
   Pause: 'pause',
   Pencil: 'pen-2',
+  Phone: 'phone-rounded',
   Pin: 'pin',
   Play: 'play',
   Plug: 'plug-circle',
@@ -85,6 +86,7 @@ const ICON_SOURCES = {
   Timer: 'stopwatch',
   Trash2: 'trash-bin-trash',
   Unplug: 'link-broken-minimalistic',
+  UserCircle: 'user-circle',
   X: 'close'
 };
 

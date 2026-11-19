@@ -48,12 +48,12 @@ export const AlertTriangle=createIcon('AlertTriangle'), ArrowRightUp=createIcon(
   Layers=createIcon('Layers'), LayoutGrid=createIcon('LayoutGrid'), List=createIcon('List'), ListCheck=createIcon('ListCheck'),
   Lock=createIcon('Lock'), Unlock=createIcon('Unlock'),
   Mail=createIcon('Mail'), MessageCircle=createIcon('MessageCircle'), Mic=createIcon('Mic'), Minus=createIcon('Minus'),
-  MonitorDown=createIcon('MonitorDown'), Paperclip=createIcon('Paperclip'), Pause=createIcon('Pause'), Pencil=createIcon('Pencil'), Pin=createIcon('Pin'),
+  MonitorDown=createIcon('MonitorDown'), Paperclip=createIcon('Paperclip'), Pause=createIcon('Pause'), Pencil=createIcon('Pencil'), Phone=createIcon('Phone'), Pin=createIcon('Pin'),
   Play=createIcon('Play'), Plug=createIcon('Plug'), Plus=createIcon('Plus'), RadialBlur=createIcon('RadialBlur'), RefreshCw=createIcon('RefreshCw'),
   Repeat=createIcon('Repeat'), RotateCcw=createIcon('RotateCcw'), Search=createIcon('Search'), Send=createIcon('Send'),
   Settings=createIcon('Settings'), Sparkles=createIcon('Sparkles'), SmileCircle=createIcon('SmileCircle'), Square=createIcon('Square'), Stop=createIcon('Stop'),
   SquareKanban=createIcon('SquareKanban'), Timer=createIcon('Timer'), Trash2=createIcon('Trash2'),
   UndoLeft=createIcon('UndoLeft'), UndoRight=createIcon('UndoRight'),
-  Unplug=createIcon('Unplug'), X=createIcon('X');
+  Unplug=createIcon('Unplug'), UserCircle=createIcon('UserCircle'), X=createIcon('X');
 
 export type AppIcon = (props: IconProps) => ReactElement;

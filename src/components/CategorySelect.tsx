@@ -11,18 +11,24 @@ import { t } from '../i18n';
 import { ColorPicker } from './ColorPicker';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DESIGN_COLORS, normalizeHexColor, type ColorPreset, type HexColor } from '../lib/color';
-import type { Category, CategoryDraft } from '../calendar/calendar-model';
+import type { Category } from '../calendar/calendar-model';
 
-type CategorySelectProps = {
+// Any record that carries a name and a colour can be managed here: the calendar
+// passes its `Category`, the phone book passes a `ContactCategory`. Sharing one
+// control keeps the group/category behaviour (and its tests) in one place.
+type CategoryLike = { id: string; name: string; color: HexColor };
+type CategoryDraftLike = { name: string; color: HexColor };
+
+type CategorySelectProps<T extends CategoryLike = Category> = {
   id: string;
   label: string;
-  categories: Category[];
+  categories: T[];
   // The selected category id, or '' for "no category".
   value: string;
   // Carry the record with the id: a newly created category may not be in props yet.
-  onChange: (categoryId: string, category: Category | null) => void;
-  onCreate: (draft: CategoryDraft) => Promise<Category>;
-  onUpdate: (id: string, draft: CategoryDraft) => Promise<Category>;
+  onChange: (categoryId: string, category: T | null) => void;
+  onCreate: (draft: CategoryDraftLike) => Promise<T>;
+  onUpdate: (id: string, draft: CategoryDraftLike) => Promise<T>;
   onDelete: (id: string) => Promise<void>;
   disabled?: boolean;
   hideLabel?: boolean;
@@ -45,16 +51,16 @@ function categoryColorPresets(): readonly ColorPreset[] {
 
 const DEFAULT_NEW_COLOR = DESIGN_COLORS.primary as HexColor;
 
-type EditorState =
+type EditorState<T extends CategoryLike> =
   | { mode: 'closed' }
   | { mode: 'create' }
-  | { mode: 'edit'; category: Category };
+  | { mode: 'edit'; category: T };
 
 // A dropdown that both selects and manages calendar categories. Users pick an
 // existing category (or "no category"), or open an inline editor to add a new
 // one (name + color) or edit/delete existing ones. Deleting a category makes
 // every event/subscription that used it fall back to no category, no color.
-export function CategorySelect({
+export function CategorySelect<T extends CategoryLike = Category>({
   id,
   label,
   categories,
@@ -66,7 +72,7 @@ export function CategorySelect({
   disabled = false,
   hideLabel = false,
   onOverlayOpenChange
-}: CategorySelectProps) {
+}: CategorySelectProps<T>) {
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -75,12 +81,12 @@ export function CategorySelect({
   const [placeAbove, setPlaceAbove] = useState(false);
   const [popupMaxHeight, setPopupMaxHeight] = useState(360);
   const [popupRect, setPopupRect] = useState<{ left: number; top: number; bottom: number; width: number } | null>(null);
-  const [editor, setEditor] = useState<EditorState>({ mode: 'closed' });
+  const [editor, setEditor] = useState<EditorState<T>>({ mode: 'closed' });
   const [draftName, setDraftName] = useState('');
   const [draftColor, setDraftColor] = useState<HexColor>(DEFAULT_NEW_COLOR);
   const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<Category | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<T | null>(null);
 
   const selected = categories.find((category) => category.id === value) ?? null;
 
@@ -145,7 +151,7 @@ export function CategorySelect({
     setDraftColor(DEFAULT_NEW_COLOR);
     setFormError('');
   }
-  function beginEdit(category: Category) {
+  function beginEdit(category: T) {
     setEditor({ mode: 'edit', category });
     setDraftName(category.name);
     setDraftColor(normalizeHexColor(category.color) ?? DEFAULT_NEW_COLOR);

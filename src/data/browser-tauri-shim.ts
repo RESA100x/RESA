@@ -27,6 +27,9 @@ import { validateNoteForm, toNoteDraft } from '../lib/note-draft';
 import type { NoteDraft } from '../notes/notes-model';
 import { toPlantDraft, validatePlantForm } from '../plants/plant-draft';
 import type { PlantDraft } from '../plants/plant-model';
+import { coerceContactDraft, toContactDraft, validateContactForm } from '../phonebook/contact-draft';
+import { withContactDefaults, type Contact, type ContactCategory, type ContactCategoryDraft, type ContactDraft } from '../phonebook/contact-model';
+import { normalizeHexColor } from '../lib/color';
 import { contentToPlainText, isContentEmpty } from '../components/rich-text/content';
 import { normalizeBarMenu } from '../app/bar-menu';
 import { isQuickCreateKind } from '../quick-create/request';
@@ -52,6 +55,8 @@ type Store = {
   tasks: Dict[];
   notes: Dict[];
   plants: Dict[];
+  contacts: Dict[];
+  contactCategories: Dict[];
   settings: Dict;
   moduleLayout: Dict[];
   focusSessions: Dict[];
@@ -99,6 +104,8 @@ function emptyStore(): Store {
     tasks: [],
     notes: [],
     plants: [],
+    contacts: [],
+    contactCategories: [],
     settings: { ...defaultSettings },
     moduleLayout: [],
     focusSessions: [],
@@ -131,6 +138,8 @@ function loadStore(): Store {
         return migrated;
       }),
       plants: parsed.plants ?? [],
+      contacts: parsed.contacts ?? [],
+      contactCategories: parsed.contactCategories ?? [],
       kanban: { ...base.kanban, ...(parsed.kanban ?? {}) }
     };
   } catch {
@@ -172,6 +181,27 @@ function shimSteps(value: unknown, current: unknown): Dict[] {
     used.add(stepId);
     return { id: stepId, title, completed: step.completed === true };
   });
+}
+
+// Mirrors the native contact rules: the name is required, the birthday must be a
+// real ISO date, and a group id has to exist. Native rejects dirty data rather
+// than storing a dangling reference, and so does this.
+function assertContactDraft(store: Store, draft: ContactDraft) {
+  const errors = validateContactForm(coerceContactDraft(draft));
+  const field = Object.keys(errors)[0];
+  if (field) throw { code: 'validation_error', field, message: errors[field as keyof typeof errors] };
+  const categoryId = draft.categoryId;
+  if (categoryId && !store.contactCategories.some((item) => item.id === categoryId)) {
+    throw { code: 'validation_error', field: 'categoryId', message: '分组不存在。' };
+  }
+}
+
+// The shim keeps rows in localStorage, where a contact saved by an earlier
+// build is missing every field added since. Reading them back through
+// `withContactDefaults` means the UI never sees a half-shaped row.
+function storedContact(store: Store, idValue: string, createdAt: string, updatedAt: string, draft: ContactDraft): Contact {
+  const normalized = toContactDraft(coerceContactDraft(draft));
+  return { ...withContactDefaults({ id: idValue }), ...normalized, id: idValue, createdAt, updatedAt };
 }
 
 // Lanes are user-created only, like the native store: nothing is seeded.
@@ -1047,6 +1077,77 @@ export function installBrowserTauriBackend() {
       );
       persist();
       return updated;
+    },
+
+    // Phone book
+    list_contacts: () =>
+      store.contacts.map((row) => withContactDefaults(row as unknown as Partial<Contact> & { id: string })),
+    list_contact_categories: () => store.contactCategories,
+    create_contact_category: (a) => {
+      const draft = a.draft as ContactCategoryDraft;
+      const name = String(draft.name ?? '').replace(/\s+/g, ' ').trim();
+      if (!name) throw { code: 'validation_error', field: 'name', message: '分组名称不能为空。' };
+      const color = normalizeHexColor(draft.color);
+      if (!color) throw { code: 'validation_error', field: 'color', message: '请选择有效颜色。' };
+      const position = store.contactCategories.reduce((max, item) => Math.max(max, Number(item.position ?? 0)), -1) + 1;
+      const category = { id: id('contactCategory'), createdAt: nowIso(), updatedAt: nowIso(), name, color, position };
+      store.contactCategories.push(category);
+      persist();
+      return category;
+    },
+    update_contact_category: (a) => {
+      const existing = store.contactCategories.find((item) => item.id === a.id);
+      if (!existing) throw { code: 'validation_error', field: 'id', message: '分组不存在。' };
+      const draft = a.draft as ContactCategoryDraft;
+      const name = String(draft.name ?? '').replace(/\s+/g, ' ').trim();
+      if (!name) throw { code: 'validation_error', field: 'name', message: '分组名称不能为空。' };
+      const color = normalizeHexColor(draft.color);
+      if (!color) throw { code: 'validation_error', field: 'color', message: '请选择有效颜色。' };
+      let updated: Dict | undefined;
+      store.contactCategories = store.contactCategories.map((item) =>
+        item.id === a.id ? (updated = { ...item, name, color, updatedAt: nowIso() }) : item
+      );
+      persist();
+      return updated;
+    },
+    // Deleting a group keeps every contact and only clears their link, the same
+    // promise the Rust side makes.
+    delete_contact_category: (a) => {
+      store.contactCategories = store.contactCategories.filter((item) => item.id !== a.id);
+      store.contacts = store.contacts.map((contact) =>
+        contact.categoryId === a.id ? { ...contact, categoryId: null } : contact
+      );
+      persist();
+    },
+    create_contact: (a) => {
+      assertContactDraft(store, a.draft as ContactDraft);
+      const contact = storedContact(store, id('contact'), nowIso(), nowIso(), a.draft as ContactDraft);
+      store.contacts.push(contact);
+      persist();
+      return contact;
+    },
+    update_contact: (a) => {
+      const existing = store.contacts.find((contact) => contact.id === a.id);
+      if (!existing) throw { code: 'validation_error', field: 'id', message: '未找到该联系人。' };
+      assertContactDraft(store, a.draft as ContactDraft);
+      let updated: Dict | undefined;
+      store.contacts = store.contacts.map((contact) =>
+        contact.id === a.id
+          ? (updated = storedContact(
+              store,
+              a.id as string,
+              String(contact.createdAt ?? nowIso()),
+              nowIso(),
+              a.draft as ContactDraft
+            ))
+          : contact
+      );
+      persist();
+      return updated;
+    },
+    delete_contact: (a) => {
+      store.contacts = store.contacts.filter((contact) => contact.id !== a.id);
+      persist();
     },
 
     // Rich text attachments. Bytes stay in memory rather than in localStorage:

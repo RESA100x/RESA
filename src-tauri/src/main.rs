@@ -12,6 +12,8 @@ mod calendar_api;
 mod categories;
 mod color;
 mod commands;
+mod contact_categories;
+mod contacts;
 mod db;
 mod error;
 mod event_exceptions;
@@ -678,6 +680,16 @@ fn main() {
             plants::update_plant,
             plants::delete_plant,
             plants::water_plant,
+            contacts::list_contacts,
+            contacts::create_contact,
+            contacts::update_contact,
+            contacts::delete_contact,
+            contacts::export_contacts,
+            contacts::import_contacts,
+            contact_categories::list_contact_categories,
+            contact_categories::create_contact_category,
+            contact_categories::update_contact_category,
+            contact_categories::delete_contact_category,
             focus::create_focus_session,
             focus::list_focus_sessions,
             focus::get_focus_statistics,

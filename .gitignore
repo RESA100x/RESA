@@ -86,6 +86,7 @@ dev-modules/*
 !docs/axelor-sync.fa.md
 !docs/resa-new-features.fa.md
 !docs/resa-plants.fa.md
+!docs/resa-phonebook.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/

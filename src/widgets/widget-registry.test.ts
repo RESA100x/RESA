@@ -57,7 +57,7 @@ describe('widget definitions', () => {
 
   it('merges built-ins and extensions into the full placeable set', () => {
     const all = buildDefinitions();
-    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(7);
+    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(8);
     expect(getWidgetDefinition('stickers', all)).toMatchObject({ minW: 2, minH: 2, category: 'builtin' });
     expect(defaultLayout.map(item => item.id)).not.toContain('stickers');
     expect(all.filter((definition) => definition.category === 'extension')).toHaveLength(0);
@@ -67,6 +67,13 @@ describe('widget definitions', () => {
     const all = buildDefinitions();
     expect(getWidgetDefinition('plants', all)).toMatchObject({ minW: 2, minH: 3, category: 'builtin' });
     expect(defaultLayout.map(item => item.id)).not.toContain('plants');
+  });
+
+  it('exposes the phone book as a one-cell launcher outside the default layout', () => {
+    const all = buildDefinitions();
+    expect(getWidgetDefinition('phonebook', all)).toMatchObject({ minW: 1, minH: 1, category: 'builtin' });
+    expect(getWidgetDefinition('phonebook', all)?.default).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+    expect(defaultLayout.map(item => item.id)).not.toContain('phonebook');
   });
 });
 

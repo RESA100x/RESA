@@ -2,6 +2,7 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import type { NowlyRepository } from './nowly-repository';
 import { localizeRepositoryError } from '../i18n/localize-error';
+import { withContactDefaults, type Contact } from '../phonebook/contact-model';
 
 async function invoke<T>(...args: Parameters<typeof tauriInvoke>): Promise<T> {
   try {
@@ -16,6 +17,14 @@ function invalidating<T>(operation: Promise<T>): Promise<T> {
     void emit('status-island-invalidated').catch(() => undefined);
     return result;
   });
+}
+
+// A contact row that predates the current schema (or arrives from a hand-edited
+// backup) can be missing fields the directory reads, and one short row would
+// otherwise take the whole module down. Fill the gaps at the boundary, so the
+// module only ever sees a whole contact.
+function contactRow(row: Contact): Contact {
+  return withContactDefaults(row);
 }
 
 export const tauriNowlyRepository: NowlyRepository = {
@@ -87,6 +96,16 @@ export const tauriNowlyRepository: NowlyRepository = {
   updatePlant: (id, draft) => invalidating(invoke('update_plant', { id, draft })),
   deletePlant: (id) => invalidating(invoke('delete_plant', { id })),
   waterPlant: (id, wateredAt) => invalidating(invoke('water_plant', { id, wateredAt })),
+  listContacts: () => invoke<Contact[]>('list_contacts').then((rows) => rows.map(contactRow)),
+  createContact: (draft) => invalidating(invoke<Contact>('create_contact', { draft }).then(contactRow)),
+  updateContact: (id, draft) => invalidating(invoke<Contact>('update_contact', { id, draft }).then(contactRow)),
+  deleteContact: (id) => invalidating(invoke('delete_contact', { id })),
+  exportContacts: (path) => invoke('export_contacts', { path }),
+  importContacts: (path, commit) => invalidating(invoke('import_contacts', { path, commit })),
+  listContactCategories: () => invoke('list_contact_categories'),
+  createContactCategory: (draft) => invalidating(invoke('create_contact_category', { draft })),
+  updateContactCategory: (id, draft) => invalidating(invoke('update_contact_category', { id, draft })),
+  deleteContactCategory: (id) => invalidating(invoke('delete_contact_category', { id })),
   searchAll: (query, limit) => invoke('search_all', { query, limit }),
   exportBackup: (path) => invoke('export_backup', { path }),
   importBackup: (path) => invoke('import_backup', { path }),

@@ -73,4 +73,16 @@ describe('FocusTimerWidget',()=>{
     await user.type(input,'721');
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a whole number from 1 to 720 minutes.');
   });
+
+  // Regression: the chip used to read "۲۵ ۲۵ دقیقه" because the unit was cut out
+  // of the old preset label with a Latin-digit `replace`, which never matched
+  // the Persian digits. Each preset must render its number exactly once.
+  it('writes each Persian duration chip exactly once',()=>{
+    setLanguage('fa');
+    render(<FocusTimerWidget mode="foreground" onOpenStatistics={vi.fn()}/>);
+    expect(screen.getByRole('button',{name:'۲۵ دقیقه'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'۱۵ دقیقه'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'۵ دقیقه'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/۲۵ ۲۵|۱۵ ۱۵|۵ ۵/})).not.toBeInTheDocument();
+  });
 });

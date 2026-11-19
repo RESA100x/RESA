@@ -82,7 +82,6 @@ export function FocusTimerWidget({ mode, onOpenStatistics, onEnterWallpaper, emb
   const customChip = lastCustom !== null && !PRESETS.includes(lastCustom) ? lastCustom : null;
   const durations = customChip === null ? PRESETS : [...PRESETS, customChip];
   const isCustomDuration = !PRESETS.includes(minutes) && minutes !== customChip;
-  const unit = t('focusTimer.preset25').replace('25 ', '');
   // While a session is active the display counts down; when idle it previews the
   // currently selected duration so presets and custom values give real feedback.
   const displaySeconds = active ? timer.remainingSeconds : minutes * 60;
@@ -193,7 +192,7 @@ export function FocusTimerWidget({ mode, onOpenStatistics, onEnterWallpaper, emb
                 className={`focus-timer__duration${selected ? ' is-active' : ''}`}
                 aria-pressed={selected}
                 onClick={() => { setMinutes(value); setCustomOpen(false); }}
-              ><Timer aria-hidden="true" /><span>{value} {unit}</span></button>
+              ><Timer aria-hidden="true" /><span>{t('focusTimer.durationChip', { minutes: value })}</span></button>
             );
           })}
           <button

@@ -72,6 +72,10 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (42, migration_42_axelor_sources),
     (43, migration_43_task_recurrence),
     (44, crate::plants::migrate),
+    (45, crate::contacts::migrate),
+    (46, crate::contacts::migrate_directory),
+    (47, crate::contacts::migrate_photos),
+    (48, crate::contacts::migrate_profiles),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would

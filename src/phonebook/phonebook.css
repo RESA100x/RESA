@@ -1,0 +1,704 @@
+/* The phone book. The block on the desktop is one grid cell, so the tile is
+   built to survive being squeezed: the container queries at the foot of this
+   file drop the count, then shrink the glyph, as the cell gets smaller. The
+   list itself lives in the modal, which has room for it. */
+
+.phonebook-widget { min-height: 0; }
+
+/* The block *is* the icon: a full-bleed plate filling the cell, one large
+   glyph, and the count as a corner badge. No caption sits under it, so nothing
+   has to stay legible when the cell is squeezed. */
+.phonebook-tile {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.phonebook-tile:disabled { cursor: default; }
+.phonebook-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+.phonebook-tile__plate {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, var(--color-primary-light) 0%, var(--color-primary-border-subtle) 100%);
+  color: var(--color-primary-active);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+/* The glyph keeps its aspect ratio and takes its size from the shorter side of
+   the plate, so a 1x1 cell and a wide cell both look deliberate. */
+.phonebook-tile__plate svg {
+  width: auto;
+  height: 58%;
+  aspect-ratio: 1;
+}
+
+.phonebook-tile:hover:not(:disabled) .phonebook-tile__plate { background: var(--color-primary); color: var(--text-inverse); }
+
+.phonebook-tile__badge {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  min-width: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+
+.phonebook-tile:hover:not(:disabled) .phonebook-tile__badge { background: var(--color-primary-active); }
+
+/* --- Modal ---------------------------------------------------------------- */
+
+.overlay:has(> .phonebook-dialog) { grid-template-columns: minmax(0, 1fr); }
+.good-dialog.phonebook-dialog { width: min(640px, calc(100vw - 32px)); min-width: 0; max-width: 100%; }
+.good-dialog.phonebook-dialog .good-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.phonebook-dialog__footer { justify-content: flex-start; gap: 12px; font-size: 0.85rem; color: var(--text-muted); }
+.phonebook-dialog__shown { color: var(--text-primary); font-weight: 600; }
+
+.phonebook-search { position: relative; flex: none; }
+.phonebook-search__icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  inset-block-start: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.phonebook-search__input { padding-inline-start: 38px; }
+
+.phonebook-dialog__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+.phonebook-dialog__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-align: center;
+}
+.phonebook-dialog__empty p { margin: 0; }
+
+.phonebook-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+
+.phonebook-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-default);
+}
+
+.phonebook-row + .phonebook-row { border-top: 1px solid var(--border-subtle); border-top-left-radius: 0; border-top-right-radius: 0; }
+.phonebook-row:hover { background: var(--bg-secondary); }
+
+.phonebook-row__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; color: var(--text-muted); }
+.phonebook-row__avatar svg { width: 26px; height: 26px; }
+
+.phonebook-row__avatar img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.phonebook-row__body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.phonebook-row__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-2); }
+
+.phonebook-row__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phonebook-row__tag {
+  flex: none;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.phonebook-row__phone {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phonebook-row__note {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Form ----------------------------------------------------------------- */
+
+.good-dialog.phonebook-form-dialog { width: min(760px, calc(100vw - 32px)); }
+.phonebook-form { display: grid; gap: var(--space-3); }
+.phonebook-form__note { min-height: 84px; padding: var(--space-2) var(--space-3); resize: vertical; line-height: 1.6; }
+.phonebook-form__address { min-height: 64px; padding: var(--space-2) var(--space-3); resize: vertical; line-height: 1.6; }
+.phonebook-form-dialog__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.phonebook-form-dialog__actions .dialog-error { flex: 1 1 100%; }
+
+/* --- Form tabs ------------------------------------------------------------- */
+
+/* The strip wraps instead of scrolling: the conditional tabs (organisation,
+   contractor, supplier) appear and disappear as roles are toggled, so the row
+   has to survive changing width without hiding an entry off-screen. */
+.phonebook-form__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-default);
+  background: var(--bg-subtle);
+}
+
+.phonebook-form__tab {
+  flex: 0 1 auto;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.phonebook-form__tab:hover { color: var(--text-primary); }
+.phonebook-form__tab.is-active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-xs); }
+.phonebook-form__tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+/* One panel is on screen at a time, so the grid rows never leave a gap where
+   the hidden tabs used to be. */
+.phonebook-form__panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.phonebook-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Building / floor / room are three short values, and coordinates are a pair
+   that belongs on one line — neither wants the 190px minimum. */
+.phonebook-form__grid--three { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.phonebook-form__grid--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.phonebook-form__subhead {
+  margin: 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.phonebook-form__meta { display: flex; flex-wrap: wrap; gap: var(--space-3); color: var(--text-muted); font-size: 0.78rem; }
+
+/* --- Choices (personality radios, role checkboxes) ------------------------- */
+
+.phonebook-choice { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+
+.phonebook-choice > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.phonebook-choice__row { display: flex; flex-wrap: wrap; gap: 6px; }
+.phonebook-choice__row--wrap { row-gap: 6px; }
+
+/* A pill rather than a bare checkbox: the whole chip is the hit target and the
+   chosen state is visible at a glance across a row of six roles. */
+.phonebook-choice__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.phonebook-choice__option:hover { border-color: var(--color-primary-border-subtle); }
+.phonebook-choice__option input { margin: 0; accent-color: var(--color-primary); }
+.phonebook-choice__option.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+  font-weight: 600;
+}
+
+/* --- Flags row (colleague / active / favourite) ---------------------------- */
+
+.phonebook-flags { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-2); }
+
+.phonebook-favorite {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.phonebook-favorite:hover { border-color: var(--color-primary-border-subtle); color: var(--text-primary); }
+.phonebook-favorite.is-active { border-color: var(--color-warning); background: var(--color-warning-light); color: var(--text-primary); }
+.phonebook-favorite:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+/* --- Required marker ------------------------------------------------------- */
+
+.phonebook-label { display: inline-flex; align-items: baseline; gap: 4px; }
+.phonebook-label__required { color: var(--color-danger); font-weight: 700; }
+
+.phonebook-hint { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
+
+/* --- Repeatable line editors (mobiles, phones, faxes, messengers) ---------- */
+
+.phonebook-lines { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+
+.phonebook-lines > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.phonebook-lines__row {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.7fr) minmax(0, 1.6fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.phonebook-lines__label { min-width: 0; }
+.phonebook-lines__value { min-width: 0; }
+.phonebook-lines .good-button--subtle { justify-self: start; }
+
+/* --- Addresses ------------------------------------------------------------- */
+
+.phonebook-addresses { display: grid; gap: var(--space-3); }
+
+.phonebook-address {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-default);
+  background: var(--bg-secondary);
+}
+
+.phonebook-address > legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Avatar picker --------------------------------------------------------- */
+
+.phonebook-photo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.phonebook-photo__frame {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.phonebook-photo__frame svg { width: 34px; height: 34px; }
+.phonebook-photo__frame img { width: 100%; height: 100%; object-fit: cover; }
+
+.phonebook-photo__actions { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.phonebook-photo__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.phonebook-photo__hint { color: var(--text-muted); font-size: 0.76rem; line-height: 1.4; }
+
+/* Secondary actions (pick a photo, copy a whole group) sit inside a dialog next
+   to a primary button, so they stay compact instead of full-height. */
+.phonebook-form .good-button--subtle,
+.phonebook-groups .good-button--subtle {
+  height: 32px;
+  min-height: 32px;
+  padding: 4px 14px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+}
+
+.phonebook-form .good-button--subtle:hover,
+.phonebook-groups .good-button--subtle:hover { color: var(--color-primary-active); background: var(--color-primary-light); }
+
+/* --- "Works here" switch --------------------------------------------------- */
+
+.phonebook-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.phonebook-toggle:hover { border-color: var(--color-primary-border-subtle); }
+
+/* The hidden native box is still the control; the row reacts through `:has`,
+   which every engine RESA ships on (Chromium WebView2) supports. */
+.phonebook-toggle:has(.phonebook-toggle__input:checked) {
+  border-color: var(--color-primary-border-subtle);
+  background: var(--color-primary-light);
+}
+
+/* The real checkbox stretches across the drawn switch, so a click anywhere on
+   the track hits the control itself; nothing is swallowed by the decoration. */
+.phonebook-toggle__control {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+}
+
+.phonebook-toggle__input {
+  position: absolute;
+  inset: 0;
+  /* Above the drawn switch, which is positioned too and would otherwise win
+     the paint order as the later sibling. */
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.phonebook-toggle__switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+/* Logical insets keep the thumb on the leading edge in both directions. */
+.phonebook-toggle__switch::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: inset-inline-start 140ms ease;
+}
+
+.phonebook-toggle__input:checked + .phonebook-toggle__switch {
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.phonebook-toggle__input:checked + .phonebook-toggle__switch::after { inset-inline-start: calc(100% - 19px); }
+
+.phonebook-toggle__input:focus-visible + .phonebook-toggle__switch { box-shadow: var(--shadow-focus); }
+.phonebook-toggle__input:disabled + .phonebook-toggle__switch { opacity: 0.5; }
+
+.phonebook-toggle__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.phonebook-toggle__title { color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
+.phonebook-toggle__hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; }
+
+/* --- Tabs ------------------------------------------------------------------ */
+
+.phonebook-tabs {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  padding: 3px;
+  border-radius: var(--radius-default);
+  background: var(--bg-subtle);
+}
+
+.phonebook-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.phonebook-tab:hover { color: var(--text-primary); }
+.phonebook-tab.is-active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-sm, none); }
+.phonebook-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.phonebook-tab__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* --- Filters --------------------------------------------------------------- */
+
+.phonebook-filters { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+.phonebook-filters .filter-select { min-width: 0; }
+
+.phonebook-filter-reset {
+  margin-inline-start: auto;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-primary-active);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.phonebook-filter-reset:hover { background: var(--color-primary-light); }
+
+/* The download glyph is the same shape in both directions; only the import
+   arrow needs mirroring so it points *into* the list, not out of it. */
+.phonebook-icon-flip { transform: scaleX(-1); }
+
+/* --- Group filter chips ---------------------------------------------------- */
+
+.phonebook-chips {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.phonebook-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.phonebook-chip:hover { background: var(--bg-subtle); }
+.phonebook-chip.is-active { border-color: var(--color-primary); color: var(--text-primary); font-weight: 600; }
+.phonebook-chip__dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.phonebook-chip__count { color: var(--text-muted); font-size: 0.72rem; }
+
+/* --- Internal lines bar ---------------------------------------------------- */
+
+.phonebook-dialog__copied,
+.phonebook-group-row__copied,
+.phonebook-row__copied {
+  color: var(--color-success, #4c9a2a);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.phonebook-dialog__status { color: var(--text-muted); font-size: 0.8rem; }
+
+/* --- Row additions --------------------------------------------------------- */
+
+.phonebook-row.is-inactive { opacity: 0.6; }
+
+.phonebook-row__star { flex: none; color: var(--color-warning-active); font-size: 0.9rem; }
+.phonebook-row__nickname { overflow: hidden; color: var(--text-muted); font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.phonebook-row__roles { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.phonebook-row__role-chip {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.phonebook-row__tags {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phonebook-row__role { color: var(--text-secondary); font-size: 0.8rem; }
+.phonebook-row__numbers { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.phonebook-row__birthday { color: var(--text-muted); font-size: 0.78rem; }
+.phonebook-row__tools { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+.phonebook-row__tag-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+
+.phonebook-row__extension {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.phonebook-row__badge {
+  flex: none;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-success-light, var(--bg-subtle));
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Legal person and inactive are labels, not wins: they recede next to the
+   "colleague" badge instead of competing with it. */
+.phonebook-row__badge--muted { background: var(--bg-subtle); color: var(--text-muted); }
+
+.phonebook-row__tag { display: inline-flex; align-items: center; gap: 5px; }
+
+/* --- Groups panel ---------------------------------------------------------- */
+
+.phonebook-groups { display: flex; flex-direction: column; gap: var(--space-3); padding-block-start: var(--space-1); }
+.phonebook-groups__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.phonebook-groups__hint { color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
+.phonebook-groups__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+
+.phonebook-group-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-default);
+}
+
+.phonebook-group-row + .phonebook-group-row { border-top: 1px solid var(--border-subtle); }
+.phonebook-group-row:hover { background: var(--bg-secondary); }
+.phonebook-group-row__dot { width: 12px; height: 12px; flex: none; border-radius: 50%; }
+.phonebook-group-row__name { flex: 1; min-width: 0; overflow: hidden; color: var(--text-primary); font-size: 0.92rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.phonebook-group-row__count { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+.phonebook-group-row__tools { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+
+.phonebook-groups__editor {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-default);
+  background: var(--bg-secondary);
+}
+
+.phonebook-groups__editor-head { display: flex; align-items: center; justify-content: space-between; color: var(--text-primary); font-size: 0.88rem; font-weight: 600; }
+.phonebook-groups__editor-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* --- One-cell squeeze ------------------------------------------------------ */
+
+/* The cell on a 1366x768 desktop is about 103x86 px. Icon, name and count still
+   fit in that, so nothing is dropped until the row is genuinely too short. */
+@container (max-height: 150px) {
+  .phonebook-tile { padding: 3px; }
+  .phonebook-tile__plate { border-radius: var(--radius-sm); }
+  .phonebook-tile__badge { font-size: 0.64rem; line-height: 15px; min-width: 15px; }
+}
+
+/* In a very short cell the badge would crowd the glyph, so it steps aside: the
+   accessible label still carries the count. */
+@container (max-height: 74px) {
+  .phonebook-tile__badge { display: none; }
+}
