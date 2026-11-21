@@ -8,7 +8,7 @@ import {
 import { CalendarWidget } from '../calendar/CalendarWidget';
 import { useEvents } from '../calendar/useEvents';
 import { useCategories } from '../calendar/useCategories';
-import type { ModalState } from '../lib/modal-store';
+import { registerModalRequest, type ModalState } from '../lib/modal-store';
 import { externalToCalendarEvent, type CalendarSubscription } from '../calendar/subscription-model';
 import { isEventWritable, type CalendarEvent, type EventTarget } from '../calendar/calendar-model';
 import { enterForegroundMode, enterWallpaperMode } from '../lib/window-mode';
@@ -35,6 +35,7 @@ import { TimeModule } from '../time/TimeModule';
 import { StickersWidget } from '../stickers/StickersWidget';
 import { PlantsWidget } from '../plants/PlantsWidget';
 import { PhonebookWidget } from '../phonebook/PhonebookWidget';
+import { useContacts } from '../phonebook/useContacts';
 import { ReportsWidget } from '../reports/ReportsWidget';
 import { ArchiveWidget } from '../archive/ArchiveWidget';
 import { ProjectsWidget } from '../projects/ProjectsWidget';
@@ -52,7 +53,7 @@ import type { SearchHit } from '../lib/search';
 import type { NativeStatusIslandSnapshot } from '../quick-panel/useStatusIslandSnapshot';
 import { RECORDS_CHANGED_EVENT, recordsChangedKind, type RecordsChangedKind } from '../quick-create/events';
 import { effectiveWeekStart } from '../lib/date';
-import { formatDisplayDate } from '../lib/calendar-system';
+import { anniversaryOccurrence, formatDisplayDate } from '../lib/calendar-system';
 
 type WindowMode = 'wallpaper' | 'foreground';
 
@@ -78,6 +79,7 @@ function AppContent() {
   const { refresh: refreshWorkspace, workspace: taskWorkspace } = useTaskWorkspace();
   const notesFeature = useNotes();
   const meetingsFeature = useMeetings();
+  const phonebook = useContacts();
   const notesView = useNotesView();
   const refreshEvents = useCallback(() => eventsFeature.retryEvents(), [eventsFeature]);
   const events = eventsFeature.events.data;
@@ -89,6 +91,19 @@ function AppContent() {
     const dueTasks = taskWorkspace.data.tasks.filter(
       (task) => task.dueDate && BOARD_STATUSES.includes(taskStatus(task))
     );
+    // Birthdays and (work) anniversaries repeat every year, so they are stamped
+    // onto the year the calendar is showing rather than the year they were
+    // recorded in. They stay read-only chips like due dates.
+    const yearlyDates = phonebook.contacts.data.flatMap((contact) => {
+      const chips: Array<{ key: string; title: string; color: string; date: string }> = [];
+      const birthday = contact.birthday ? anniversaryOccurrence(contact.birthday, eventsFeature.year) : null;
+      if (birthday) chips.push({ key: 'birthday', title: t('phonebook.birthdayEvent', { name: contact.name }), color: '#E7A3B8', date: birthday });
+      const anniversary = contact.profile.anniversaryDate
+        ? anniversaryOccurrence(contact.profile.anniversaryDate, eventsFeature.year)
+        : null;
+      if (anniversary) chips.push({ key: 'anniversary', title: t('phonebook.anniversaryEvent', { name: contact.name }), color: '#C9B6E4', date: anniversary });
+      return chips.map((chip) => ({ ...chip, contactId: contact.id }));
+    });
     return [
       ...events,
       ...meetingsFeature.meetings.data.map((meeting) => ({
@@ -136,9 +151,32 @@ function AppContent() {
         occurrenceStartAt: null,
         isOverridden: false,
         subscriptionId: null
+      })),
+      ...yearlyDates.map((chip) => ({
+        id: `contact-${chip.key}:${chip.contactId}`,
+        contactId: chip.contactId,
+        title: chip.title,
+        startAt: `${chip.date}T00:00`,
+        endAt: `${chip.date}T23:59`,
+        allDay: true,
+        category: '',
+        color: chip.color,
+        note: '',
+        reminders: [],
+        createdAt: '',
+        updatedAt: '',
+        recurrence: null,
+        startTz: null,
+        endTz: null,
+        rrule: null,
+        seriesId: null,
+        seriesStartAt: null,
+        occurrenceStartAt: null,
+        isOverridden: false,
+        subscriptionId: null
       }))
     ];
-  }, [events, meetingsFeature.meetings.data, taskWorkspace.data.tasks]);
+  }, [events, meetingsFeature.meetings.data, taskWorkspace.data.tasks, phonebook.contacts.data, eventsFeature.year, localeTag()]);
   const notes = notesFeature.notes.data;
   const [modal, setModal] = useState<ModalState>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -244,6 +282,10 @@ function AppContent() {
         onCreateEventForDate={(dateIso) => openModalInForeground({ type: 'event-create', dateIso, trigger: null })}
         onOpenDate={(isoDate) => openModalInForeground({ type: 'date', isoDate, trigger: null })}
         onOpenEvent={(event) => {
+          if (event.contactId) {
+            openModalInForeground({ type: 'contact-card', contactId: event.contactId, trigger: null });
+            return;
+          }
           if (event.meetingId) {
             openModalInForeground({ type: 'meeting-edit', meetingId: event.meetingId, trigger: null });
             return;
@@ -412,6 +454,11 @@ function AppContent() {
     }).catch(() => undefined);
   }
 
+  // Blocks that live outside the shell — the phone-book block, for one — reach
+  // the modal state through this, so a contact card there can still open a task
+  // or a meeting it links to.
+  useEffect(() => registerModalRequest(openModalInForeground), [windowMode]);
+
   // Ctrl+K (or Cmd+K) opens the command palette from anywhere.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -444,6 +491,10 @@ function AppContent() {
   ], [todayIso, windowMode]);
 
   const openSearchHit = useCallback((hit: SearchHit) => {
+    if (hit.kind === 'contact') {
+      openModalInForeground({ type: 'contact-card', contactId: hit.id, trigger: null });
+      return;
+    }
     if (hit.kind === 'task') {
       const task = taskWorkspace.data.tasks.find((item) => item.id === hit.id);
       if (task) openModalInForeground({ type: 'workspace-task-edit', task, trigger: null });

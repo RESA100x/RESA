@@ -1,12 +1,13 @@
-import { Copy, Download, Pencil, Plus, Search, UserCircle, X } from '../components/icons';
+import { Copy, Download, FileText, Pencil, Plus, Search, UserCircle, X } from '../components/icons';
 import { useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Dialog } from '../components/Dialog';
 import { FilterSelect } from '../components/FilterSelect';
 import { t } from '../i18n';
-import { formatIsoDisplay } from '../lib/calendar-system';
+import { anniversaryOccurrence, displayMonthDayOf, displayMonthOf, formatIsoDisplay } from '../lib/calendar-system';
 import { ContactDialog } from './ContactDialog';
+import { ContactCardDialog } from './ContactCardDialog';
 import { PhonebookGroupsPanel } from './PhonebookGroupsPanel';
 import { copyText } from './clipboard';
 import { filterContacts } from './contact-search';
@@ -24,6 +25,7 @@ import {
 } from './contact-model';
 import type { ContactCategoriesResource } from './useContactCategories';
 import type { ContactsResource } from './useContacts';
+import { requestModal } from '../lib/modal-store';
 
 type ContactDialogState = { type: 'create' } | { type: 'edit'; contact: Contact } | null;
 type Tab = 'all' | 'internal' | 'contractors' | 'suppliers' | 'managers' | 'groups';
@@ -43,9 +45,50 @@ type PhonebookDialogProps = {
   onDeleteCategory(id: string): Promise<void>;
   onExport?(path: string): Promise<ContactsExportSummary>;
   onImport?(path: string, commit: boolean): Promise<ContactsImportSummary>;
+  onExportVcard?(path: string): Promise<ContactsExportSummary>;
+  onImportVcard?(path: string, commit: boolean): Promise<ContactsImportSummary>;
 };
 
 const EMPTY_CATEGORIES: ContactCategory[] = [];
+
+// Smart filters answer the questions the row of tabs cannot: who has a
+// birthday this month, who has not been called in a while, and whose contract
+// is about to run out. They are computed here because the directory is capped
+// and already loaded.
+type SmartFilter = '' | 'birthday' | 'stale' | 'expiring';
+
+const STALE_DAYS = 90;
+const EXPIRING_DAYS = 60;
+
+function isoOfLocal(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Whole days from `today` to an ISO date; negative for dates in the past. */
+function daysUntil(isoDate: string, today: Date) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const target = new Date(year, month - 1, day).getTime();
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.round((target - base) / 86_400_000);
+}
+
+function matchesSmartFilter(contact: Contact, filter: SmartFilter, today: Date) {
+  if (!filter) return true;
+  if (filter === 'birthday') {
+    if (!contact.birthday) return false;
+    const occurrence = anniversaryOccurrence(contact.birthday, displayMonthOf(today).year);
+    return occurrence !== null && displayMonthDayOf(occurrence).month === displayMonthDayOf(isoOfLocal(today)).month;
+  }
+  if (filter === 'stale') {
+    const last = contact.profile.lastContactAt;
+    return Boolean(last) && daysUntil(last, today) <= -STALE_DAYS;
+  }
+  const end = contact.profile.contractor.contractEnd;
+  if (!end) return false;
+  const days = daysUntil(end, today);
+  return days >= 0 && days <= EXPIRING_DAYS;
+}
 
 function contactsFileName() {
   const now = new Date();
@@ -53,7 +96,17 @@ function contactsFileName() {
   return `resa-contacts-${stamp}.csv`;
 }
 
-const csvFilters = [{ name: 'CSV', extensions: ['csv'] }];
+// The picker offers both formats; the chosen extension decides which backend
+// command runs, so the header needs one import button and one export button.
+const transferFilters = [
+  { name: 'CSV', extensions: ['csv'] },
+  { name: 'vCard', extensions: ['vcf'] }
+];
+
+/** True when the picked file is a vCard, i.e. transfer through the .vcf path. */
+function isVcardPath(path: string) {
+  return path.toLowerCase().endsWith('.vcf');
+}
 
 function message(error: unknown) {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
@@ -86,7 +139,9 @@ export function PhonebookDialog({
   onUpdateCategory,
   onDeleteCategory,
   onExport,
-  onImport
+  onImport,
+  onExportVcard,
+  onImportVcard
 }: PhonebookDialogProps) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<Tab>('all');
@@ -94,18 +149,20 @@ export function PhonebookDialog({
   const [personalityFilter, setPersonalityFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [smartFilter, setSmartFilter] = useState<SmartFilter>('');
   const [form, setForm] = useState<ContactDialogState>(null);
+  const [cardContactId, setCardContactId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [transferBusy, setTransferBusy] = useState<'export' | 'import' | null>(null);
   const [transferStatus, setTransferStatus] = useState('');
   const [transferError, setTransferError] = useState('');
-  const [pendingImport, setPendingImport] = useState<{ path: string; summary: ContactsImportSummary } | null>(null);
+  const [pendingImport, setPendingImport] = useState<{ path: string; summary: ContactsImportSummary; vcard: boolean } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
 
   const groups = categories.data.length > 0 ? categories.data : EMPTY_CATEGORIES;
   const total = resource.data.length;
-  const canTransfer = Boolean(onExport && onImport);
+  const canTransfer = Boolean((onExport || onExportVcard) && (onImport || onImportVcard));
   const internalCount = useMemo(() => resource.data.filter((contact) => contact.isInternal).length, [resource.data]);
   const roleCount = (role: ContactRole) =>
     resource.data.filter((contact) => contact.roles.includes(role)).length;
@@ -119,15 +176,18 @@ export function PhonebookDialog({
   }, [resource.data, tab]);
 
   const filtered = useMemo(
-    () =>
-      scoped.filter((contact) => {
+    () => {
+      const today = new Date();
+      return scoped.filter((contact) => {
+        if (!matchesSmartFilter(contact, smartFilter, today)) return false;
         if (groupFilter && contact.categoryId !== groupFilter) return false;
         if (personalityFilter && contact.personality !== personalityFilter) return false;
         if (roleFilter && !contact.roles.includes(roleFilter as ContactRole)) return false;
         if (statusFilter && contact.contractStatus !== statusFilter) return false;
         return true;
-      }),
-    [scoped, groupFilter, personalityFilter, roleFilter, statusFilter]
+      });
+    },
+    [scoped, smartFilter, groupFilter, personalityFilter, roleFilter, statusFilter]
   );
 
   const visible = useMemo(() => filterContacts(filtered, query, groups), [filtered, query, groups]);
@@ -145,14 +205,17 @@ export function PhonebookDialog({
   }
 
   async function runExport() {
-    if (!onExport) return;
+    if (!onExport && !onExportVcard) return;
     setTransferError('');
     setTransferStatus('');
-    const path = await save({ defaultPath: contactsFileName(), filters: csvFilters }).catch(() => null);
+    const path = await save({ defaultPath: contactsFileName(), filters: transferFilters }).catch(() => null);
     if (!path) return;
     setTransferBusy('export');
     try {
-      const summary = await onExport(path);
+      const summary =
+        isVcardPath(path) && onExportVcard
+          ? await onExportVcard(path)
+          : await onExport!(path);
       setTransferStatus(t('phonebook.transferExported', { path: summary.path, count: summary.contacts }));
     } catch (reason) {
       setTransferError(message(reason));
@@ -162,17 +225,18 @@ export function PhonebookDialog({
   }
 
   async function chooseImport() {
-    if (!onImport) return;
+    if (!onImport && !onImportVcard) return;
     setTransferError('');
     setTransferStatus('');
-    const picked = await open({ multiple: false, filters: csvFilters }).catch(() => null);
+    const picked = await open({ multiple: false, filters: transferFilters }).catch(() => null);
     if (typeof picked !== 'string') return;
     setTransferBusy('import');
     try {
       // Read the file first and show what *would* happen; nothing is written
       // until the user confirms the preview.
-      const summary = await onImport(picked, false);
-      setPendingImport({ path: picked, summary });
+      const vcard = isVcardPath(picked) && Boolean(onImportVcard);
+      const summary = vcard ? await onImportVcard!(picked, false) : await onImport!(picked, false);
+      setPendingImport({ path: picked, summary, vcard });
     } catch (reason) {
       setTransferError(message(reason));
     } finally {
@@ -181,10 +245,12 @@ export function PhonebookDialog({
   }
 
   async function runImport() {
-    if (!pendingImport || !onImport) return;
+    if (!pendingImport) return;
+    const commit = pendingImport.vcard ? onImportVcard : onImport;
+    if (!commit) return;
     setTransferBusy('import');
     try {
-      const summary = await onImport(pendingImport.path, true);
+      const summary = await commit(pendingImport.path, true);
       setTransferStatus(t('phonebook.transferImported', { count: summary.imported }));
       setPendingImport(null);
     } catch (reason) {
@@ -215,7 +281,7 @@ export function PhonebookDialog({
     <Dialog
       title={t('widget.phonebook.name')}
       ariaLabelledBy={titleId}
-      isTopLayer={!form && !pendingImport}
+      isTopLayer={!form && !pendingImport && !cardContactId}
       initialFocusRef={searchRef}
       restoreFocusRef={restoreFocusRef}
       onRequestClose={onClose}
@@ -245,6 +311,17 @@ export function PhonebookDialog({
                 <Download aria-hidden="true" />
               </button>
             </>
+          ) : null}
+          {tab === 'internal' ? (
+            <button
+              type="button"
+              className="good-icon-button"
+              aria-label={t('phonebook.printInternal')}
+              title={t('phonebook.printInternal')}
+              onClick={() => window.print()}
+            >
+              <FileText aria-hidden="true" />
+            </button>
           ) : null}
           <button
             type="button"
@@ -383,7 +460,7 @@ export function PhonebookDialog({
             value={statusFilter}
             onChange={setStatusFilter}
           />
-          {(personalityFilter || roleFilter || statusFilter || groupFilter) ? (
+          {(personalityFilter || roleFilter || statusFilter || groupFilter || smartFilter) ? (
             <button
               type="button"
               className="phonebook-filter-reset"
@@ -392,11 +469,41 @@ export function PhonebookDialog({
                 setRoleFilter('');
                 setStatusFilter('');
                 setGroupFilter('');
+                setSmartFilter('');
               }}
             >
               {t('phonebook.filterReset')}
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {tab !== 'groups' ? (
+        <div className="phonebook-chips" role="group" aria-label={t('phonebook.smartFilterLabel')}>
+          <button
+            type="button"
+            className={`phonebook-chip${smartFilter === 'birthday' ? ' is-active' : ''}`}
+            aria-pressed={smartFilter === 'birthday'}
+            onClick={() => setSmartFilter(smartFilter === 'birthday' ? '' : 'birthday')}
+          >
+            {t('phonebook.smartBirthday')}
+          </button>
+          <button
+            type="button"
+            className={`phonebook-chip${smartFilter === 'stale' ? ' is-active' : ''}`}
+            aria-pressed={smartFilter === 'stale'}
+            onClick={() => setSmartFilter(smartFilter === 'stale' ? '' : 'stale')}
+          >
+            {t('phonebook.smartStale')}
+          </button>
+          <button
+            type="button"
+            className={`phonebook-chip${smartFilter === 'expiring' ? ' is-active' : ''}`}
+            aria-pressed={smartFilter === 'expiring'}
+            onClick={() => setSmartFilter(smartFilter === 'expiring' ? '' : 'expiring')}
+          >
+            {t('phonebook.smartExpiring')}
+          </button>
         </div>
       ) : null}
 
@@ -491,6 +598,7 @@ export function PhonebookDialog({
                     categoryColor={groups.find((group) => group.id === contact.categoryId)?.color}
                     copied={copiedId === contact.id}
                     onCopy={() => void copyContact(contact)}
+                    onOpen={() => setCardContactId(contact.id)}
                     onEdit={() => setForm({ type: 'edit', contact })}
                   />
                 ))}
@@ -531,6 +639,16 @@ export function PhonebookDialog({
           onConfirm={() => void runImport()}
         />
       ) : null}
+
+      {cardContactId ? (
+        <ContactCardDialog
+          contactId={cardContactId}
+          onClose={() => setCardContactId(null)}
+          onOpenContact={setCardContactId}
+          onOpenTask={(id) => requestModal({ type: 'task-open', taskId: id, trigger: null })}
+          onOpenMeeting={(id) => requestModal({ type: 'meeting-edit', meetingId: id, trigger: null })}
+        />
+      ) : null}
     </Dialog>
   );
 }
@@ -541,10 +659,11 @@ type ContactRowProps = {
   categoryColor?: string;
   copied: boolean;
   onCopy(): void;
+  onOpen(): void;
   onEdit(): void;
 };
 
-function ContactRow({ contact, categoryName, categoryColor, copied, onCopy, onEdit }: ContactRowProps) {
+function ContactRow({ contact, categoryName, categoryColor, copied, onCopy, onOpen, onEdit }: ContactRowProps) {
   const role = [contact.jobTitle, contact.organization || contact.companyName].filter(Boolean).join(' · ');
   const avatar = contactPhotoSource(contact.photo);
   const roles = contact.roles.filter((entry) => entry !== 'colleague');
@@ -553,7 +672,12 @@ function ContactRow({ contact, categoryName, categoryColor, copied, onCopy, onEd
       <span className="phonebook-row__avatar" aria-hidden="true">
         {avatar ? <img src={avatar} alt="" /> : <UserCircle />}
       </span>
-      <div className="phonebook-row__body">
+      <button
+        type="button"
+        className="phonebook-row__body"
+        aria-label={t('phonebook.openCard', { name: contact.name })}
+        onClick={onOpen}
+      >
         <div className="phonebook-row__heading">
           {contact.isFavorite ? <span className="phonebook-row__star" title={t('phonebookDialog.favorite')} aria-hidden="true">★</span> : null}
           <span className="phonebook-row__name">{contact.name}</span>
@@ -606,7 +730,7 @@ function ContactRow({ contact, categoryName, categoryColor, copied, onCopy, onEd
           <span className="phonebook-row__tags">{contact.tags.join(' · ')}</span>
         ) : null}
         {contact.note ? <span className="phonebook-row__note">{contact.note}</span> : null}
-      </div>
+      </button>
       <span className="phonebook-row__tools">
         {contact.phone || contact.extension || contact.email ? (
           <button

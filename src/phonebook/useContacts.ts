@@ -84,9 +84,26 @@ export function useContacts() {
     return summary;
   }, [loadContacts, repository]);
 
+  // vCard is the interchange format phones and mail clients speak, so the same
+  // directory can move through a contact card on a handset.
+  const exportContactsVcard = useCallback(async (path: string): Promise<ContactsExportSummary> => {
+    const write = repository.exportContactsVcard;
+    if (!write) throw missing('exportContactsVcard');
+    return write.call(repository, path);
+  }, [repository]);
+
+  const importContactsVcard = useCallback(async (path: string, commit: boolean): Promise<ContactsImportSummary> => {
+    const write = repository.importContactsVcard;
+    if (!write) throw missing('importContactsVcard');
+    const summary = await write.call(repository, path, commit);
+    if (commit) await loadContacts();
+    return summary;
+  }, [loadContacts, repository]);
+
   // A build whose repository has no CSV commands simply hides the transfer
   // buttons; the directory itself keeps working either way.
   const canTransfer = Boolean(repository.exportContacts && repository.importContacts);
+  const canTransferVcard = Boolean(repository.exportContactsVcard && repository.importContactsVcard);
 
   return {
     contacts,
@@ -96,6 +113,9 @@ export function useContacts() {
     deleteContact,
     exportContacts,
     importContacts,
-    canTransfer
+    canTransfer,
+    exportContactsVcard,
+    importContactsVcard,
+    canTransferVcard
   };
 }

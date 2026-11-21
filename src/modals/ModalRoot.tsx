@@ -14,8 +14,10 @@ import { useTaskWorkspace } from '../tasks/TaskWorkspaceContext';
 import { UnifiedTaskDialog } from '../tasks/UnifiedTaskDialog';
 import { TaskSettingsDialog } from '../tasks/TaskSettingsDialog';
 import { MeetingDialog } from '../meetings/MeetingDialog';
+import { ContactCardDialog } from '../phonebook/ContactCardDialog';
 import { isEventWritable } from '../calendar/calendar-model';
 import { effectiveWeekStart } from '../lib/date';
+import type { Task } from '../tasks/task-model';
 
 type Props = {
   modal: ModalState;
@@ -59,8 +61,16 @@ export function ModalRoot({
   const workspace = useTaskWorkspace();
   if (!modal) return null;
   const isEventChild = modal.type === 'event-create' || modal.type === 'event-edit';
-  const isTaskChild = modal.type === 'task-create' || modal.type === 'task-edit' || modal.type === 'workspace-task-edit';
-  const parentDate = isEventChild || isTaskChild ? modal.parentDate : undefined;
+  const isTaskChild =
+    modal.type === 'task-create' ||
+    modal.type === 'task-edit' ||
+    modal.type === 'workspace-task-edit' ||
+    modal.type === 'task-open';
+  const parentDate =
+    modal.type === 'event-create' || modal.type === 'event-edit' ||
+    modal.type === 'task-create' || modal.type === 'task-edit' || modal.type === 'workspace-task-edit'
+      ? modal.parentDate
+      : undefined;
   const childTrigger = isEventChild || isTaskChild ? modal.trigger : null;
   const date = modal.type === 'date' ? modal.isoDate : parentDate;
   const returnFromChild = () => parentDate
@@ -78,6 +88,10 @@ export function ModalRoot({
         onClose={onClose}
         onCreateEvent={(isoDate) => onChangeModal({ type:'event-create', dateIso:isoDate, trigger:null, parentDate:isoDate })}
         onEditEvent={(event, trigger) => {
+          if (event.contactId) {
+            onChangeModal({ type: 'contact-card', contactId: event.contactId, trigger });
+            return;
+          }
           if (event.meetingId) {
             onChangeModal({ type: 'meeting-edit', meetingId: event.meetingId, trigger });
             return;
@@ -118,6 +132,12 @@ export function ModalRoot({
           ? { type:'create', dueDate:modal.dueDate }
           : modal.type === 'workspace-task-edit'
             ? { type:'edit', task:modal.task }
+            : modal.type === 'task-open'
+              ? { type:'edit', task:workspace.workspace.data.tasks.find((task) => task.id === modal.taskId) ?? {
+                  id:modal.taskId, title:'', description:'', priority:'important_not_urgent', dueDate:null,
+                  completed:false, completedAt:null, laneId:null, boardPosition:0, tagIds:[],
+                  steps:[], createdAt:'', updatedAt:''
+                } }
             : { type:'edit', task:workspace.workspace.data.tasks.find((task) => task.id === modal.task.id) ?? {
                 id:modal.task.id, title:modal.task.title, description:modal.task.note,
                 priority:modal.task.quadrant, dueDate:modal.task.dueAt, completed:modal.task.completed,
@@ -173,6 +193,16 @@ export function ModalRoot({
         meetingId={modal.meetingId}
         restoreFocusRef={{ current: modal.trigger }}
         onClose={onClose}
+      />
+    ) : null}
+    {modal.type === 'contact-card' ? (
+      <ContactCardDialog
+        contactId={modal.contactId}
+        restoreFocusRef={{ current: modal.trigger }}
+        onClose={onClose}
+        onOpenContact={(id) => onChangeModal({ type:'contact-card', contactId:id, trigger:modal.trigger })}
+        onOpenTask={(id) => onChangeModal({ type:'task-open', taskId:id, trigger:modal.trigger })}
+        onOpenMeeting={(id) => onChangeModal({ type:'meeting-edit', meetingId:id, trigger:modal.trigger })}
       />
     ) : null}
   </>;

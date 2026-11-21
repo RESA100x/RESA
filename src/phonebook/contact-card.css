@@ -1,0 +1,111 @@
+/* The read-only profile that opens from a directory row, a calendar chip or the
+   command palette. It is a plain fact sheet: two columns of label/value pairs
+   that collapse to one on a narrow dialog, so a long address never pushes the
+   rest of the card around. */
+
+.good-dialog.contact-card { width: min(680px, calc(100vw - 32px)); min-width: 0; max-width: 100%; }
+.good-dialog.contact-card .good-dialog__body { overflow-y: auto; overscroll-behavior: contain; }
+
+.contact-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.contact-card__head { display: flex; align-items: flex-start; gap: var(--space-4); }
+
+.contact-card__avatar {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.contact-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.contact-card__identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.contact-card__identity h3 { margin: 0; font-size: 1.05rem; }
+.contact-card__nickname { margin: 0; color: var(--text-secondary); font-size: 0.85rem; }
+.contact-card__line { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
+
+.contact-card__badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.contact-card__badge {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.contact-card__actions { flex: none; display: flex; flex-direction: column; gap: var(--space-2); align-items: stretch; }
+.contact-card__actions .good-button { text-decoration: none; white-space: nowrap; }
+
+.contact-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.contact-card__section h4 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.contact-card__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.contact-card__fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.contact-card__fact dt { color: var(--text-muted); font-size: 0.74rem; }
+.contact-card__fact dd { margin: 0; font-size: 0.88rem; line-height: 1.5; overflow-wrap: anywhere; }
+
+.contact-card__note { margin: 0; font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.contact-card__links { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.contact-card__links li { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: 0.88rem; }
+
+.contact-card__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-link);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.contact-card__link:hover:not(:disabled) { text-decoration: underline; }
+.contact-card__link:disabled { color: var(--text-strong); cursor: default; }
+
+.contact-card__copy { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.contact-card__copy:hover { color: var(--text-link); }
+
+.contact-card__empty { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
+.contact-card__muted { color: var(--text-muted); font-size: 0.78rem; }
+.contact-card__copied { color: var(--color-success-active); font-weight: 600; font-size: 0.85rem; }
+
+.contact-card__status {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+.contact-card__status--done { background: var(--color-success-light); color: var(--color-success-active); }
+.contact-card__status--doing { background: var(--color-info-light); color: var(--color-info-active); }
+.contact-card__status--blocked { background: var(--color-danger-light); color: var(--color-danger-active); }
+
+@media (max-width: 560px) {
+  .contact-card__head { flex-wrap: wrap; }
+  .contact-card__actions { flex-direction: row; flex-wrap: wrap; width: 100%; }
+}

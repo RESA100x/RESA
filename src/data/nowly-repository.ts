@@ -161,6 +161,9 @@ export type NowlyRepository = {
   // The whole directory as one Excel-friendly CSV; the same file imports back.
   exportContacts?(path: string): Promise<ContactsExportSummary>;
   importContacts?(path: string, commit: boolean): Promise<ContactsImportSummary>;
+  // vCard (.vcf) is the format phones and other address books understand.
+  exportContactsVcard?(path: string): Promise<ContactsExportSummary>;
+  importContactsVcard?(path: string, commit: boolean): Promise<ContactsImportSummary>;
   // 电话簿分组：名称 + 颜色。颜色属于分组本身，联系人只存 categoryId。
   listContactCategories?(): Promise<ContactCategory[]>;
   createContactCategory?(draft: ContactCategoryDraft): Promise<ContactCategory>;

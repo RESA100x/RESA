@@ -102,3 +102,27 @@ export function formatDisplayDate(date: Date, format: JalaliFormat = 'long'): st
   }
   return new Intl.DateTimeFormat(getLocale(), { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
 }
+
+/** `YYYY-MM-DD` of a local date, without a trip through UTC. */
+function isoOfLocalDate(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * The occurrence of a yearly anniversary inside a display-calendar year.
+ *
+ * A birthday is stored once as a Gregorian date, but it is *celebrated* on the
+ * same day of the active display calendar every year: 22 Ordibehesht for a
+ * Persian user, 12 May otherwise. Clamping to the month's length keeps 29/30/31
+ * edges honest instead of inventing a date that does not exist.
+ */
+export function anniversaryOccurrence(isoDate: string, displayYear: number): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate.trim())) return null;
+  const monthDay = displayMonthDayOf(isoDate);
+  const length = displayMonthLength(displayYear, monthDay.month - 1);
+  if (length <= 0) return null;
+  const day = Math.min(monthDay.day, length);
+  const start = displayMonthStart(displayYear, monthDay.month - 1);
+  return isoOfLocalDate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + day - 1));
+}

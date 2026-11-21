@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CalendarDays, FileText, ListCheck, Plus, Search, Settings, SquareKanban } from '../components/icons';
+import { CalendarDays, FileText, ListCheck, Phone, Plus, Search, Settings, SquareKanban } from '../components/icons';
 import { t } from '../i18n';
 import type { SearchHit } from '../lib/search';
 import './command-palette.css';
@@ -34,12 +34,14 @@ function ActionIcon({ icon }: { icon?: PaletteAction['icon'] }) {
 function HitIcon({ kind }: { kind: SearchHit['kind'] }) {
   if (kind === 'event') return <CalendarDays aria-hidden="true" />;
   if (kind === 'task') return <SquareKanban aria-hidden="true" />;
+  if (kind === 'contact') return <Phone aria-hidden="true" />;
   return <FileText aria-hidden="true" />;
 }
 
 function hitKindLabel(kind: SearchHit['kind']) {
   if (kind === 'event') return t('commandPalette.kindEvent');
   if (kind === 'task') return t('commandPalette.kindTask');
+  if (kind === 'contact') return t('commandPalette.kindContact');
   return t('commandPalette.kindNote');
 }
 

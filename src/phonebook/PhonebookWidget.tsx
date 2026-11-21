@@ -14,7 +14,17 @@ import './phonebook.css';
  * state here, and render a `Dialog` when it is open.
  */
 export function PhonebookWidget({ readOnly = false }: { readOnly?: boolean }) {
-  const { contacts, reload, createContact, updateContact, deleteContact, exportContacts, importContacts } = useContacts();
+  const {
+    contacts,
+    reload,
+    createContact,
+    updateContact,
+    deleteContact,
+    exportContacts,
+    importContacts,
+    exportContactsVcard,
+    importContactsVcard
+  } = useContacts();
   const { categories, reloadCategories, createCategory, updateCategory, deleteCategory } = useContactCategories();
   const [open, setOpen] = useState(false);
   const tileRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +78,8 @@ export function PhonebookWidget({ readOnly = false }: { readOnly?: boolean }) {
           onDeleteCategory={deleteCategory}
           onExport={exportContacts}
           onImport={importContacts}
+          onExportVcard={exportContactsVcard}
+          onImportVcard={importContactsVcard}
         />
       ) : null}
     </div>

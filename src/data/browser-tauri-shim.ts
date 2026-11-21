@@ -1646,6 +1646,21 @@ export function installBrowserTauriBackend() {
       store.contacts = store.contacts.filter((contact) => contact.id !== a.id);
       persist();
     },
+    // File transfer needs a real filesystem and a native save dialog, so the
+    // browser fallback answers with the same shape the desktop returns but
+    // refuses to pretend a file was written.
+    export_contacts: () => {
+      throw { code: 'system_error', message: 'File transfer is only available in the desktop app.' };
+    },
+    import_contacts: () => {
+      throw { code: 'system_error', message: 'File transfer is only available in the desktop app.' };
+    },
+    export_contacts_vcard: () => {
+      throw { code: 'system_error', message: 'File transfer is only available in the desktop app.' };
+    },
+    import_contacts_vcard: () => {
+      throw { code: 'system_error', message: 'File transfer is only available in the desktop app.' };
+    },
 
     // Rich text attachments. Bytes stay in memory rather than in localStorage:
     // binary does not survive a JSON round trip cleanly and a 1MB quota would

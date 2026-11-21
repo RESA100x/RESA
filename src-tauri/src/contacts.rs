@@ -1230,6 +1230,369 @@ pub fn import_csv(
     Ok(summary)
 }
 
+// --- vCard ------------------------------------------------------------------
+//
+// vCard is how the directory talks to a phone: `.resa`/CSV are ours, `.vcf` is
+// what every handset and address book understands. Our own extra fields ride
+// along as `X-RESA-*` properties so an export/import round trip keeps them,
+// while a foreign card still imports with the standard properties.
+
+fn vcard_escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => {}
+            ';' => out.push_str("\\;"),
+            ',' => out.push_str("\\,"),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+fn vcard_unescape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(character) = chars.next() {
+        if character != '\\' {
+            out.push(character);
+            continue;
+        }
+        match chars.next() {
+            Some('n') | Some('N') => out.push('\n'),
+            Some(other) => out.push(other),
+            None => {}
+        }
+    }
+    out
+}
+
+/// Long lines are folded at 75 characters with a leading space on the
+/// continuation, as the spec requires; clients that ignore folding still read
+/// the value because the space is dropped again on import.
+fn vcard_fold(line: &str) -> String {
+    const LIMIT: usize = 74;
+    if line.chars().count() <= LIMIT {
+        return line.to_owned();
+    }
+    let mut out = String::with_capacity(line.len() + 8);
+    for (index, character) in line.chars().enumerate() {
+        if index > 0 && index % LIMIT == 0 {
+            out.push_str("\r\n ");
+        }
+        out.push(character);
+    }
+    out
+}
+
+fn vcard_property(name: &str, value: &str) -> Option<String> {
+    if value.trim().is_empty() {
+        return None;
+    }
+    Some(vcard_fold(&format!("{name}:{}", vcard_escape(value))))
+}
+
+pub fn export_vcard(
+    connection: &Connection,
+    path: &str,
+) -> Result<ContactsExportSummary, CommandError> {
+    let rows = list(connection)?;
+    let mut out = String::new();
+    for contact in &rows {
+        let mut lines: Vec<String> = vec!["BEGIN:VCARD".into(), "VERSION:3.0".into()];
+        lines.push(vcard_fold(&format!("N:{};;;;", vcard_escape(&contact.name))));
+        lines.push(vcard_fold(&format!("FN:{}", vcard_escape(&contact.name))));
+        // `ORG` and `ADR` are structured: the semicolons separate components, so
+        // only the text inside a component is escaped.
+        if !contact.organization.is_empty() || !contact.company_name.is_empty() {
+            lines.push(vcard_fold(&format!(
+                "ORG:{};{}",
+                vcard_escape(&contact.organization),
+                vcard_escape(&contact.company_name)
+            )));
+        }
+        if !contact.address.trim().is_empty() {
+            lines.push(vcard_fold(&format!(
+                "ADR;TYPE=WORK:;;{};;;;",
+                vcard_escape(&contact.address)
+            )));
+        }
+        for (name, value) in [
+            ("NICKNAME", contact.nickname.clone()),
+            ("TITLE", contact.job_title.clone()),
+            ("ROLE", contact.roles.join(",")),
+            ("CATEGORIES", contact.tags.join(",")),
+            ("X-RESA-EXTENSION", contact.extension.clone()),
+            ("BDAY", contact.birthday.clone()),
+            ("URL", contact.profile.website.clone()),
+            ("NOTE", contact.note.clone()),
+            ("X-RESA-PERSONALITY", contact.personality.clone()),
+            ("X-RESA-CONTRACT", contact.contract_status.clone()),
+        ] {
+            if let Some(line) = vcard_property(name, &value) {
+                lines.push(line);
+            }
+        }
+        if let Some(line) = vcard_property("TEL;TYPE=CELL", &contact.phone) {
+            lines.push(line);
+        }
+        // Extra channels keep their kind so the import can sort them back into
+        // mobiles, landlines and e-mails; the primary values always come first.
+        for line in &contact.profile.mobiles {
+            if let Some(property) = vcard_property("TEL;TYPE=CELL", &line.value) {
+                lines.push(property);
+            }
+        }
+        for line in &contact.profile.phones {
+            if let Some(property) = vcard_property("TEL;TYPE=WORK", &line.value) {
+                lines.push(property);
+            }
+        }
+        if let Some(line) = vcard_property("EMAIL;TYPE=INTERNET", &contact.email) {
+            lines.push(line);
+        }
+        for line in &contact.profile.emails {
+            if let Some(property) = vcard_property("EMAIL;TYPE=INTERNET", &line.value) {
+                lines.push(property);
+            }
+        }
+        if contact.is_internal {
+            lines.push("X-RESA-INTERNAL:1".into());
+        }
+        if contact.is_favorite {
+            lines.push("X-RESA-FAVORITE:1".into());
+        }
+        if !contact.is_active {
+            lines.push("X-RESA-ACTIVE:0".into());
+        }
+        lines.push("END:VCARD".into());
+        out.push_str(&lines.join("\r\n"));
+        out.push_str("\r\n");
+    }
+    if let Some(parent) = Path::new(path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(CommandError::system)?;
+        }
+    }
+    std::fs::write(path, out).map_err(CommandError::system)?;
+    Ok(ContactsExportSummary { path: path.to_owned(), contacts: rows.len() as i64 })
+}
+
+/// One parsed card: property name (upper-case, parameters stripped) to values.
+type VcardProperties = BTreeMap<String, Vec<(String, String)>>;
+
+fn parse_vcard_line(line: &str) -> Option<(String, String, String)> {
+    let (raw_name, value) = line.split_once(':')?;
+    // `TEL;TYPE=CELL` -> name TEL, params TYPE=CELL.
+    let mut parts = raw_name.split(';');
+    let name = parts.next()?.trim().to_uppercase();
+    if name.is_empty() {
+        return None;
+    }
+    let params = parts.collect::<Vec<_>>().join(";").to_uppercase();
+    Some((name, params, vcard_unescape(value.trim())))
+}
+
+fn parse_vcards(text: &str) -> Vec<VcardProperties> {
+    let mut cards = Vec::new();
+    let mut current: Option<VcardProperties> = None;
+    let mut lines: Vec<String> = Vec::new();
+    // Unfold first: a line starting with a space continues the previous one.
+    for raw in text.lines() {
+        let line = raw.strip_suffix('\r').unwrap_or(raw);
+        if let Some(character) = line.chars().next() {
+            if (character == ' ' || character == '\t') && !lines.is_empty() {
+                let joined = lines.pop().unwrap_or_default() + line.trim_start();
+                lines.push(joined);
+                continue;
+            }
+        }
+        lines.push(line.to_owned());
+    }
+    for line in lines {
+        let Some((name, params, value)) = parse_vcard_line(&line) else {
+            continue;
+        };
+        match name.as_str() {
+            "BEGIN" => current = Some(VcardProperties::new()),
+            "END" => {
+                if let Some(card) = current.take() {
+                    cards.push(card);
+                }
+            }
+            _ => {
+                if let Some(card) = current.as_mut() {
+                    card.entry(name).or_default().push((params, value));
+                }
+            }
+        }
+    }
+    cards
+}
+
+fn first_value(card: &VcardProperties, name: &str) -> String {
+    card.get(name)
+        .and_then(|values| values.first())
+        .map(|(_, value)| value.clone())
+        .unwrap_or_default()
+}
+
+fn split_list(value: &str) -> Vec<String> {
+    value
+        .split([',', ';'])
+        .map(|item| item.trim().to_owned())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+/// `BDAY` arrives in a few shapes: `1990-05-12`, `19900512`, or with a time
+/// suffix. Anything else (e.g. the year-less `--0512`) is dropped rather than
+/// guessed.
+fn vcard_birthday(value: &str) -> String {
+    let digits: String = value.chars().filter(|character| character.is_ascii_digit()).collect();
+    if digits.len() >= 8 {
+        let candidate = format!("{}-{}-{}", &digits[0..4], &digits[4..6], &digits[6..8]);
+        if chrono::NaiveDate::parse_from_str(&candidate, "%Y-%m-%d").is_ok() {
+            return candidate;
+        }
+    }
+    String::new()
+}
+
+fn draft_from_vcard(connection: &Connection, card: &VcardProperties) -> Result<Option<ContactDraft>, CommandError> {
+    let full_name = {
+        let formatted = first_value(card, "FN");
+        if !formatted.trim().is_empty() {
+            formatted
+        } else {
+            // N is `family;given;middle;prefix;suffix`.
+            first_value(card, "N")
+                .split(';')
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+    };
+    if full_name.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let telephones: Vec<(String, String)> = card.get("TEL").cloned().unwrap_or_default();
+    let phone = telephones.first().map(|(_, value)| value.clone()).unwrap_or_default();
+
+    let emails: Vec<(String, String)> = card.get("EMAIL").cloned().unwrap_or_default();
+    let mut profile = ContactProfile::default();
+    profile.website = first_value(card, "URL");
+    profile.mobiles = telephones
+        .iter()
+        .skip(1)
+        .filter(|(params, _)| params.contains("CELL") || params.contains("MOBILE"))
+        .map(|(_, value)| ContactLine { label: String::new(), value: value.clone() })
+        .collect();
+    profile.phones = telephones
+        .iter()
+        .skip(1)
+        .filter(|(params, _)| !params.contains("CELL") && !params.contains("MOBILE"))
+        .map(|(_, value)| ContactLine { label: String::new(), value: value.clone() })
+        .collect();
+    profile.emails = emails
+        .iter()
+        .skip(1)
+        .map(|(_, value)| ContactLine { label: String::new(), value: value.clone() })
+        .collect();
+
+    let organization = first_value(card, "ORG");
+    let mut organization_parts = organization.split(';').map(str::trim);
+    let organization = organization_parts.next().unwrap_or_default().to_owned();
+    let company_name = organization_parts.next().unwrap_or_default().to_owned();
+
+    let address = first_value(card, "ADR")
+        .split(';')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let personality = first_value(card, "X-RESA-PERSONALITY");
+    let roles = split_list(&first_value(card, "ROLE"))
+        .into_iter()
+        .filter(|role| ROLES.contains(&role.as_str()))
+        .collect::<Vec<_>>();
+
+    Ok(Some(ContactDraft {
+        name: full_name,
+        nickname: first_value(card, "NICKNAME"),
+        personality: if PERSONALITIES.contains(&personality.as_str()) {
+            personality
+        } else {
+            "individual".to_owned()
+        },
+        roles,
+        is_internal: !first_value(card, "X-RESA-INTERNAL").is_empty(),
+        is_favorite: !first_value(card, "X-RESA-FAVORITE").is_empty(),
+        is_active: first_value(card, "X-RESA-ACTIVE") != "0",
+        tags: split_list(&first_value(card, "CATEGORIES")),
+        photo: String::new(),
+        phone,
+        extension: first_value(card, "X-RESA-EXTENSION"),
+        organization,
+        job_title: first_value(card, "TITLE"),
+        company_name,
+        email: emails.first().map(|(_, value)| value.clone()).unwrap_or_default(),
+        address,
+        birthday: vcard_birthday(&first_value(card, "BDAY")),
+        // vCard carries the group name as text; the CSV importer creates the
+        // group, so reuse it for parity.
+        category_id: find_or_create_category(connection, &first_value(card, "CATEGORIES"))?,
+        contract_status: first_value(card, "X-RESA-CONTRACT"),
+        note: first_value(card, "NOTE"),
+        profile,
+    }))
+}
+
+pub fn import_vcard(
+    connection: &mut Connection,
+    path: &str,
+    commit: bool,
+) -> Result<ContactsImportSummary, CommandError> {
+    let text = std::fs::read_to_string(path).map_err(CommandError::system)?;
+    let text = text.trim_start_matches('\u{feff}');
+    let cards = parse_vcards(text);
+    if cards.is_empty() {
+        return Err(CommandError::validation("file", "文件里没有 vCard。"));
+    }
+
+    let mut summary = ContactsImportSummary { read: 0, imported: 0, skipped: 0, duplicated: 0 };
+    let transaction = connection.transaction().map_err(CommandError::database)?;
+    for card in &cards {
+        summary.read += 1;
+        let Some(draft) = draft_from_vcard(&transaction, card)? else {
+            summary.skipped += 1;
+            continue;
+        };
+        if already_stored(&transaction, &draft.name, &draft.phone).unwrap_or(false) {
+            summary.duplicated += 1;
+            continue;
+        }
+        match normalize_draft(&transaction, &draft) {
+            Ok(normalized) => {
+                summary.imported += 1;
+                if commit {
+                    insert_normalized(&transaction, normalized)?;
+                }
+            }
+            Err(_) => summary.skipped += 1,
+        }
+    }
+    if commit {
+        transaction.commit().map_err(CommandError::database)?;
+    }
+    Ok(summary)
+}
+
 // --- Tauri 命令 --------------------------------------------------------------
 
 #[tauri::command]
@@ -1277,6 +1640,25 @@ pub fn import_contacts(
 ) -> Result<ContactsImportSummary, CommandError> {
     let mut connection = db.0.lock().map_err(CommandError::database)?;
     import_csv(&mut connection, &path, commit)
+}
+
+#[tauri::command]
+pub fn export_contacts_vcard(
+    db: State<'_, AppDb>,
+    path: String,
+) -> Result<ContactsExportSummary, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    export_vcard(&connection, &path)
+}
+
+#[tauri::command]
+pub fn import_contacts_vcard(
+    db: State<'_, AppDb>,
+    path: String,
+    commit: bool,
+) -> Result<ContactsImportSummary, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    import_vcard(&mut connection, &path, commit)
 }
 
 #[cfg(test)]
@@ -1484,6 +1866,102 @@ mod tests {
         assert_eq!(summary.read, 3);
         assert_eq!(summary.imported, 0);
         assert_eq!(summary.skipped, 3);
+        std::fs::remove_file(&path).ok();
+    }
+
+    fn with_org(connection: &mut Connection) -> Contact {
+        let mut draft = draft("مریم رضایی");
+        draft.nickname = "مریم".into();
+        draft.organization = "مالی".into();
+        draft.job_title = "کارشناس ارشد".into();
+        draft.extension = "214".into();
+        draft.email = "maryam@example.com".into();
+        draft.address = "تهران، خیابان آزادی ۱۲".into();
+        draft.birthday = "1990-05-12".into();
+        draft.is_internal = true;
+        draft.roles = vec!["colleague".into()];
+        draft.contract_status = "active".into();
+        draft.note = "حساب‌دار ارشد".into();
+        draft.profile.website = "https://example.com".into();
+        draft.profile.mobiles = vec![ContactLine { label: String::new(), value: "09120000000".into() }];
+        create(connection, draft).unwrap()
+    }
+
+    #[test]
+    fn vcard_export_and_import_round_trip_the_directory() {
+        let mut connection = memory_db();
+        let stored = with_org(&mut connection);
+        let path = std::env::temp_dir().join("resa-contacts.vcf");
+        let path = path.to_string_lossy().to_string();
+
+        let summary = export_vcard(&connection, &path).unwrap();
+        assert_eq!(summary.contacts, 1);
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.starts_with("BEGIN:VCARD"));
+        assert!(text.contains("FN:مریم رضایی"));
+        assert!(text.contains("X-RESA-EXTENSION:214"));
+        assert!(text.contains("ORG:مالی;"));
+
+        // Importing the same file into an empty directory brings it back whole.
+        let mut fresh = memory_db();
+        let preview = import_vcard(&mut fresh, &path, false).unwrap();
+        assert_eq!(preview.read, 1);
+        assert_eq!(preview.imported, 1);
+        assert_eq!(list(&fresh).unwrap().len(), 0, "预检不写库");
+
+        let committed = import_vcard(&mut fresh, &path, true).unwrap();
+        assert_eq!(committed.imported, 1);
+        let rows = list(&fresh).unwrap();
+        assert_eq!(rows.len(), 1);
+        let row = &rows[0];
+        assert_eq!(row.name, stored.name);
+        assert_eq!(row.nickname, "مریم");
+        assert_eq!(row.organization, "مالی");
+        assert_eq!(row.job_title, "کارشناس ارشد");
+        assert_eq!(row.extension, "214");
+        assert_eq!(row.email, "maryam@example.com");
+        assert_eq!(row.birthday, "1990-05-12");
+        assert_eq!(row.phone, "021-88991122");
+        assert!(row.is_internal);
+        assert_eq!(row.roles, vec!["colleague".to_owned()]);
+        assert_eq!(row.note, "حساب‌دار ارشد");
+        assert_eq!(row.profile.website, "https://example.com");
+        assert_eq!(row.profile.mobiles[0].value, "09120000000");
+
+        // A second import of the same file is recognised as a duplicate.
+        let again = import_vcard(&mut fresh, &path, true).unwrap();
+        assert_eq!(again.duplicated, 1);
+        assert_eq!(list(&fresh).unwrap().len(), 1);
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn vcard_import_reads_a_card_from_a_phone() {
+        let mut connection = memory_db();
+        let path = std::env::temp_dir().join("resa-phone.vcf");
+        let path = path.to_string_lossy().to_string();
+        std::fs::write(
+            &path,
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nN:احمدی;رضا;;;\r\nFN:رضا احمدی\r\n\
+             ORG:شرکت نمونه\r\nTITLE:مدیرعامل\r\nTEL;TYPE=CELL:+989121234567\r\n\
+             TEL;TYPE=WORK:02188991122\r\nEMAIL;TYPE=INTERNET:reza@example.com\r\n\
+             BDAY:19850512\r\nADR;TYPE=WORK:;;تهران خیابان ولیعصر;;;;\r\n\
+             NOTE:مشتری کلیدی\r\nEND:VCARD\r\n",
+        )
+        .unwrap();
+        let summary = import_vcard(&mut connection, &path, true).unwrap();
+        assert_eq!(summary.imported, 1);
+        let rows = list(&connection).unwrap();
+        let row = &rows[0];
+        assert_eq!(row.name, "رضا احمدی");
+        assert_eq!(row.phone, "+989121234567");
+        assert_eq!(row.organization, "شرکت نمونه");
+        assert_eq!(row.job_title, "مدیرعامل");
+        assert_eq!(row.email, "reza@example.com");
+        assert_eq!(row.birthday, "1985-05-12");
+        assert_eq!(row.address, "تهران خیابان ولیعصر");
+        assert_eq!(row.note, "مشتری کلیدی");
+        assert_eq!(row.profile.phones[0].value, "02188991122");
         std::fs::remove_file(&path).ok();
     }
 }

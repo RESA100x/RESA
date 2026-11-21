@@ -728,6 +728,8 @@ fn main() {
             contacts::delete_contact,
             contacts::export_contacts,
             contacts::import_contacts,
+            contacts::export_contacts_vcard,
+            contacts::import_contacts_vcard,
             contact_categories::list_contact_categories,
             contact_categories::create_contact_category,
             contact_categories::update_contact_category,

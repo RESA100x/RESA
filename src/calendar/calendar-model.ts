@@ -108,6 +108,9 @@ export type CalendarEvent = {
     // chips it is read-only on the grid: the meeting is edited in its own
     // dialog, so dragging never detaches it from its agenda and attendees.
     meetingId?: string | null;
+  // Set when this chip is a contact's birthday or work anniversary. Like the
+  // other read-only chips it opens the contact card instead of the event form.
+  contactId?: string | null;
   // Non-null when this event comes from a read-only calendar subscription; the
   // value is the source subscription id. Local events are always null.
   subscriptionId: string | null;
