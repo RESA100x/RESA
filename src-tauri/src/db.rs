@@ -201,6 +201,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (49, migration_49_task_archive),
     (50, migration_50_task_status_and_projects),
     (51, migration_51_meetings_and_task_assignee),
+    (52, migration_52_task_archive_reason),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -465,6 +466,16 @@ fn migration_51_meetings_and_task_assignee(transaction: &Transaction<'_>) -> Res
         transaction.execute_batch(
             "ALTER TABLE tasks ADD COLUMN assignee_contact_id TEXT;",
         )?;
+    }
+    Ok(())
+}
+
+/// Why a task was closed or dropped. The archive answers "what happened" months
+/// later, and a one-line reason is usually the part that cannot be reconstructed
+/// from the status alone.
+fn migration_52_task_archive_reason(transaction: &Transaction<'_>) -> Result<()> {
+    if !column_exists(transaction, "tasks", "archive_reason")? {
+        transaction.execute_batch("ALTER TABLE tasks ADD COLUMN archive_reason TEXT;")?;
     }
     Ok(())
 }

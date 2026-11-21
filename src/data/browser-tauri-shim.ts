@@ -452,7 +452,25 @@ export function installBrowserTauriBackend() {
     const closeDays: number[] = [];
     const quadrants = new Map<string, { priority: string; open: number; completed: number }>();
     const lanes = new Map<string, { id: string; name: string; open: number; completed: number }>();
+    const projects = new Map<
+      string,
+      { id: string; name: string; open: number; completed: number; overdue: number; closeDays: number[] }
+    >();
+    const stuck: {
+      id: string;
+      title: string;
+      status: string;
+      priority: string;
+      projectName: string | null;
+      dueDate: string | null;
+      ageDays: number;
+      overdueDays: number | null;
+    }[] = [];
     const todayIso = formatDate(today);
+    const dayGap = (later: string, earlier: string) =>
+      Math.round(
+        (new Date(`${later}T00:00:00`).getTime() - new Date(`${earlier}T00:00:00`).getTime()) / 86_400_000
+      );
 
     for (const task of store.tasks) {
       const createdOn = localDay(task.createdAt);
@@ -478,9 +496,26 @@ export function installBrowserTauriBackend() {
       if (inRange(archivedOn)) archived += 1;
 
       const isOpen = task.completed !== true && !isArchived;
+      const overdueDays =
+        isOpen && typeof task.dueDate === 'string' && task.dueDate < todayIso
+          ? dayGap(todayIso, task.dueDate)
+          : null;
       if (isOpen) {
         open += 1;
-        if (typeof task.dueDate === 'string' && task.dueDate < todayIso) overdue += 1;
+        if (overdueDays !== null) overdue += 1;
+        const ageDays = createdOn ? dayGap(todayIso, createdOn) : 0;
+        if ((overdueDays !== null && overdueDays >= 3) || ageDays >= 21) {
+          stuck.push({
+            id: String(task.id),
+            title: String(task.title ?? ''),
+            status: String(task.status ?? 'open'),
+            priority: String(task.priority ?? 'not_important_not_urgent'),
+            projectName: null,
+            dueDate: typeof task.dueDate === 'string' ? task.dueDate : null,
+            ageDays,
+            overdueDays
+          });
+        }
       }
       const createdInRange = inRange(createdOn);
       const completedInRange = inRange(completedOn);
@@ -504,6 +539,28 @@ export function installBrowserTauriBackend() {
         if (completedInRange) lane.completed += 1;
         lanes.set(laneId, lane);
       }
+
+      const projectId = typeof task.projectId === 'string' ? task.projectId : null;
+      if (projectId) {
+        const projectName = String(store.projects.find((item) => item.id === projectId)?.name ?? projectId);
+        const project = projects.get(projectId) ?? {
+          id: projectId,
+          name: projectName,
+          open: 0,
+          completed: 0,
+          overdue: 0,
+          closeDays: []
+        };
+        if (isOpen) {
+          project.open += 1;
+          if (overdueDays !== null) project.overdue += 1;
+        }
+        if (completedInRange) {
+          project.completed += 1;
+          if (createdOn && completedOn) project.closeDays.push(dayGap(completedOn, createdOn));
+        }
+        projects.set(projectId, project);
+      }
     }
 
     const focusSessions = (store.focusSessions as Dict[] | undefined) ?? [];
@@ -511,6 +568,84 @@ export function installBrowserTauriBackend() {
       const day = localDay(session.endedAt);
       const bucket = day ? buckets.get(day) : undefined;
       if (bucket) bucket.focusSeconds += Number(session.focusedSeconds ?? 0);
+    }
+
+    for (const task of stuck) {
+      const stored = store.tasks.find((row) => row.id === task.id);
+      const projectId = typeof stored?.projectId === 'string' ? stored.projectId : null;
+      if (projectId) {
+        task.projectName = String(store.projects.find((item) => item.id === projectId)?.name ?? projectId);
+      }
+    }
+    stuck.sort(
+      (left, right) => (right.overdueDays ?? -1) - (left.overdueDays ?? -1) || right.ageDays - left.ageDays
+    );
+    stuck.splice(50);
+
+    const meetings = store.meetings
+      .filter((meeting) => inRange(localDay(meeting.startsAt)))
+      .sort((left, right) => String(left.startsAt).localeCompare(String(right.startsAt)))
+      .map((meeting) => {
+        const attendees = Array.isArray(meeting.attendees) ? (meeting.attendees as Dict[]) : [];
+        const count = (state: string) => attendees.filter((row) => row.attendance === state).length;
+        const items = Array.isArray(meeting.items) ? (meeting.items as Dict[]) : [];
+        const tasks = items.filter((item) => typeof item.taskId === 'string');
+        return {
+          id: String(meeting.id),
+          title: String(meeting.title ?? ''),
+          startsAt: String(meeting.startsAt ?? ''),
+          status: String(meeting.status ?? 'planned'),
+          attendees: attendees.length,
+          present: count('present'),
+          late: count('late'),
+          absent: count('absent'),
+          excused: count('excused'),
+          unknown: count('unknown'),
+          lateMinutes: attendees
+            .filter((row) => row.attendance === 'late')
+            .reduce((sum, row) => sum + Number(row.lateMinutes ?? 0), 0),
+          agendaItems: items.length,
+          agendaTasks: tasks.length,
+          agendaDone: tasks.filter(
+            (item) => store.tasks.find((row) => row.id === item.taskId)?.completed === true
+          ).length
+        };
+      });
+
+    const activity = store.taskEvents
+      .filter((event) => inRange(localDay(event.at)))
+      .sort((left, right) => String(right.at).localeCompare(String(left.at)))
+      .slice(0, 100)
+      .map((event) => ({
+        id: String(event.id),
+        at: String(event.at),
+        taskId: String(event.taskId ?? ''),
+        taskTitle: String(store.tasks.find((row) => row.id === event.taskId)?.title ?? ''),
+        kind: String(event.kind ?? ''),
+        detail: typeof event.detail === 'string' ? event.detail : null
+      }));
+
+    const previousFrom = new Date(from);
+    previousFrom.setDate(previousFrom.getDate() - days);
+    const previousTo = new Date(from);
+    previousTo.setDate(previousTo.getDate() - 1);
+    const previousFromIso = formatDate(previousFrom);
+    const previousToIso = formatDate(previousTo);
+    const previousInRange = (iso: string | null) =>
+      iso !== null && iso >= previousFromIso && iso <= previousToIso;
+    let previousCreated = 0;
+    let previousCompleted = 0;
+    let previousArchived = 0;
+    const previousCloseDays: number[] = [];
+    for (const task of store.tasks) {
+      const createdOn = localDay(task.createdAt);
+      const completedOn = localDay(task.completedAt);
+      if (previousInRange(createdOn)) previousCreated += 1;
+      if (previousInRange(completedOn) && createdOn) {
+        previousCompleted += 1;
+        previousCloseDays.push(dayGap(completedOn as string, createdOn));
+      }
+      if (previousInRange(localDay(task.archivedAt))) previousArchived += 1;
     }
 
     const sorted = [...closeDays].sort((left, right) => left - right);
@@ -534,6 +669,35 @@ export function installBrowserTauriBackend() {
       },
       quadrants: [...quadrants.values()].sort((left, right) => left.priority.localeCompare(right.priority)),
       lanes: [...lanes.values()].sort((left, right) => right.open + right.completed - (left.open + left.completed)),
+      projects: [...projects.values()]
+        .map((project) => ({
+          id: project.id,
+          name: project.name,
+          open: project.open,
+          completed: project.completed,
+          overdue: project.overdue,
+          completionRate:
+            project.open + project.completed === 0
+              ? 0
+              : project.completed / (project.open + project.completed),
+          averageCloseDays:
+            project.closeDays.length === 0
+              ? null
+              : project.closeDays.reduce((sum, value) => sum + value, 0) / project.closeDays.length
+        }))
+        .sort((left, right) => right.open + right.completed - (left.open + left.completed)),
+      stuck,
+      meetings,
+      activity,
+      previous: {
+        created: previousCreated,
+        completed: previousCompleted,
+        archived: previousArchived,
+        averageCloseDays:
+          previousCloseDays.length === 0
+            ? null
+            : previousCloseDays.reduce((sum, value) => sum + value, 0) / previousCloseDays.length
+      },
       generatedAt: nowIso()
     };
   };
@@ -942,6 +1106,9 @@ export function installBrowserTauriBackend() {
       persist();
     },
     get_task_report: (a) => buildBrowserTaskReport(Number(a.days ?? 30)),
+    export_task_report: () => {
+      throw { code: 'system_error', message: 'Report export is only available in the desktop app.' };
+    },
     set_task_status: (a) => {
       const status = String(a.status ?? 'open');
       if (!['open', 'in_progress', 'done', 'suspended', 'cancelled', 'delayed'].includes(status)) {
@@ -985,7 +1152,42 @@ export function installBrowserTauriBackend() {
       store.tasks
         .filter((task) => task.archivedAt || ['done', 'suspended', 'cancelled'].includes(String(task.status ?? (task.completed ? 'done' : 'open'))))
         .sort((left, right) => String(right.completedAt ?? right.updatedAt).localeCompare(String(left.completedAt ?? left.updatedAt))),
-    export_task_archive: (a) => ({ path: String(a.path ?? ''), tasks: store.tasks.length }),
+    set_task_archive_reason: (a) => {
+      const current = store.tasks.find((task) => task.id === a.id);
+      if (!current) throw { code: 'not_found', message: '未找到该任务。' };
+      const raw = typeof a.reason === 'string' ? a.reason.trim() : '';
+      const next = raw ? raw : null;
+      const updated = { ...current, archiveReason: next, updatedAt: nowIso() };
+      store.tasks = store.tasks.map((task) => task.id === a.id ? updated : task);
+      store.taskEvents.push({ id: id('ev'), taskId: a.id as string, kind: 'reason', detail: next, at: nowIso() });
+      persist();
+      return updated;
+    },
+    purge_tasks: (a) => {
+      const ids = Array.isArray(a.ids) ? (a.ids as unknown[]).map(String) : [];
+      let removed = 0;
+      store.tasks = store.tasks.filter((task) => {
+        if (!ids.includes(String(task.id))) return true;
+        const status = String(task.status ?? (task.completed ? 'done' : 'open'));
+        const purgable = Boolean(task.archivedAt) || ['done', 'suspended', 'cancelled'].includes(status);
+        if (!purgable) return true;
+        removed += 1;
+        return false;
+      });
+      if (removed > 0) {
+        store.taskEvents = store.taskEvents.filter((event) => !ids.includes(String(event.taskId)));
+      }
+      persist();
+      return removed;
+    },
+    export_task_archive: (a) => {
+      const ids = Array.isArray(a.ids) ? (a.ids as unknown[]).map(String) : null;
+      const rows = store.tasks.filter((task) =>
+        task.archivedAt || ['done', 'suspended', 'cancelled'].includes(String(task.status ?? (task.completed ? 'done' : 'open')))
+      );
+      const wanted = ids ? rows.filter((task) => ids.includes(String(task.id))) : rows;
+      return { path: String(a.path ?? ''), tasks: wanted.length };
+    },
     list_projects: () =>
       store.projects.map((project) => ({
         ...project,

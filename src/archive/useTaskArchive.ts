@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNowlyRepository } from '../data/RepositoryContext';
 import { t } from '../i18n';
+import type { Contact } from '../phonebook/contact-model';
 import type { Project } from '../projects/project-model';
 import type { Task, TaskEvent, TaskStatus } from '../tasks/task-model';
 
@@ -16,6 +17,13 @@ export type ProjectsResource = {
   message?: string;
 };
 
+// The phone book is read only to show assignee names; when the repository has
+// no contact list (or it fails) the archive still works with ids alone.
+export type ContactsResource = {
+  status: 'idle' | 'ready' | 'error';
+  data: Contact[];
+};
+
 function messageFrom(error: unknown) {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
     ? error.message
@@ -23,14 +31,16 @@ function messageFrom(error: unknown) {
 }
 
 /**
- * The archive reads two lists at once: what left the board, and the projects
- * those rows point at. Both are needed to show a project name instead of an id,
- * so a failure in either surfaces on the same resource.
+ * The archive reads three lists at once: what left the board, the projects
+ * those rows point at, and the contacts they are assigned to. All three are
+ * needed to show names instead of ids; a failure in the first two surfaces on
+ * the archive resource, a failure in the third is silently tolerated.
  */
 export function useTaskArchive() {
   const repository = useNowlyRepository();
   const [archive, setArchive] = useState<TaskArchiveResource>({ status: 'loading', data: [] });
   const [projects, setProjects] = useState<ProjectsResource>({ status: 'loading', data: [] });
+  const [contacts, setContacts] = useState<ContactsResource>({ status: 'idle', data: [] });
   const requestIdRef = useRef(0);
 
   const load = useCallback(async (silent: boolean) => {
@@ -55,6 +65,20 @@ export function useTaskArchive() {
         setArchive((current) => ({ status: 'error', data: current.data, message: messageFrom(error) }));
         setProjects((current) => ({ status: 'error', data: current.data }));
       }
+      return;
+    }
+    // Contacts are optional: a repository without them just shows ids, and a
+    // failure here must not turn the whole archive into an error state.
+    const readContacts = repository.listContacts;
+    if (!readContacts) {
+      setContacts({ status: 'idle', data: [] });
+      return;
+    }
+    try {
+      const rows = await readContacts.call(repository);
+      if (requestId === requestIdRef.current) setContacts({ status: 'ready', data: rows });
+    } catch {
+      if (requestId === requestIdRef.current) setContacts({ status: 'error', data: [] });
     }
   }, [repository]);
 
@@ -67,8 +91,8 @@ export function useTaskArchive() {
   // flashing the loading state.
   const refresh = useCallback(() => load(true), [load]);
 
-  // Restoring a task to the board is the only write the archive makes: the
-  // history rows themselves are never edited or deleted.
+  // Restoring a task to the board, annotating one, and permanently dropping
+  // rows are the only writes the archive makes.
   const restore = useCallback(async (id: string, status: TaskStatus) => {
     const write = repository.setTaskStatus;
     if (!write) throw new Error(t('archive.unavailable'));
@@ -76,20 +100,51 @@ export function useTaskArchive() {
     await load(true);
   }, [load, repository]);
 
-  const exportArchive = useCallback(async (path: string) => {
+  // A bulk restore writes every row before a single re-read, so selecting
+  // twenty tasks does not trigger twenty list reloads.
+  const restoreMany = useCallback(async (ids: string[], status: TaskStatus) => {
+    const write = repository.setTaskStatus;
+    if (!write) throw new Error(t('archive.unavailable'));
+    for (const id of ids) await write.call(repository, id, status);
+    if (ids.length > 0) await load(true);
+  }, [load, repository]);
+
+  const setReason = useCallback(async (id: string, reason: string | null) => {
+    const write = repository.setTaskArchiveReason;
+    if (!write) throw new Error(t('archive.unavailable'));
+    const updated = await write.call(repository, id, reason);
+    await load(true);
+    return updated;
+  }, [load, repository]);
+
+  const purge = useCallback(async (ids: string[]) => {
+    const write = repository.purgeTasks;
+    if (!write) throw new Error(t('archive.unavailable'));
+    const removed = await write.call(repository, ids);
+    await load(true);
+    return removed;
+  }, [load, repository]);
+
+  const exportArchive = useCallback(async (path: string, ids?: string[]) => {
     const write = repository.exportTaskArchive;
     if (!write) throw new Error(t('archive.unavailable'));
-    return write.call(repository, path);
+    return write.call(repository, path, ids);
   }, [repository]);
 
   return {
     archive,
     projects,
+    contacts,
     reload,
     refresh,
     restore,
+    restoreMany,
+    setReason,
+    purge,
     exportArchive,
-    canExport: Boolean(repository.exportTaskArchive)
+    canExport: Boolean(repository.exportTaskArchive),
+    canAnnotate: Boolean(repository.setTaskArchiveReason),
+    canPurge: Boolean(repository.purgeTasks)
   };
 }
 

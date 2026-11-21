@@ -104,6 +104,9 @@ pub struct Task {
     // the dedicated command so other task writers never wipe it.
     #[serde(default)]
     pub assignee_contact_id: Option<String>,
+    // Why the task was closed or dropped, written from the archive.
+    #[serde(default)]
+    pub archive_reason: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

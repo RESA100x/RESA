@@ -37,6 +37,8 @@ function repository(options: { tasks?: Task[]; projects?: Project[]; events?: Ta
     listProjects: vi.fn(async () => options.projects ?? []),
     listTaskEvents: vi.fn(async () => options.events ?? []),
     setTaskStatus: vi.fn(async (id: string) => task({ id, status: 'open' })),
+    setTaskArchiveReason: vi.fn(async (id: string, reason: string | null) => task({ id, archiveReason: reason })),
+    purgeTasks: vi.fn(async (ids: string[]) => ids.length),
     exportTaskArchive: vi.fn(async (path: string) => ({ path, tasks: 1 }))
   } as unknown as NowlyRepository;
 }
@@ -136,5 +138,58 @@ describe('ArchiveWidget', () => {
     });
 
     await waitFor(() => expect(within(tile).getByText('1')).toBeInTheDocument());
+  });
+
+  it('saves the archive note from the detail pane', async () => {
+    const user = userEvent.setup();
+    const repo = repository({ tasks: [task({ id: 'a', title: 'قرارداد' })] });
+    renderWidget(repo);
+    await user.click(await screen.findByTestId('archive-tile'));
+    await user.click(within(await screen.findByTestId('archive-list')).getByText('قرارداد'));
+
+    const detail = await screen.findByTestId('archive-detail');
+    const box = within(detail).getByLabelText(t('archive.reason'));
+    await user.type(box, 'مشتری منصرف شد');
+    await user.click(within(detail).getByRole('button', { name: t('archive.saveReason') }));
+
+    await waitFor(() =>
+      expect(repo.setTaskArchiveReason).toHaveBeenCalledWith('a', 'مشتری منصرف شد')
+    );
+  });
+
+  it('restores every selected row in one action', async () => {
+    const user = userEvent.setup();
+    const repo = repository({
+      tasks: [task({ id: 'a', title: 'الف' }), task({ id: 'b', title: 'ب' })]
+    });
+    renderWidget(repo);
+    await user.click(await screen.findByTestId('archive-tile'));
+    await screen.findByTestId('archive-list');
+
+    await user.click(screen.getByLabelText(t('archive.selectAll')));
+    await user.click(screen.getByRole('button', { name: t('archive.restoreSelected') }));
+
+    await waitFor(() => expect(repo.setTaskStatus).toHaveBeenCalledTimes(2));
+  });
+
+  it('requires an explicit acknowledgement before a permanent delete', async () => {
+    const user = userEvent.setup();
+    const repo = repository({ tasks: [task({ id: 'a', title: 'بایگانی‌شده' })] });
+    renderWidget(repo);
+    await user.click(await screen.findByTestId('archive-tile'));
+    await user.click(within(await screen.findByTestId('archive-list')).getByText('بایگانی‌شده'));
+
+    const detail = await screen.findByTestId('archive-detail');
+    await user.click(within(detail).getByRole('button', { name: t('archive.deletePermanently') }));
+
+    const dialogs = await screen.findAllByRole('dialog');
+    const confirm = dialogs[dialogs.length - 1];
+    const confirmButton = within(confirm).getByRole('button', { name: t('archive.deletePermanently') });
+    expect(confirmButton).toBeDisabled();
+
+    await user.click(within(confirm).getByLabelText(t('archive.confirmPurgeAcknowledge')));
+    await user.click(confirmButton);
+
+    await waitFor(() => expect(repo.purgeTasks).toHaveBeenCalledWith(['a']));
   });
 });

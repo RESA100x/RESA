@@ -173,6 +173,7 @@ fn read_task_base(row: &Row<'_>) -> rusqlite::Result<Task> {
         project_id: row.get(15)?,
         archived_at: row.get(16)?,
         assignee_contact_id: row.get(17)?,
+        archive_reason: row.get(18)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
     })
@@ -210,7 +211,7 @@ fn task_by_id(connection: &Connection, id: &str) -> Result<Option<Task>, Command
         .query_row(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
              FROM tasks WHERE id=?1",
             [id],
             read_task_base,
@@ -228,7 +229,7 @@ fn list_tasks(connection: &Connection) -> Result<Vec<Task>, CommandError> {
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
              FROM tasks WHERE archived_at IS NULL
              ORDER BY lane_id,board_position,id",
         )
@@ -968,7 +969,7 @@ pub fn list_archive(connection: &Connection) -> Result<Vec<Task>, CommandError> 
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
              FROM tasks
              WHERE archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')
              ORDER BY COALESCE(completed_at,updated_at) DESC, id",
@@ -986,6 +987,70 @@ pub fn list_archive(connection: &Connection) -> Result<Vec<Task>, CommandError> 
 
 fn parse_date(value: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()
+}
+
+/// Record why a task was closed or dropped. Only the archive writes this, so an
+/// ordinary board edit never clears what the user explained months ago.
+pub fn set_reason(
+    connection: &Connection,
+    id: &str,
+    reason: Option<&str>,
+) -> Result<Task, CommandError> {
+    let cleaned = reason
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    let existing: Option<Option<String>> = transaction
+        .query_row("SELECT archive_reason FROM tasks WHERE id=?1", [id], |row| {
+            row.get(0)
+        })
+        .optional()
+        .map_err(CommandError::database)?;
+    let current = existing.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    // Only a real change writes a row and a history entry; re-saving the same
+    // note must not fill the log with duplicates.
+    if current != cleaned {
+        transaction
+            .execute(
+                "UPDATE tasks SET archive_reason=?2,updated_at=?3 WHERE id=?1",
+                params![id, cleaned, timestamp()],
+            )
+            .map_err(sql_write_error)?;
+        record_event(&transaction, id, "reason", cleaned.as_deref())?;
+    }
+    transaction.commit().map_err(sql_write_error)?;
+    task_by_id(connection, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))
+}
+
+/// Permanently removes rows. The board's own delete only archives, so this is
+/// the single place a task truly leaves the database; child rows go with it
+/// through the foreign-key cascade. Only tasks already in the archive can be
+/// purged, so a stale id from the board cannot drop a live task by accident.
+pub fn purge(connection: &Connection, ids: &[String]) -> Result<i64, CommandError> {
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    let mut removed = 0i64;
+    for id in ids {
+        // Steps, tag links, collaborator links and view memberships follow the
+        // row through their foreign keys; the event log has no foreign key, so
+        // it is cleared by hand after the row is gone.
+        let deleted = transaction
+            .execute(
+                "DELETE FROM tasks
+                 WHERE id=?1
+                   AND (archived_at IS NOT NULL OR status IN ('done','suspended','cancelled'))",
+                [id],
+            )
+            .map_err(sql_write_error)?;
+        if deleted > 0 {
+            transaction
+                .execute("DELETE FROM task_events WHERE task_id=?1", [id])
+                .map_err(sql_write_error)?;
+            removed += deleted as i64;
+        }
+    }
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(removed)
 }
 
 /// Completing a recurring task writes its next occurrence in the same
@@ -1548,6 +1613,27 @@ pub fn list_task_archive(db: State<'_, AppDb>) -> Result<Vec<Task>, CommandError
     list_archive(&connection)
 }
 
+/// Writes (or clears) the one-line note explaining why a task left the board.
+#[tauri::command]
+pub fn set_task_archive_reason(
+    db: State<'_, AppDb>,
+    id: String,
+    reason: Option<String>,
+) -> Result<Task, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    set_reason(&connection, &id, reason.as_deref())
+}
+
+/// Permanently drops archived rows. Returns how many rows were removed.
+#[tauri::command]
+pub fn purge_tasks(db: State<'_, AppDb>, ids: Vec<String>) -> Result<i64, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    let removed = purge(&connection, &ids)?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(removed)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskArchiveExport {
@@ -1556,21 +1642,35 @@ pub struct TaskArchiveExport {
 }
 
 /// The archive as a CSV the user can sort in Excel: one row per task, with the
-/// project name resolved and the history summarised in a column.
+/// project and assignee names resolved. `ids` narrows the export to what the
+/// list currently shows, so a filtered view exports exactly those rows.
 #[tauri::command]
 pub fn export_task_archive(
     db: State<'_, AppDb>,
     path: String,
+    ids: Option<Vec<String>>,
 ) -> Result<TaskArchiveExport, CommandError> {
     let connection = db.0.lock().map_err(CommandError::database)?;
-    let tasks = list_archive(&connection)?;
-    let mut csv = String::from(
-        "title,status,project,priority,due_date,created_at,completed_at,archived,description\n",
+    let mut tasks = list_archive(&connection)?;
+    if let Some(ids) = ids.as_ref() {
+        let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
+        tasks.retain(|task| wanted.contains(task.id.as_str()));
+    }
+    // A UTF-8 BOM keeps Excel from mis-reading the Persian text as latin-1.
+    let mut csv = String::from("\u{feff}");
+    csv.push_str(
+        "title,status,project,priority,due_date,created_at,completed_at,archived,assignee,archive_reason,description\n",
     );
     for task in &tasks {
         let project: String = match task.project_id.as_deref() {
             Some(id) => connection
                 .query_row("SELECT name FROM projects WHERE id=?1", [id], |row| row.get(0))
+                .unwrap_or_default(),
+            None => String::new(),
+        };
+        let assignee: String = match task.assignee_contact_id.as_deref() {
+            Some(id) => connection
+                .query_row("SELECT name FROM contacts WHERE id=?1", [id], |row| row.get(0))
                 .unwrap_or_default(),
             None => String::new(),
         };
@@ -1590,6 +1690,8 @@ pub fn export_task_archive(
             task.created_at.clone(),
             task.completed_at.clone().unwrap_or_default(),
             if archived { "1".into() } else { String::new() },
+            assignee,
+            task.archive_reason.clone().unwrap_or_default(),
             task.description.clone(),
         ];
         csv.push_str(&row.iter().map(|value| csv_cell(value)).collect::<Vec<_>>().join(","));
@@ -2209,5 +2311,52 @@ mod tests {
         assert_eq!(detached.project_id, None);
         let error = super::set_project(&connection, &task.id, Some("missing")).unwrap_err();
         assert_eq!(error.field.as_deref(), Some("projectId"));
+    }
+
+    #[test]
+    fn an_archive_reason_is_stored_once_and_cleared_again() {
+        let connection = database();
+        let task = create(&connection, draft()).unwrap();
+        super::delete(&connection, &task.id).unwrap();
+
+        let noted = super::set_reason(&connection, &task.id, Some("  مشتری منصرف شد  ")).unwrap();
+        assert_eq!(noted.archive_reason.as_deref(), Some("مشتری منصرف شد"));
+
+        // Re-saving the same text must not add a second history entry.
+        super::set_reason(&connection, &task.id, Some("مشتری منصرف شد")).unwrap();
+        let reasons = super::list_events(&connection, &task.id)
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.kind == "reason")
+            .count();
+        assert_eq!(reasons, 1);
+
+        let cleared = super::set_reason(&connection, &task.id, Some("   ")).unwrap();
+        assert_eq!(cleared.archive_reason, None);
+        let kinds: Vec<_> = super::list_events(&connection, &task.id)
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.kind == "reason")
+            .map(|event| event.detail)
+            .collect();
+        assert_eq!(kinds, vec![Some("مشتری منصرف شد".into()), None]);
+    }
+
+    #[test]
+    fn purging_only_removes_archived_rows() {
+        let connection = database();
+        let archived = create(&connection, draft()).unwrap();
+        let live = create(&connection, TaskDraft { title: "زنده".into(), ..draft() }).unwrap();
+        super::delete(&connection, &archived.id).unwrap();
+
+        let removed = super::purge(&connection, &[archived.id.clone(), live.id.clone()]).unwrap();
+        assert_eq!(removed, 1);
+        let ids: Vec<_> = snapshot(&connection).unwrap().tasks.into_iter().map(|task| task.id).collect();
+        assert_eq!(ids, vec![live.id]);
+        // The events and steps of the purged task go with it through the cascade.
+        let events: i64 = connection
+            .query_row("SELECT COUNT(*) FROM task_events WHERE task_id=?1", [&archived.id], |row| row.get(0))
+            .unwrap();
+        assert_eq!(events, 0);
     }
 }

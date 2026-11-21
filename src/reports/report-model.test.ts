@@ -21,6 +21,11 @@ function report(overrides: Partial<TaskReport['totals']> = {}): TaskReport {
     },
     quadrants: [],
     lanes: [],
+    projects: [],
+    stuck: [],
+    meetings: [],
+    activity: [],
+    previous: { created: 0, completed: 0, archived: 0, averageCloseDays: null },
     generatedAt: 't'
   };
 }

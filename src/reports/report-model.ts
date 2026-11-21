@@ -1,4 +1,5 @@
-import type { TaskPriority } from '../tasks/task-model';
+import { displayMonthName, displayMonthOf } from '../lib/calendar-system';
+import type { TaskPriority, TaskStatus } from '../tasks/task-model';
 
 // Mirrors `src-tauri/src/reports.rs`. The backend buckets by local calendar day
 // and hands the days over as they are; grouping into weeks happens here so the
@@ -35,11 +36,76 @@ export type ReportLane = {
   completed: number;
 };
 
+export type ReportProject = {
+  id: string;
+  name: string;
+  open: number;
+  completed: number;
+  overdue: number;
+  completionRate: number;
+  averageCloseDays: number | null;
+};
+
+export type ReportStuckTask = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  projectName: string | null;
+  dueDate: string | null;
+  ageDays: number;
+  overdueDays: number | null;
+};
+
+export type ReportMeeting = {
+  id: string;
+  title: string;
+  startsAt: string;
+  status: string;
+  attendees: number;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  unknown: number;
+  lateMinutes: number;
+  agendaItems: number;
+  agendaTasks: number;
+  agendaDone: number;
+};
+
+export type ReportActivity = {
+  id: string;
+  at: string;
+  taskId: string;
+  taskTitle: string;
+  kind: string;
+  detail: string | null;
+};
+
+export type ReportComparison = {
+  created: number;
+  completed: number;
+  archived: number;
+  averageCloseDays: number | null;
+};
+
+/** What `exportTaskReport` wrote: the file and the format it chose. */
+export type ReportExportSummary = {
+  path: string;
+  format: 'csv' | 'markdown';
+};
+
 export type TaskReport = {
   days: ReportDay[];
   totals: ReportTotals;
   quadrants: ReportQuadrant[];
   lanes: ReportLane[];
+  projects: ReportProject[];
+  stuck: ReportStuckTask[];
+  meetings: ReportMeeting[];
+  activity: ReportActivity[];
+  previous: ReportComparison;
   generatedAt: string;
 };
 
@@ -98,6 +164,55 @@ export function peakValue(weeks: ReportWeek[]): number {
 
 export function totalFocusSeconds(days: ReportDay[]): number {
   return days.reduce((sum, day) => sum + day.focusSeconds, 0);
+}
+
+export type ReportMonth = {
+  key: string;
+  label: string;
+  year: number;
+  monthIndex: number;
+  created: number;
+  completed: number;
+  focusSeconds: number;
+};
+
+/**
+ * Fold the daily series into display months. The display calendar decides what
+ * a month is, so a Persian report groups by Jalali months and an English one by
+ * Gregorian months from the same data.
+ */
+export function groupByMonth(days: ReportDay[]): ReportMonth[] {
+  const months: ReportMonth[] = [];
+  let current: ReportMonth | null = null;
+  for (const day of days) {
+    const [year, month, date] = day.date.split('-').map(Number);
+    const display = displayMonthOf(new Date(year, month - 1, date));
+    const key = `${display.year}-${display.monthIndex}`;
+    if (!current || current.key !== key) {
+      if (current) months.push(current);
+      current = {
+        key,
+        label: `${displayMonthName(display.monthIndex)} ${display.year}`,
+        year: display.year,
+        monthIndex: display.monthIndex,
+        created: 0,
+        completed: 0,
+        focusSeconds: 0
+      };
+    }
+    current.created += day.created;
+    current.completed += day.completed;
+    current.focusSeconds += day.focusSeconds;
+  }
+  if (current) months.push(current);
+  return months;
+}
+
+/** Focus time spent per finished task; null when nothing was finished. */
+export function focusPerCompleted(days: ReportDay[]): number | null {
+  const completed = days.reduce((sum, day) => sum + day.completed, 0);
+  if (completed === 0) return null;
+  return totalFocusSeconds(days) / completed;
 }
 
 export function hasActivity(report: TaskReport): boolean {

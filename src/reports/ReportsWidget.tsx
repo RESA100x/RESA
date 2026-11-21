@@ -1,5 +1,6 @@
 import { BarChart3 } from '../components/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNowlyRepository } from '../data/RepositoryContext';
 import { formatNumber, t } from '../i18n';
 import { useCurrentTime } from '../app/useCurrentTime';
 import { useOptionalTaskWorkspace } from '../tasks/TaskWorkspaceContext';
@@ -16,6 +17,7 @@ import './reports.css';
 export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
   const [days, setDays] = useState<ReportRange>(30);
   const { report, reload, refresh } = useTaskReport(days);
+  const repository = useNowlyRepository();
   const [open, setOpen] = useState(false);
   const tileRef = useRef<HTMLButtonElement>(null);
   // The report is a snapshot of the board, so it has to follow the board: every
@@ -95,6 +97,11 @@ export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
           restoreFocusRef={tileRef}
           onChangeDays={setDays}
           onRetry={reload}
+          onExport={
+            repository.exportTaskReport
+              ? (path) => repository.exportTaskReport!.call(repository, path, days)
+              : undefined
+          }
           onClose={() => setOpen(false)}
         />
       ) : null}

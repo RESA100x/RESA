@@ -11,7 +11,21 @@ import './archive.css';
  * the archive itself lives in the modal where a list and a history panel fit.
  */
 export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
-  const { archive, projects, reload, refresh, restore, exportArchive, canExport } = useTaskArchive();
+  const {
+    archive,
+    projects,
+    contacts,
+    reload,
+    refresh,
+    restore,
+    restoreMany,
+    setReason,
+    purge,
+    exportArchive,
+    canExport,
+    canAnnotate,
+    canPurge
+  } = useTaskArchive();
   // Restoring writes straight through the repository, so the board (kanban and
   // matrix) has to be told to re-read; otherwise a restored task lingers in the
   // done list until the next unrelated refresh.
@@ -23,6 +37,7 @@ export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
   // waiting for a click: every task write changes this signature (status,
   // completion, archive or edit), and the archive re-reads itself quietly.
   const boardTasks = taskWorkspace?.workspace.data.tasks;
+  const boardTags = taskWorkspace?.workspace.data.tags ?? [];
   const boardSignature = useMemo(
     () => boardTasks
       ? boardTasks.map((task) => `${task.id}:${task.status}:${task.completed ? 1 : 0}:${task.updatedAt}`).join('|')
@@ -76,12 +91,22 @@ export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
         <ArchiveDialog
           archive={archive}
           projects={projects}
+          contacts={contacts.data}
+          tags={boardTags}
           restoreFocusRef={tileRef}
+          canAnnotate={canAnnotate}
+          canPurge={canPurge}
           onRetry={reload}
-          onRestore={async (id) => {
-            await restore(id, 'open');
+          onRestore={async (id, status) => {
+            await restore(id, status);
             await taskWorkspace?.refresh();
           }}
+          onRestoreMany={async (ids, status) => {
+            await restoreMany(ids, status);
+            await taskWorkspace?.refresh();
+          }}
+          onSetReason={canAnnotate ? setReason : undefined}
+          onPurge={canPurge ? purge : undefined}
           onExport={canExport ? exportArchive : undefined}
           onClose={() => setOpen(false)}
         />

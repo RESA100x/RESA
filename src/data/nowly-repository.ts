@@ -53,7 +53,7 @@ import type { SoundSettings } from '../settings/sound-settings';
 import type { StickerAsset, StickerBoard } from '../stickers/sticker-model';
 import type { WorldClock, TimeSettings, Alarm, AlarmDraft } from '../time/time-model';
 import type { SearchHit } from '../lib/search';
-import type { TaskReport } from '../reports/report-model';
+import type { ReportExportSummary, TaskReport } from '../reports/report-model';
 import type { BackupSummary } from '../lib/backup';
 export type { WorldClock, TimeSettings, Alarm, AlarmDraft };
 
@@ -249,7 +249,12 @@ export type NowlyRepository = {
   listTaskEvents?(taskId: string): Promise<TaskEvent[]>;
   // Everything that left the board: done, suspended, cancelled and deleted.
   listTaskArchive?(): Promise<WorkspaceTask[]>;
-  exportTaskArchive?(path: string): Promise<{ path: string; tasks: number }>;
+  // The one-line note explaining why a task left the board.
+  setTaskArchiveReason?(id: string, reason: string | null): Promise<WorkspaceTask>;
+  // Permanently drops archived rows and returns how many were removed.
+  purgeTasks?(ids: string[]): Promise<number>;
+  // Writes the archive to `path`; `ids` narrows it to the rows on screen.
+  exportTaskArchive?(path: string, ids?: string[]): Promise<{ path: string; tasks: number }>;
   listProjects?(): Promise<Project[]>;
   createProject?(draft: ProjectDraft): Promise<Project>;
   updateProject?(id: string, draft: ProjectDraft): Promise<Project>;
@@ -257,6 +262,8 @@ export type NowlyRepository = {
   // Aggregated task statistics for the reports module (created / completed /
   // open over the last `days` days, plus the current backlog snapshot).
   getTaskReport?(days: number): Promise<TaskReport>;
+  // Writes the report to `path`; the extension picks CSV or Markdown.
+  exportTaskReport?(path: string, days: number): Promise<ReportExportSummary>;
   // Global search for the command palette: events, tasks and notes.
   searchAll?(query: string, limit?: number): Promise<SearchHit[]>;
   // One-click backup and transfer; both write/read a single `.resa` file.

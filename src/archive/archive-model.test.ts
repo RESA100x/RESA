@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Project } from '../projects/project-model';
 import type { Task } from '../tasks/task-model';
-import { archiveTabOf, filterArchive, projectName } from './archive-model';
+import { archiveStats, archiveTabOf, closeDays, filterArchive, groupArchiveByMonth, projectName } from './archive-model';
 
 function task(overrides: Partial<Task>): Task {
   return {
@@ -55,5 +55,80 @@ describe('project names', () => {
     expect(projectName(projects, 'p1')).toBe('عتبات');
     expect(projectName(projects, 'missing')).toBe('');
     expect(projectName(projects, null)).toBe('');
+  });
+});
+
+describe('archive filters', () => {
+  it('narrows by assignee, tag and a date range', () => {
+    const rows = [
+      task({ id: 'a', status: 'done', completed: true, completedAt: '2026-11-10T08:00:00.000Z', assigneeContactId: 'c1', tagIds: ['t1'] }),
+      task({ id: 'b', status: 'done', completed: true, completedAt: '2026-11-01T08:00:00.000Z', assigneeContactId: 'c2', tagIds: ['t2'] })
+    ];
+    const now = new Date(2026, 10, 20);
+    expect(
+      filterArchive(rows, { tab: 'all', query: '', projectId: '', assigneeId: 'c1', now }).map((row) => row.id)
+    ).toEqual(['a']);
+    expect(
+      filterArchive(rows, { tab: 'all', query: '', projectId: '', tagId: 't2', now }).map((row) => row.id)
+    ).toEqual(['b']);
+    // The custom range keeps only the row inside [from, to].
+    expect(
+      filterArchive(rows, {
+        tab: 'all',
+        query: '',
+        projectId: '',
+        range: 'custom',
+        from: '2026-11-05',
+        to: '2026-11-30',
+        now
+      }).map((row) => row.id)
+    ).toEqual(['a']);
+  });
+
+  it('matches the assignee name and the archive note in the search box', () => {
+    const rows = [
+      task({ id: 'a', status: 'cancelled', archiveReason: 'بودجه قطع شد', assigneeContactId: 'c1' }),
+      task({ id: 'b', status: 'suspended' })
+    ];
+    const assigneeName = (id: string) => (id === 'c1' ? 'مریم رضایی' : '');
+    expect(
+      filterArchive(rows, { tab: 'all', query: 'بودجه', projectId: '', assigneeName }).map((row) => row.id)
+    ).toEqual(['a']);
+    expect(
+      filterArchive(rows, { tab: 'all', query: 'مریم', projectId: '', assigneeName }).map((row) => row.id)
+    ).toEqual(['a']);
+  });
+});
+
+describe('archive groups and stats', () => {
+  it('groups rows by the display month of their stamp', () => {
+    const rows = [
+      task({ id: 'a', status: 'done', completed: true, completedAt: '2026-11-10T08:00:00.000Z' }),
+      task({ id: 'b', status: 'done', completed: true, completedAt: '2026-11-01T08:00:00.000Z' }),
+      task({ id: 'c', status: 'done', completed: true, completedAt: '2026-09-02T08:00:00.000Z' })
+    ];
+    const groups = groupArchiveByMonth(rows);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].tasks.map((row) => row.id)).toEqual(['a', 'b']);
+    expect(groups[1].tasks.map((row) => row.id)).toEqual(['c']);
+  });
+
+  it('reports the average close time and the oldest unfinished item', () => {
+    const rows = [
+      task({
+        id: 'a',
+        status: 'done',
+        completed: true,
+        createdAt: '2026-11-01T00:00:00.000Z',
+        completedAt: '2026-11-03T00:00:00.000Z'
+      }),
+      task({ id: 'open-old', status: 'open', archivedAt: '2026-10-01T00:00:00.000Z', createdAt: '2026-10-01T00:00:00.000Z' }),
+      task({ id: 'open-new', status: 'open', archivedAt: '2026-11-01T00:00:00.000Z', createdAt: '2026-11-01T00:00:00.000Z' })
+    ];
+    expect(closeDays(rows[0])).toBe(2);
+    const stats = archiveStats(rows);
+    expect(stats.total).toBe(3);
+    expect(stats.averageCloseDays).toBe(2);
+    expect(stats.oldestOpen?.id).toBe('open-old');
   });
 });

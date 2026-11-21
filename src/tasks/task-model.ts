@@ -69,6 +69,8 @@ export type Task = {
   archivedAt?: string | null;
   // The phone-book contact this task is assigned to, if any.
   assigneeContactId?: string | null;
+  // The one-line note explaining why the task left the board; written from the archive.
+  archiveReason?: string | null;
   createdAt: string;
   updatedAt: string;
 };

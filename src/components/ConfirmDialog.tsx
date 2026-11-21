@@ -10,6 +10,9 @@ export type ConfirmDialogProps = {
   confirmLabel: string;
   busyLabel: string;
   busy?: boolean;
+  // Extra gate on top of `busy`, e.g. a "I understand" checkbox that has to be
+  // ticked before the confirm button turns on.
+  confirmDisabled?: boolean;
   errorMessage?: string;
   isTopLayer?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
@@ -25,6 +28,7 @@ export function ConfirmDialog({
   confirmLabel,
   busyLabel,
   busy = false,
+  confirmDisabled = false,
   errorMessage,
   isTopLayer = true,
   restoreFocusRef,
@@ -49,7 +53,7 @@ export function ConfirmDialog({
           <button
             type="button"
             className={`good-button${tone === 'danger' ? ' good-button--danger' : ' good-button--primary'}`}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={onConfirm}
           >
             {busy ? busyLabel : confirmLabel}
