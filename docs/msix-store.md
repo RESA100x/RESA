@@ -1,6 +1,6 @@
 # Microsoft Store MSIX distribution
 
-The MSIX build uses a full-trust desktop application on Windows 10 2004 (19041) or later. It retains the Tauri bundle identifier `com.nowly.app` and detects package identity at runtime. It does not migrate or delete existing user data. The unpackaged installer remains supported.
+The MSIX build uses a full-trust desktop application on Windows 10 2004 (19041) or later. It retains the Tauri bundle identifier `com.resa.app` and detects package identity at runtime. It does not migrate or delete existing user data. The unpackaged installer remains supported.
 
 ## Build
 
@@ -15,7 +15,7 @@ Use Windows, Rust MSVC, Node dependencies from the lockfile, and the Windows SDK
 
 The Store requires a positive major version, components <= 65535 and revision zero. The repository currently has version 0.2.0, so supply a Store version explicitly. Package version and application version can differ; About shows the Cargo application version. Increment the package version for each upload. x64 is the default; arm64 requires the corresponding Rust target, MSVC libraries and native dependency toolchain. ARM64 has not been validated.
 
-`-TargetDirectory` selects a dedicated Cargo target directory. `-SkipBuild` packages an already built `<TargetDirectory>\<target-triple>\release\nowly.exe`; the caller must ensure this executable matches the checked-out sources. Output defaults to `artifacts\msix` inside this worktree. Output is ignored by Git. Never submit validation fixtures containing an older executable.
+`-TargetDirectory` selects a dedicated Cargo target directory. `-SkipBuild` packages an already built `<TargetDirectory>\<target-triple>\release\resa.exe`; the caller must ensure this executable matches the checked-out sources. Output defaults to `artifacts\msix` inside this worktree. Output is ignored by Git. Never submit validation fixtures containing an older executable.
 
 ## GitHub Actions
 
@@ -31,7 +31,7 @@ Explicitly choose `-WebView2 Evergreen`. No runtime or bootstrapper is bundled, 
 
 ## Identity, startup, notifications and updates
 
-The packaged process uses its Windows package identity. Unpackaged builds set the process AUMID to `com.nowly.app` for consistent taskbar grouping. Identity API errors are logged. Nowly does not register an HKCU notification identity or send native system notifications: calendar reminders, focus completion and alarms use Nowly Bar in both packaged and unpackaged builds, with application sounds independent of Windows notification permissions.
+The packaged process uses its Windows package identity. Unpackaged builds set the process AUMID to `com.resa.app` for consistent taskbar grouping. Identity API errors are logged. Nowly does not register an HKCU notification identity or send native system notifications: calendar reminders, focus completion and alarms use Nowly Bar in both packaged and unpackaged builds, with application sounds independent of Windows notification permissions.
 
 `NowlyStartup` is disabled by default. The app enables/disables it with Windows StartupTask APIs and reads actual state when settings are loaded. A user or policy disablement cannot be silently overridden; an enable request returns an actionable error. The manifest starts `nowly-startup.exe`, which resolves its sibling executable and passes `--background`. Existing wallpaper/hide-to-tray behavior is preserved. A background second launch does not bring an existing instance forward. The launcher exits after spawning Nowly.
 
@@ -39,7 +39,7 @@ Packaged update checks read the Product ID from the package's `nowly-store.json`
 
 ## Data, coexistence and uninstall
 
-The logical Tauri app-data path remains `%APPDATA%\com.nowly.app`; it is not changed to the package install directory. MSIX can virtualize AppData writes into the package's per-user data area, including `LocalCache`, depending on Windows version and packaging behavior. Do not assume packaged and unpackaged installations share the same physical SQLite database. Package updates normally retain package data; uninstall/reset can remove package-managed data. External files and unpackaged data can remain. Back up before reset/uninstall and verify actual paths on supported Windows versions.
+The logical Tauri app-data path remains `%APPDATA%\com.resa.app`; it is not changed to the package install directory. MSIX can virtualize AppData writes into the package's per-user data area, including `LocalCache`, depending on Windows version and packaging behavior. Do not assume packaged and unpackaged installations share the same physical SQLite database. Package updates normally retain package data; uninstall/reset can remove package-managed data. External files and unpackaged data can remain. Back up before reset/uninstall and verify actual paths on supported Windows versions.
 
 No automatic copy, merge, deletion or destructive migration is added. To transfer data, quit both editions, back up the entire source data directory (including attachments and SQLite WAL/SHM if present), identify the destination physical data directory in a test installation, and restore a copy while the app is closed. Preserve the source backup and validate tasks, notes, timers and attachments before removing either edition. Do not run both editions against one database or manually point one at the other's active files. Existing single-instance behavior also requires coexistence testing. Disable startup in the old edition before enabling it in the Store edition; the packaged app does not delete the old registry startup entry.
 

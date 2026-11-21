@@ -153,7 +153,7 @@ fn set_app_user_model_id() {
     use windows::core::w;
     use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
-    if let Err(error) = unsafe { SetCurrentProcessExplicitAppUserModelID(w!("com.nowly.app")) } {
+    if let Err(error) = unsafe { SetCurrentProcessExplicitAppUserModelID(w!("com.resa.app")) } {
         eprintln!("failed to set AppUserModelID: {error}");
     }
 }
@@ -210,7 +210,15 @@ fn main() {
                 .path()
                 .app_data_dir()
                 .expect("failed to resolve app data dir");
+            // The app used to be identified as `com.nowly.app`. Bring that
+            // workspace across once, before anything reads the new folder, so
+            // the rebrand is invisible to the user's data.
+            if let Ok(roaming) = app.path().data_dir() {
+                db::adopt_legacy_app_data(&app_dir, &roaming.join("com.nowly.app"));
+            }
             std::fs::create_dir_all(&app_dir).expect("failed to create app data dir");
+            db::adopt_legacy_database(&app_dir);
+            let database_path = app_dir.join(db::DATABASE_FILE);
             if let Err(error) = status_island::remove_legacy_reminder_store(&app_dir) {
                 eprintln!("failed to delete the legacy status island reminder store: {error}");
             }
@@ -226,11 +234,11 @@ fn main() {
                 snapshot_dirs.push(documents.join("RESA Backups"));
             }
             let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-            if let Err(error) = snapshot_database(&app_dir.join("nowly.sqlite"), &snapshot_dirs, &today) {
+            if let Err(error) = snapshot_database(&database_path, &snapshot_dirs, &today) {
                 eprintln!("daily database snapshot failed: {error}");
             }
             let mut connection =
-                open_database(app_dir.join("nowly.sqlite")).expect("failed to open database");
+                open_database(database_path).expect("failed to open database");
             if let Err(error) = stickers::collect_startup_garbage(
                 &mut connection,
                 &stickers::stickers_dir(&app_dir),

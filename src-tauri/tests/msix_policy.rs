@@ -13,8 +13,8 @@ fn packaged_updates_never_offer_a_github_installer() {
 #[test]
 fn only_explicit_background_launches_are_hidden() {
     assert!(package_policy::background_launch([
-        "nowly.exe",
+        "resa.exe",
         "--background"
     ]));
-    assert!(!package_policy::background_launch(["nowly.exe"]));
+    assert!(!package_policy::background_launch(["resa.exe"]));
 }

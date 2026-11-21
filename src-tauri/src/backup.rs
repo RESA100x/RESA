@@ -18,7 +18,10 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 const MANIFEST_NAME: &str = "manifest.json";
-const DATABASE_NAME: &str = "nowly.sqlite";
+const DATABASE_NAME: &str = db::DATABASE_FILE;
+/// Archives written before the rebrand carry the database under the old name;
+/// they must keep importing.
+const LEGACY_DATABASE_NAME: &str = db::LEGACY_DATABASE_FILE;
 const ATTACHMENTS_DIR: &str = "attachments";
 // Image bytes live beside the database, not inside it: note attachments and
 // the sticker board's uploaded pictures. Both travel with the backup.
@@ -174,7 +177,7 @@ pub fn read_manifest(source: &Path) -> Result<BackupManifest, CommandError> {
             "This backup comes from a newer RESA version.",
         ));
     }
-    if archive.by_name(DATABASE_NAME).is_err() {
+    if archive.by_name(DATABASE_NAME).is_err() && archive.by_name(LEGACY_DATABASE_NAME).is_err() {
         return Err(CommandError::reported("This backup has no database."));
     }
     Ok(manifest)
@@ -210,7 +213,7 @@ fn extract(source: &Path, staging: &Staging) -> Result<usize, CommandError> {
             return Err(CommandError::reported("This backup contains an unsafe path."));
         };
         let name = name.to_path_buf();
-        if name == Path::new(DATABASE_NAME) {
+        if name == Path::new(DATABASE_NAME) || name == Path::new(LEGACY_DATABASE_NAME) {
             let mut output = fs::File::create(staging.root.join(DATABASE_NAME))
                 .map_err(CommandError::system)?;
             std::io::copy(&mut entry, &mut output).map_err(CommandError::system)?;
@@ -303,7 +306,7 @@ pub fn import(
     verify_database(&staged_database)?;
 
     let live_database = app_data_dir.join(DATABASE_NAME);
-    let safety = app_data_dir.join(format!("nowly.sqlite.pre-import-{}", file_timestamp()));
+    let safety = app_data_dir.join(format!("{DATABASE_NAME}.pre-import-{}", file_timestamp()));
     if live_database.exists() {
         fs::copy(&live_database, &safety).map_err(CommandError::system)?;
     }
@@ -423,7 +426,7 @@ mod tests {
     #[test]
     fn export_then_import_round_trips_database_and_attachments() {
         let source_dir = temp_dir("source");
-        let connection = database(&source_dir.join("nowly.sqlite"));
+        let connection = database(&source_dir.join(super::DATABASE_NAME));
         let attachments = source_dir.join("attachments");
         std::fs::create_dir_all(&attachments).unwrap();
         std::fs::write(attachments.join("logo.txt"), b"image-bytes").unwrap();
@@ -439,7 +442,7 @@ mod tests {
         drop(connection);
 
         let target_dir = temp_dir("target");
-        let mut target = Connection::open(target_dir.join("nowly.sqlite")).unwrap();
+        let mut target = Connection::open(target_dir.join(super::DATABASE_NAME)).unwrap();
         target.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate(&mut target).unwrap();
         let imported = import(&target_dir, &archive, &mut target).unwrap();
@@ -464,9 +467,39 @@ mod tests {
         let dir = temp_dir("reject");
         let not_a_backup = dir.join("random.resa");
         std::fs::write(&not_a_backup, b"definitely not a zip").unwrap();
-        let mut connection = Connection::open(dir.join("nowly.sqlite")).unwrap();
+        let mut connection = Connection::open(dir.join(super::DATABASE_NAME)).unwrap();
         let error = import(&dir, &not_a_backup, &mut connection).unwrap_err();
         assert_eq!(error.code, "system_error");
+    }
+
+    #[test]
+    fn imports_an_archive_written_with_the_old_database_name() {
+        let source_dir = temp_dir("legacy-source");
+        let connection = database(&source_dir.join("legacy.sqlite"));
+        drop(connection);
+        let archive = source_dir.join("legacy.resa");
+        let file = std::fs::File::create(&archive).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file("manifest.json", options).unwrap();
+        zip.write_all(
+            br#"{"format":"resa-backup","version":1,"appVersion":"0.2.0","createdAt":"t","attachments":0}"#,
+        )
+        .unwrap();
+        zip.start_file(super::LEGACY_DATABASE_NAME, options).unwrap();
+        zip.write_all(&std::fs::read(source_dir.join("legacy.sqlite")).unwrap())
+            .unwrap();
+        zip.finish().unwrap();
+
+        let target_dir = temp_dir("legacy-target");
+        let mut target = Connection::open(target_dir.join(super::DATABASE_NAME)).unwrap();
+        target.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        migrate(&mut target).unwrap();
+        import(&target_dir, &archive, &mut target).unwrap();
+        let notes: i64 = target
+            .query_row("SELECT COUNT(*) FROM notes WHERE id='n1'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(notes, 1);
     }
 
     #[test]

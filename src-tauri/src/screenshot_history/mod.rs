@@ -19,8 +19,17 @@ pub fn setup<R: tauri::Runtime>(
         .path()
         .app_cache_dir()
         .map_err(|_| crate::error::CommandError::reported("无法定位缩略图缓存。"))?;
+    // Screenshots used to live under `Pictures\Nowly`. Move that folder to
+    // `Pictures\RESA` once; if the move fails the old path keeps working.
+    let mut screenshots_root = pictures.join("RESA");
+    if !screenshots_root.exists() {
+        let legacy_root = pictures.join("Nowly");
+        if legacy_root.exists() && std::fs::rename(&legacy_root, &screenshots_root).is_err() {
+            screenshots_root = legacy_root;
+        }
+    }
     let store = store::HistoryStore::new(
-        pictures.join("Nowly").join("Screenshots"),
+        screenshots_root.join("Screenshots"),
         cache.join("screenshot-thumbnails"),
     );
     // Failed deletion remains retryable; individual failures must not prevent startup.

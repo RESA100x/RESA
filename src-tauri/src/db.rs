@@ -4,6 +4,65 @@ use std::sync::Mutex;
 
 pub struct AppDb(pub Mutex<Connection>);
 
+/// The database file name. Everything that opens the live database goes through
+/// this constant so the name lives in exactly one place.
+pub const DATABASE_FILE: &str = "resa.sqlite";
+/// The name this build used before the rebrand. Kept so an upgrade finds, and
+/// keeps, the workspace that is already on disk.
+pub const LEGACY_DATABASE_FILE: &str = "nowly.sqlite";
+
+/// The app used to be identified as `com.nowly.app`. Copy that folder into the
+/// new identity once, so renaming the app never costs the user their workspace.
+/// The old folder is left untouched as a safety copy.
+pub fn adopt_legacy_app_data(new_dir: &Path, legacy_dir: &Path) {
+    if new_dir == legacy_dir || !legacy_dir.is_dir() {
+        return;
+    }
+    if new_dir.join(DATABASE_FILE).exists() || new_dir.join(LEGACY_DATABASE_FILE).exists() {
+        return;
+    }
+    copy_tree(legacy_dir, new_dir);
+}
+
+fn copy_tree(from: &Path, to: &Path) {
+    if std::fs::create_dir_all(to).is_err() {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(from) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let source = entry.path();
+        let target = to.join(entry.file_name());
+        if source.is_dir() {
+            copy_tree(&source, &target);
+        } else if !target.exists() {
+            let _ = std::fs::copy(&source, &target);
+        }
+    }
+}
+
+/// Rename a database left under the previous file name so an upgrade keeps its
+/// rows. Sidecar journals move with it; a stale one under the new name would
+/// otherwise be replayed against the wrong file.
+pub fn adopt_legacy_database(dir: &Path) {
+    let current = dir.join(DATABASE_FILE);
+    let legacy = dir.join(LEGACY_DATABASE_FILE);
+    if current.exists() || !legacy.exists() {
+        return;
+    }
+    if std::fs::rename(&legacy, &current).is_err() {
+        let _ = std::fs::copy(&legacy, &current);
+    }
+    for suffix in ["-wal", "-shm", "-journal"] {
+        let from = dir.join(format!("{LEGACY_DATABASE_FILE}{suffix}"));
+        let to = dir.join(format!("{DATABASE_FILE}{suffix}"));
+        if from.exists() && !to.exists() {
+            let _ = std::fs::rename(from, to);
+        }
+    }
+}
+
 /// How many daily snapshots each backup folder keeps. Two weeks is enough to
 /// notice a problem and still keep the workspace small.
 const SNAPSHOT_KEEP: usize = 14;
@@ -2065,13 +2124,74 @@ mod tests {
                 .as_nanos()
         ));
         let backups = root.join("backups");
-        super::snapshot_database(&root.join("nowly.sqlite"), &[backups.clone()], "2026-11-21").unwrap();
+        super::snapshot_database(&root.join(super::DATABASE_FILE), &[backups.clone()], "2026-11-21").unwrap();
         assert!(!backups.exists());
 
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("nowly.sqlite"), b"").unwrap();
-        super::snapshot_database(&root.join("nowly.sqlite"), &[backups.clone()], "2026-11-21").unwrap();
+        std::fs::write(root.join(super::DATABASE_FILE), b"").unwrap();
+        super::snapshot_database(&root.join(super::DATABASE_FILE), &[backups.clone()], "2026-11-21").unwrap();
         assert!(!backups.exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn adopt_legacy_database_renames_the_old_file_and_keeps_its_bytes() {
+        let root = std::env::temp_dir().join(format!(
+            "resa-legacy-db-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join(super::LEGACY_DATABASE_FILE), b"old-rows").unwrap();
+        std::fs::write(root.join(format!("{}-wal", super::LEGACY_DATABASE_FILE)), b"wal").unwrap();
+
+        super::adopt_legacy_database(&root);
+
+        assert_eq!(std::fs::read(root.join(super::DATABASE_FILE)).unwrap(), b"old-rows");
+        assert!(root.join(format!("{}-wal", super::DATABASE_FILE)).exists());
+        assert!(!root.join(super::LEGACY_DATABASE_FILE).exists());
+
+        // Running again on an already-migrated folder is a no-op.
+        std::fs::write(root.join(super::LEGACY_DATABASE_FILE), b"stale").unwrap();
+        super::adopt_legacy_database(&root);
+        assert_eq!(std::fs::read(root.join(super::DATABASE_FILE)).unwrap(), b"old-rows");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn adopt_legacy_app_data_copies_the_old_workspace_once() {
+        let root = std::env::temp_dir().join(format!(
+            "resa-legacy-data-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let legacy = root.join("com.nowly.app");
+        let fresh = root.join("com.resa.app");
+        std::fs::create_dir_all(legacy.join("attachments")).unwrap();
+        std::fs::write(legacy.join(super::LEGACY_DATABASE_FILE), b"rows").unwrap();
+        std::fs::write(legacy.join("attachments/file.png"), b"png").unwrap();
+
+        super::adopt_legacy_app_data(&fresh, &legacy);
+
+        assert_eq!(std::fs::read(fresh.join(super::LEGACY_DATABASE_FILE)).unwrap(), b"rows");
+        assert_eq!(std::fs::read(fresh.join("attachments/file.png")).unwrap(), b"png");
+        // The old folder is a safety copy and stays where it was.
+        assert!(legacy.join(super::LEGACY_DATABASE_FILE).exists());
+
+        // A workspace that already exists under the new identity is never
+        // overwritten by the old one.
+        std::fs::write(fresh.join(super::DATABASE_FILE), b"new").unwrap();
+        std::fs::write(legacy.join(super::LEGACY_DATABASE_FILE), b"stale").unwrap();
+        super::adopt_legacy_app_data(&fresh, &legacy);
+        assert_eq!(std::fs::read(fresh.join(super::DATABASE_FILE)).unwrap(), b"new");
 
         std::fs::remove_dir_all(&root).unwrap();
     }

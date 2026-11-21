@@ -195,7 +195,7 @@ pub(crate) mod native {
             CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 CLASS_NAME,
-                w!("Nowly"),
+                w!("RESA"),
                 WS_POPUP,
                 display.x,
                 display.y,

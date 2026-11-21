@@ -8,7 +8,7 @@ This describes the current source implementation, not a promise that every featu
 
 | Data | Desktop storage |
 |---|---|
-| Local events and recurrence exceptions, tasks and board metadata, notes, focus records, clocks, alarms, layout and most settings | `nowly.sqlite` in the Tauri application-data directory |
+| Local events and recurrence exceptions, tasks and board metadata, notes, focus records, clocks, alarms, layout and most settings | `resa.sqlite` in the Tauri application-data directory |
 | Connected calendar accounts, subscription configuration and cached external events | SQLite; account/provider labels and event content are not encrypted as a whole |
 | OAuth access/refresh tokens and the AI API key | Windows current-user DPAPI encrypted blobs in SQLite; the database itself is not fully encrypted |
 | Rich-text attachments (including notes, events and tasks) | Files in application-data `attachments`; database references/metadata; the existing attachment limit is 1 MiB |
