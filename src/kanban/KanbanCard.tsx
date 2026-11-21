@@ -72,7 +72,7 @@ export function KanbanCard({
             title={priority.name}
           />
         ) : null}
-        <button type="button" className="kanban-card__title" onClick={onOpen}>
+        <button type="button" className="kanban-card__title" title={card.title} onClick={onOpen}>
           {card.title}
         </button>
         {onStatusChange ? (

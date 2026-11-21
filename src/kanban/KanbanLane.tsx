@@ -104,7 +104,7 @@ export function KanbanLane({
         onDragEnd={onLaneDragEnd}
       >
         <span className="kanban-lane__dot" style={colorStyle(lane.color)} aria-hidden="true" />
-        <h3 className="kanban-lane__name">{lane.name}</h3>
+        <h3 className="kanban-lane__name" title={lane.name}>{lane.name}</h3>
         <span className="kanban-lane__count" aria-label={t('kanbanLane.count', { name: lane.name, count: visibleCards.length })}>
           {visibleCards.length}
         </span>
