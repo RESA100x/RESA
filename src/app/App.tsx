@@ -38,6 +38,9 @@ import { PhonebookWidget } from '../phonebook/PhonebookWidget';
 import { ReportsWidget } from '../reports/ReportsWidget';
 import { ArchiveWidget } from '../archive/ArchiveWidget';
 import { ProjectsWidget } from '../projects/ProjectsWidget';
+import { MeetingsWidget } from '../meetings/MeetingsWidget';
+import { useMeetings } from '../meetings/useMeetings';
+import { meetingColor } from '../meetings/meeting-model';
 import { TimeSettingsDialog } from '../time/TimeSettingsDialog';
 import { useFocusTimer } from '../focus/FocusTimerContext';
 import { FocusStatisticsDialog } from '../focus/FocusStatisticsDialog';
@@ -74,6 +77,7 @@ function AppContent() {
   const tasksFeature = useWorkspaceTasks();
   const { refresh: refreshWorkspace, workspace: taskWorkspace } = useTaskWorkspace();
   const notesFeature = useNotes();
+  const meetingsFeature = useMeetings();
   const notesView = useNotesView();
   const refreshEvents = useCallback(() => eventsFeature.retryEvents(), [eventsFeature]);
   const events = eventsFeature.events.data;
@@ -87,6 +91,29 @@ function AppContent() {
     );
     return [
       ...events,
+      ...meetingsFeature.meetings.data.map((meeting) => ({
+        id: `meeting:${meeting.id}`,
+        meetingId: meeting.id,
+        title: meeting.title,
+        startAt: meeting.startsAt,
+        endAt: meeting.endsAt,
+        allDay: false,
+        category: '',
+        color: meetingColor(meeting.status),
+        note: '',
+        reminders: [],
+        createdAt: meeting.createdAt,
+        updatedAt: meeting.updatedAt,
+        recurrence: null,
+        startTz: null,
+        endTz: null,
+        rrule: null,
+        seriesId: null,
+        seriesStartAt: null,
+        occurrenceStartAt: null,
+        isOverridden: false,
+        subscriptionId: null
+      })),
       ...dueTasks.map((task) => ({
         id: `task:${task.id}`,
         taskId: task.id,
@@ -111,7 +138,7 @@ function AppContent() {
         subscriptionId: null
       }))
     ];
-  }, [events, taskWorkspace.data.tasks]);
+  }, [events, meetingsFeature.meetings.data, taskWorkspace.data.tasks]);
   const notes = notesFeature.notes.data;
   const [modal, setModal] = useState<ModalState>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -195,6 +222,7 @@ function AppContent() {
     modules.reports = <ReportsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
     modules.archive = <ArchiveWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
     modules.projects = <ProjectsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+    modules.meetings = <MeetingsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   {
     modules.calendar = (
       <CalendarWidget
@@ -216,6 +244,10 @@ function AppContent() {
         onCreateEventForDate={(dateIso) => openModalInForeground({ type: 'event-create', dateIso, trigger: null })}
         onOpenDate={(isoDate) => openModalInForeground({ type: 'date', isoDate, trigger: null })}
         onOpenEvent={(event) => {
+          if (event.meetingId) {
+            openModalInForeground({ type: 'meeting-edit', meetingId: event.meetingId, trigger: null });
+            return;
+          }
           if (event.taskId) {
             const task = taskWorkspace.data.tasks.find((item) => item.id === event.taskId);
             if (task) openModalInForeground({ type: 'workspace-task-edit', task, trigger: null });

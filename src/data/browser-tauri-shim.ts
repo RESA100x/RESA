@@ -59,6 +59,7 @@ type Store = {
   contactCategories: Dict[];
   projects: Dict[];
   taskEvents: Dict[];
+  meetings: Dict[];
   settings: Dict;
   moduleLayout: Dict[];
   focusSessions: Dict[];
@@ -110,6 +111,7 @@ function emptyStore(): Store {
     contactCategories: [],
     projects: [],
     taskEvents: [],
+    meetings: [],
     settings: { ...defaultSettings },
     moduleLayout: [],
     focusSessions: [],
@@ -1302,6 +1304,72 @@ export function installBrowserTauriBackend() {
       store.plants = store.plants.map((plant) =>
         plant.id === a.id ? (updated = { ...plant, lastWateredAt: a.wateredAt, updatedAt: nowIso() }) : plant
       );
+      persist();
+      return updated;
+    },
+
+    // Meetings: one row plus attendees and agenda/follow-up items.
+    list_meetings: () => store.meetings,
+    save_meeting: (a) => {
+      const draft = a.draft as Dict;
+      const title = String(draft.title ?? '').trim();
+      if (!title) throw { code: 'validation_error', field: 'title', message: '会议标题不能为空。' };
+      const startsAt = String(draft.startsAt ?? '');
+      const endsAt = String(draft.endsAt ?? '');
+      if (!startsAt || !endsAt) throw { code: 'validation_error', field: 'startsAt', message: '会议时间无效。' };
+      if (endsAt < startsAt) throw { code: 'validation_error', field: 'endsAt', message: '结束时间早于开始时间。' };
+      const attendees = ((draft.attendees as Dict[]) ?? []).map((attendee) => ({
+        contactId: String(attendee.contactId ?? ''),
+        required: attendee.required !== false,
+        attendance: String(attendee.attendance ?? 'unknown'),
+        lateMinutes: Number(attendee.lateMinutes ?? 0)
+      }));
+      const items = ((draft.items as Dict[]) ?? []).map((item, index) => ({
+        id: String(item.id ?? id('mi')),
+        kind: String(item.kind ?? 'agenda'),
+        title: String(item.title ?? '').trim(),
+        ownerContactId: (item.ownerContactId as string | null) ?? null,
+        dueDate: (item.dueDate as string | null) ?? null,
+        taskId: (item.taskId as string | null) ?? null,
+        position: index
+      }));
+      const existing = a.id ? store.meetings.find((meeting) => meeting.id === a.id) : undefined;
+      const saved: Dict = {
+        ...(existing ?? { id: id('meeting'), createdAt: nowIso() }),
+        title,
+        agenda: String(draft.agenda ?? ''),
+        minutes: String(draft.minutes ?? ''),
+        location: String(draft.location ?? ''),
+        startsAt,
+        endsAt,
+        status: String(draft.status ?? 'planned'),
+        projectId: (draft.projectId as string | null) ?? null,
+        attendees,
+        items,
+        updatedAt: nowIso()
+      };
+      store.meetings = existing
+        ? store.meetings.map((meeting) => meeting.id === saved.id ? saved : meeting)
+        : [...store.meetings, saved];
+      persist();
+      return saved;
+    },
+    delete_meeting: (a) => {
+      store.meetings = store.meetings.filter((meeting) => meeting.id !== a.id);
+      persist();
+    },
+    export_meeting: (a) => {
+      const meeting = store.meetings.find((row) => row.id === a.id);
+      if (!meeting) throw { code: 'not_found', message: '会议不存在。' };
+      return { path: String(a.path ?? ''), bytes: JSON.stringify(meeting).length };
+    },
+    set_task_assignee: (a) => {
+      const contactId = (a.contactId as string | null) ?? null;
+      let updated: Dict | undefined;
+      store.tasks = store.tasks.map((task) =>
+        task.id === a.id ? (updated = { ...task, assigneeContactId: contactId, updatedAt: nowIso() }) : task
+      );
+      if (!updated) throw { code: 'not_found', message: '未找到该任务。' };
       persist();
       return updated;
     },

@@ -172,6 +172,7 @@ fn read_task_base(row: &Row<'_>) -> rusqlite::Result<Task> {
         status: row.get(14)?,
         project_id: row.get(15)?,
         archived_at: row.get(16)?,
+        assignee_contact_id: row.get(17)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
     })
@@ -209,7 +210,7 @@ fn task_by_id(connection: &Connection, id: &str) -> Result<Option<Task>, Command
         .query_row(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
              FROM tasks WHERE id=?1",
             [id],
             read_task_base,
@@ -227,7 +228,7 @@ fn list_tasks(connection: &Connection) -> Result<Vec<Task>, CommandError> {
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
              FROM tasks WHERE archived_at IS NULL
              ORDER BY lane_id,board_position,id",
         )
@@ -905,6 +906,39 @@ pub fn set_project(
     Ok(task)
 }
 
+/// Assign a task to a phone-book contact, or clear it with `None`.
+pub fn set_assignee(
+    connection: &Connection,
+    id: &str,
+    contact_id: Option<&str>,
+) -> Result<Task, CommandError> {
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    if let Some(contact_id) = contact_id {
+        let exists: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM contacts WHERE id=?1)",
+                [contact_id],
+                |row| row.get(0),
+            )
+            .map_err(CommandError::database)?;
+        if !exists {
+            return Err(CommandError::validation("assigneeContactId", "联系人不存在。"));
+        }
+    }
+    transaction
+        .execute(
+            "UPDATE tasks SET assignee_contact_id=?2,updated_at=?3 WHERE id=?1",
+            params![id, contact_id, timestamp()],
+        )
+        .map_err(sql_write_error)?;
+    record_event(&transaction, id, "assignee", contact_id)?;
+    let task =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(task)
+}
+
 /// The action history of one task, oldest first.
 pub fn list_events(connection: &Connection, task_id: &str) -> Result<Vec<TaskEvent>, CommandError> {
     connection
@@ -934,7 +968,7 @@ pub fn list_archive(connection: &Connection) -> Result<Vec<Task>, CommandError> 
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id
              FROM tasks
              WHERE archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')
              ORDER BY COALESCE(completed_at,updated_at) DESC, id",
@@ -1481,6 +1515,19 @@ pub fn set_task_project(
 ) -> Result<Task, CommandError> {
     let mut connection = db.0.lock().map_err(CommandError::database)?;
     let task = set_project(&mut connection, &id, project_id.as_deref())?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn set_task_assignee(
+    db: State<'_, AppDb>,
+    id: String,
+    contact_id: Option<String>,
+) -> Result<Task, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    let task = set_assignee(&mut connection, &id, contact_id.as_deref())?;
     drop(connection);
     crate::status_island::invalidate_registered()?;
     Ok(task)

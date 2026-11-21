@@ -32,6 +32,7 @@ mod oauth;
 mod oauth_config;
 mod plants;
 mod projects;
+mod meetings;
 mod quick_panel;
 mod quick_create;
 mod recurrence;
@@ -63,7 +64,7 @@ mod wallpaper;
 mod window_lifecycle;
 mod write_scope;
 
-use db::{open_database, AppDb};
+use db::{open_database, snapshot_database, AppDb};
 use std::sync::Mutex;
 use tauri::menu::{MenuBuilder, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -217,6 +218,17 @@ fn main() {
             // has a stable, discoverable place to read drafts from.
             std::fs::create_dir_all(app_dir.join("dev-modules"))
                 .expect("failed to create dev-modules dir");
+            // Daily snapshots: one inside the app data folder for a fast
+            // recovery, one in Documents so a wiped profile or a cleanup tool
+            // cannot take the only copy with it.
+            let mut snapshot_dirs = vec![app_dir.join("backups")];
+            if let Ok(documents) = app.path().document_dir() {
+                snapshot_dirs.push(documents.join("RESA Backups"));
+            }
+            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+            if let Err(error) = snapshot_database(&app_dir.join("nowly.sqlite"), &snapshot_dirs, &today) {
+                eprintln!("daily database snapshot failed: {error}");
+            }
             let mut connection =
                 open_database(app_dir.join("nowly.sqlite")).expect("failed to open database");
             if let Err(error) = stickers::collect_startup_garbage(
@@ -643,6 +655,8 @@ fn main() {
             search::search_all,
             backup::export_backup,
             backup::import_backup,
+            backup::backups_folder,
+            backup::open_backups_folder,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,
@@ -658,6 +672,11 @@ fn main() {
             task_workspace::set_task_view_preferences,
     task_workspace::set_task_status,
     task_workspace::set_task_project,
+    task_workspace::set_task_assignee,
+    meetings::list_meetings,
+    meetings::save_meeting,
+    meetings::delete_meeting,
+    meetings::export_meeting,
     task_workspace::list_task_events,
     task_workspace::list_task_archive,
     task_workspace::export_task_archive,

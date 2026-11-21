@@ -13,6 +13,7 @@ import type { CalendarSubscription, SubscriptionDraft } from '../calendar/subscr
 import { useTaskWorkspace } from '../tasks/TaskWorkspaceContext';
 import { UnifiedTaskDialog } from '../tasks/UnifiedTaskDialog';
 import { TaskSettingsDialog } from '../tasks/TaskSettingsDialog';
+import { MeetingDialog } from '../meetings/MeetingDialog';
 import { isEventWritable } from '../calendar/calendar-model';
 import { effectiveWeekStart } from '../lib/date';
 
@@ -77,6 +78,10 @@ export function ModalRoot({
         onClose={onClose}
         onCreateEvent={(isoDate) => onChangeModal({ type:'event-create', dateIso:isoDate, trigger:null, parentDate:isoDate })}
         onEditEvent={(event, trigger) => {
+          if (event.meetingId) {
+            onChangeModal({ type: 'meeting-edit', meetingId: event.meetingId, trigger });
+            return;
+          }
           if (event.taskId) {
             const task = workspace.workspace.data.tasks.find((item) => item.id === event.taskId);
             if (task) onChangeModal({ type:'workspace-task-edit', task, trigger, parentDate:date });
@@ -161,6 +166,13 @@ export function ModalRoot({
         createCategory={createCategory}
         updateCategory={updateCategory}
         deleteCategory={deleteCategory}
+      />
+    ) : null}
+    {modal.type === 'meeting-edit' ? (
+      <MeetingDialog
+        meetingId={modal.meetingId}
+        restoreFocusRef={{ current: modal.trigger }}
+        onClose={onClose}
       />
     ) : null}
   </>;

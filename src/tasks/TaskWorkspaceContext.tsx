@@ -51,6 +51,7 @@ type TaskWorkspaceContextValue = {
   setTaskRecurrence(id: string, recurrence: Recurrence | null): Promise<Task>;
   setTaskStatus(id: string, status: TaskStatus): Promise<Task>;
   setTaskProject(id: string, projectId: string | null): Promise<Task>;
+  setTaskAssignee(id: string, contactId: string | null): Promise<Task>;
   moveTaskToLane(id: string, laneId: string, targetIndex: number): Promise<Task>;
   moveTaskToPriority(id: string, priority: TaskPriority): Promise<Task>;
   moveTaskToDate(id: string, dueDate: string | null): Promise<Task>;
@@ -291,6 +292,12 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     return taskWrite(id, () => write(id, projectId));
   }, [repository, taskWrite]);
 
+  const setTaskAssignee = useCallback((id: string, contactId: string | null) => {
+    const write = repository.setTaskAssignee;
+    if (!write) return Promise.reject(new Error(missing('setTaskAssignee')));
+    return taskWrite(id, () => write(id, contactId));
+  }, [repository, taskWrite]);
+
   const moveTaskToLane = useCallback((id: string, laneId: string, targetIndex: number) => {
     const write = repository.moveTaskToLane ?? (() => missing('moveTaskToLane'));
     const previous = dataRef.current;
@@ -359,6 +366,7 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
     setTaskRecurrence,
     setTaskStatus,
     setTaskProject,
+    setTaskAssignee,
     moveTaskToLane,
     moveTaskToPriority,
     moveTaskToDate,
@@ -381,7 +389,7 @@ export function TaskWorkspaceProvider({ children }: { children: ReactNode }) {
   }), [
     workspace, pendingTaskIds, operationError, retry, refresh, createTask, updateTask, deleteTask,
     setTaskCompleted, setTaskRecurrence, moveTaskToLane, moveTaskToPriority, moveTaskToDate,
-    setTaskStatus, setTaskProject,
+    setTaskStatus, setTaskProject, setTaskAssignee,
     snapshotWrite, reloadAfter, repository
   ]);
 

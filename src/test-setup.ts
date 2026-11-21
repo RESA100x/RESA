@@ -29,12 +29,12 @@ vi.mock('./components/rich-text/rich-deps', () => ({
   resetRichTextDeps: () => {}
 }));
 
-// The i18n store reads its initial language from the system (navigator), and
-// the existing unit tests assert Chinese output from the pure formatters /
-// labels. jsdom reports `en-US` by default, so pin the reported language to
-// Chinese before any module reads it, keeping those assertions valid
-// regardless of the host locale.
+// A fresh install now opens in Persian, while the existing unit tests assert
+// Chinese output from the pure formatters and labels. Seed the saved choice
+// before any module reads it so those assertions stay valid; tests that care
+// about the default clear the key themselves.
 try {
+  localStorage.setItem('nowly.language', 'zh');
   Object.defineProperty(navigator, 'language', { value: 'zh-CN', configurable: true });
   Object.defineProperty(navigator, 'languages', { value: ['zh-CN'], configurable: true });
 } catch {

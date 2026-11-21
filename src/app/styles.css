@@ -1891,6 +1891,20 @@ body:has(.screen-status-island-root),
 .kanban-card__date--overdue svg { color: var(--color-danger-active); }
 .kanban-card__clip { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; }
 .kanban-card__clip svg { width: 16px; height: 16px; flex: none; color: var(--text-tertiary); }
+.kanban-card__assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kanban-card__assignee svg { width: 16px; height: 16px; flex: none; color: var(--text-tertiary); }
 /* Step count on cards and matrix rows (design.md §10.14). The icon inherits the
    text colour instead of overriding it (§13.3). */
 .task-step-count { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }

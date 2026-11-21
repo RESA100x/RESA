@@ -24,6 +24,7 @@ import type { MatrixTask, TaskDraft } from '../matrix/matrix-model';
 import type { Attachment } from '../lib/attachment';
 import type { Note, NoteDraft } from '../notes/notes-model';
 import type { Plant, PlantDraft } from '../plants/plant-model';
+import type { Meeting, MeetingDraft, MeetingExportSummary } from '../meetings/meeting-model';
 import type {
   Contact,
   ContactCategory,
@@ -146,6 +147,11 @@ export type NowlyRepository = {
   updatePlant?(id: string, draft: PlantDraft): Promise<Plant>;
   deletePlant?(id: string): Promise<void>;
   waterPlant?(id: string, wateredAt: string): Promise<Plant>;
+  // 会议协调：会议 + 参会人（通讯录联系人）+ 议程 / 跟进事项。
+  listMeetings?(): Promise<Meeting[]>;
+  saveMeeting?(id: string | null, draft: MeetingDraft): Promise<Meeting>;
+  deleteMeeting?(id: string): Promise<void>;
+  exportMeeting?(id: string, path: string): Promise<MeetingExportSummary>;
   // 电话簿模块：姓名 + 电话 + 分组 + 备注。搜索在界面层完成（联系人数量有上限，
   // 过滤是同步的），这里只负责存取。
   listContacts?(): Promise<Contact[]>;
@@ -238,6 +244,7 @@ export type NowlyRepository = {
   // board can change them without opening the full task form.
   setTaskStatus?(id: string, status: TaskStatus): Promise<WorkspaceTask>;
   setTaskProject?(id: string, projectId: string | null): Promise<WorkspaceTask>;
+  setTaskAssignee?(id: string, contactId: string | null): Promise<WorkspaceTask>;
   // The action history of one task, oldest first.
   listTaskEvents?(taskId: string): Promise<TaskEvent[]>;
   // Everything that left the board: done, suspended, cancelled and deleted.
@@ -255,6 +262,10 @@ export type NowlyRepository = {
   // One-click backup and transfer; both write/read a single `.resa` file.
   exportBackup?(path: string): Promise<BackupSummary>;
   importBackup?(path: string): Promise<BackupSummary>;
+  /** Path of the folder holding the automatic daily snapshots. */
+  backupsFolder?(): Promise<string>;
+  /** Opens that folder in the system file manager and returns its path. */
+  openBackupsFolder?(): Promise<string>;
   moveTaskToLane?(id: string, laneId: string, targetIndex: number): Promise<WorkspaceTask>;
   moveTaskToPriority?(id: string, priority: WorkspaceTask['priority']): Promise<WorkspaceTask>;
   moveTaskToDate?(id: string, dueDate: string | null): Promise<WorkspaceTask>;

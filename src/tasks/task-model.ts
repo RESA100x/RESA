@@ -67,6 +67,8 @@ export type Task = {
   projectId?: string | null;
   // Set when the task was deleted from the board; it stays readable in the archive.
   archivedAt?: string | null;
+  // The phone-book contact this task is assigned to, if any.
+  assigneeContactId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

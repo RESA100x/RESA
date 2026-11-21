@@ -18,6 +18,7 @@ import { celebrateTaskCompletion, prefersReducedMotion } from '../tasks/completi
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FilterSelect, type FilterOption } from '../components/FilterSelect';
 import { t } from '../i18n';
+import { useContacts } from '../phonebook/useContacts';
 
 // Drag payloads carried in component state (dataTransfer is unreliable in the
 // WebView for structured data, and we keep everything static per the design).
@@ -67,6 +68,12 @@ export function KanbanWidget({
 }: KanbanWidgetProps) {
   const kanban = useWorkspaceKanban();
   const workspace = useTaskWorkspace();
+  const { contacts } = useContacts();
+  const assigneeNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const contact of contacts.data) names[contact.id] = contact.name;
+    return names;
+  }, [contacts.data]);
   const { snapshot, dragError } = kanban;
   const data = snapshot.data;
   const { defaultLaneId } = workspace.workspace.data;
@@ -362,6 +369,7 @@ export function KanbanWidget({
                     onCardDragStart={onCardDragStart}
                     onCardDragEnd={onDragEnd}
                     matchesFilter={matchesFilter}
+                    assigneeNames={assigneeNames}
                   />
                 );
               })}

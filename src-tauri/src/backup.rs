@@ -361,6 +361,40 @@ pub fn import_backup(
     import(&directory, Path::new(&path), &mut connection)
 }
 
+/// Where the automatic daily snapshots live. Kept outside the app data folder
+/// so a wiped profile or a cleanup tool cannot take the only copy with it.
+#[tauri::command]
+pub fn backups_folder(app: tauri::AppHandle) -> Result<String, CommandError> {
+    let directory = match app.path().document_dir() {
+        Ok(documents) => documents.join("RESA Backups"),
+        Err(_) => app_data_dir(&app)?.join("backups"),
+    };
+    fs::create_dir_all(&directory).map_err(CommandError::system)?;
+    Ok(directory.to_string_lossy().to_string())
+}
+
+/// Opens that folder in the system file manager, so "where are my backups?"
+/// has a one-click answer.
+#[tauri::command]
+pub fn open_backups_folder(app: tauri::AppHandle) -> Result<String, CommandError> {
+    let path = backups_folder(app)?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(CommandError::system)?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(CommandError::system)?;
+    }
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{export, import, read_manifest, FORMAT};

@@ -19,6 +19,7 @@ import {
 import type { Recurrence, RecurrenceFreq, Weekday } from '../calendar/calendar-model';
 import { quadrantLabel } from '../matrix/matrix-model';
 import { useProjects } from '../projects/useProjects';
+import { useContacts } from '../phonebook/useContacts';
 import { priorityColors } from './task-projections';
 import { useTaskWorkspace } from './TaskWorkspaceContext';
 import { TaskStepsField, type TaskStepItem } from './TaskStepsField';
@@ -52,6 +53,7 @@ type Form = {
   dueDate: string;
   laneId: string | null;
   projectId: string | null;
+  assigneeContactId: string | null;
   tagIds: string[];
   steps: TaskStepItem[];
   stepInput: string;
@@ -77,6 +79,7 @@ function message(error: unknown) {
 export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onClose, onSaved, onDirtyChange }: Props) {
   const workspace = useTaskWorkspace();
   const { projects } = useProjects();
+  const { contacts } = useContacts();
   const snapshot = workspace.workspace.data;
   const initial = useMemo<Form>(() => {
     if (mode.type === 'edit') {
@@ -87,6 +90,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
         dueDate: mode.task.dueDate ?? '',
         laneId: mode.task.laneId,
         projectId: mode.task.projectId ?? null,
+        assigneeContactId: mode.task.assigneeContactId ?? null,
         tagIds: mode.task.tagIds,
         steps: (mode.task.steps ?? []).map((step) => ({
           key: step.id, id: step.id, title: step.title, completed: step.completed
@@ -102,6 +106,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       dueDate: mode.dueDate ?? '',
       laneId: mode.laneId !== undefined ? mode.laneId : showLane ? snapshot.defaultLaneId : null,
       projectId: null,
+      assigneeContactId: null,
       tagIds: [],
       steps: [],
       stepInput: '',
@@ -135,6 +140,10 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
     ...projects.data
       .filter((project) => !project.archivedAt)
       .map((project) => ({ value: project.id, label: project.name }))
+  ];
+  const assigneeOptions = [
+    { value: '', label: t('taskModal.noAssignee') },
+    ...contacts.data.map((contact) => ({ value: contact.id, label: contact.name }))
   ];
 
   const update = <K extends keyof Form>(key: K, value: Form[K]) => {
@@ -228,6 +237,12 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       if ((saved.projectId ?? null) !== form.projectId) {
         saved = await workspace.setTaskProject(saved.id, form.projectId);
       }
+      // Same reasoning for the assignee: one command, so a person can be
+      // attached from the meeting, the board or this dialog without a write
+      // race with the other task writers.
+      if ((saved.assigneeContactId ?? null) !== form.assigneeContactId) {
+        saved = await workspace.setTaskAssignee(saved.id, form.assigneeContactId);
+      }
       await onSaved?.(saved);
       onClose();
     } catch (error) {
@@ -317,6 +332,9 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
           <Select id="unified-task-project" label={t('taskModal.project')} options={projectOptions}
             value={form.projectId ?? ''} disabled={busy}
             onChange={(value) => update('projectId', value || null)} />
+          <Select id="unified-task-assignee" label={t('taskModal.assignee')} options={assigneeOptions}
+            searchable value={form.assigneeContactId ?? ''} disabled={busy}
+            onChange={(value) => update('assigneeContactId', value || null)} />
           <DatePicker id="unified-task-due-date" label={t('taskModal.dueDate')} value={form.dueDate}
             disabled={busy} open={dateOpen} onOpenChange={setDateOpen} onChange={changeDueDate} />
         </div>

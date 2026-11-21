@@ -35,6 +35,8 @@ type KanbanLaneProps = {
   // Optional predicate deciding which cards are visible under the active board
   // filter. Defaults to showing everything.
   matchesFilter?: (card: KanbanCardModel) => boolean;
+  // contactId → name, resolved once by the board.
+  assigneeNames?: Record<string, string>;
 };
 
 // The slot the pointer is above, by comparing it to each slot's midpoint.
@@ -69,7 +71,8 @@ export function KanbanLane({
   onLaneDrop,
   onCardDragStart,
   onCardDragEnd,
-  matchesFilter
+  matchesFilter,
+  assigneeNames
 }: KanbanLaneProps) {
   const laneCards = cardsInLane(snapshot.cards, lane.id);
   const visibleCards = matchesFilter ? laneCards.filter(matchesFilter) : laneCards;
@@ -132,6 +135,7 @@ export function KanbanLane({
                 onStatusChange={(status) => onCardStatusChange(card.id, status)}
                 onDragStart={(event) => onCardDragStart(event, card.id)}
                 onDragEnd={onCardDragEnd}
+                assigneeName={card.assigneeContactId ? assigneeNames?.[card.assigneeContactId] : undefined}
               />
             </div>
           );

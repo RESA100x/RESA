@@ -54,6 +54,8 @@ export type KanbanCard = {
   // Lifecycle state; suspended and cancelled cards also leave the board.
   status?: TaskStatus;
   projectId?: string | null;
+  // Phone-book contact responsible for the task, if any.
+  assigneeContactId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

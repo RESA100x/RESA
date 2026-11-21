@@ -104,6 +104,10 @@ export type CalendarEvent = {
   // chips are read-only on the grid: clicking opens the task, dragging does not
   // move the event.
   taskId?: string | null;
+    // Set when this chip is a meeting from the meetings module. Like task
+    // chips it is read-only on the grid: the meeting is edited in its own
+    // dialog, so dragging never detaches it from its agenda and attendees.
+    meetingId?: string | null;
   // Non-null when this event comes from a read-only calendar subscription; the
   // value is the source subscription id. Local events are always null.
   subscriptionId: string | null;

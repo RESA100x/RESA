@@ -149,6 +149,7 @@ export function taskToKanbanCard(task: Task & { laneId: string }): KanbanCard {
     completed: task.completed,
     status: task.status,
     projectId: task.projectId ?? null,
+    assigneeContactId: task.assigneeContactId ?? null,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt
   };

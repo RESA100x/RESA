@@ -41,5 +41,8 @@ export function useTaskReport(days: number) {
   }, [load]);
 
   const reload = useCallback(() => load(false), [load]);
-  return { report, reload };
+  // A silent refresh keeps the numbers on screen while they are replaced; the
+  // widget uses it when the board or the calendar day changes underneath it.
+  const refresh = useCallback(() => load(true), [load]);
+  return { report, reload, refresh };
 }

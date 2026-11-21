@@ -1,0 +1,230 @@
+/* Meetings: one block that opens a working sheet — schedule, people, agenda
+   and what came out of it. Logical properties only, so the RTL desktop and the
+   LTR locales share one stylesheet. */
+.overlay:has(> .meeting-dialog) { grid-template-columns: minmax(0, 1fr); }
+.good-dialog.meeting-dialog { width: min(920px, calc(100vw - 32px)); min-width: 0; max-width: 100%; }
+.good-dialog.meeting-dialog .good-dialog__body { overflow: auto; }
+
+.meeting-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.meeting-dialog__notes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.meeting-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block: var(--space-1);
+}
+.meeting-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.meeting-form__row > .good-field { flex: 1 1 160px; min-width: 0; }
+.meeting-form__title { flex: 2 1 260px; }
+.meeting-form__location { flex: 2 1 220px; }
+.meeting-form__text { resize: vertical; min-height: 64px; line-height: 1.7; }
+
+.meeting-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.meeting-section > h4 {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.meeting-attendees { display: flex; flex-direction: column; gap: 6px; }
+.meeting-attendee {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.meeting-attendee__name {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meeting-attendee__required {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.meeting-attendee__late {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.meeting-attendee__late .good-input { width: 64px; }
+.meeting-attendee > .select-field { flex: 0 0 150px; }
+
+.meeting-attendees__add { display: flex; align-items: center; gap: var(--space-2); }
+.meeting-attendees__add .select-field { flex: 0 1 240px; }
+
+.meeting-items { display: flex; flex-direction: column; gap: 6px; }
+.meeting-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.meeting-item > .good-input { flex: 2 1 200px; min-width: 0; }
+.meeting-item > .select-field { flex: 0 1 150px; }
+.meeting-item > .date-picker { flex: 0 1 140px; }
+.meeting-item__task {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+.meeting-items__add { align-self: flex-start; }
+
+.good-dialog.meeting-task-dialog { width: min(640px, calc(100vw - 32px)); min-width: 0; max-width: 100%; }
+
+/* The block itself: same door-and-badge shape as the phone book and archive. */
+.meetings-widget { display: flex; min-height: 0; }
+.meetings-tile {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.meetings-tile:disabled { cursor: default; }
+.meetings-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.meetings-tile__plate {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, var(--bg-subtle) 0%, var(--border-default) 100%);
+  color: var(--text-secondary);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.meetings-tile__plate > svg { width: 58%; height: 58%; }
+.meetings-tile__badge {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: var(--shadow-xs);
+}
+
+/* The list */
+.overlay:has(> .meetings-dialog) { grid-template-columns: minmax(0, 1fr); }
+.good-dialog.meetings-dialog { width: min(720px, calc(100vw - 32px)); min-width: 0; max-width: 100%; }
+.good-dialog.meetings-dialog .good-dialog__body { overflow: auto; }
+
+.meetings-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.meeting-group { display: flex; flex-direction: column; gap: 4px; }
+.meeting-group > h4 {
+  margin: 0 0 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.meeting-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.meeting-row:hover { background: var(--bg-subtle); }
+.meeting-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.meeting-row[data-status='cancelled'] { opacity: 0.6; }
+
+.meeting-row__when {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 92px;
+}
+.meeting-row__day { font-size: 0.8rem; font-weight: 700; }
+.meeting-row__time { font-size: 0.74rem; color: var(--text-secondary); }
+.meeting-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.meeting-row__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meeting-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+.meeting-row__status {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}

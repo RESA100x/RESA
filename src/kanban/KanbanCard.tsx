@@ -1,4 +1,4 @@
-import { CalendarDays, Paperclip } from '../components/icons';
+import { CalendarDays, Paperclip, UserCircle } from '../components/icons';
 import type { DragEvent } from 'react';
 import { contentAttachments } from '../components/rich-text/content';
 import type { ResolvedCard } from './kanban-view';
@@ -18,6 +18,9 @@ type KanbanCardProps = {
   onStatusChange?: (status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
+  // Resolved once by the board from the phone book, so a card never fetches
+  // contacts by itself.
+  assigneeName?: string;
 };
 
 // The states a card can move to from the board. "open" is the way back, so a
@@ -34,7 +37,8 @@ export function KanbanCard({
   onOpen,
   onStatusChange,
   onDragStart,
-  onDragEnd
+  onDragEnd,
+  assigneeName
 }: KanbanCardProps) {
   const { card, priority, tags } = resolved;
   const status = taskStatus(card);
@@ -47,7 +51,7 @@ export function KanbanCard({
   const attachmentCount = fileIds.length;
   const hasSteps = stepProgress(card.steps).total > 0;
   const overdue = Boolean(card.dueDate) && isOverdue(card.dueDate!, todayIso);
-  const hasMeta = Boolean(card.dueDate) || hasSteps || attachmentCount > 0 || tags.length > 0;
+  const hasMeta = Boolean(card.dueDate) || hasSteps || attachmentCount > 0 || tags.length > 0 || Boolean(assigneeName);
 
   return (
     <article
@@ -104,6 +108,12 @@ export function KanbanCard({
             </span>
           ) : null}
           <TaskStepCount steps={card.steps} />
+          {assigneeName ? (
+            <span className="kanban-card__assignee" title={assigneeName}>
+              <UserCircle aria-hidden="true" />
+              {assigneeName}
+            </span>
+          ) : null}
           {attachmentCount > 0 ? (
             <span
               className="kanban-card__clip"

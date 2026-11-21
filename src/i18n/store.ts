@@ -7,9 +7,9 @@
 // `subscribe`) so a language switch re-renders the whole tree and every `t()`
 // call picks up the new strings. On startup we prefer a previously saved
 // choice (persisted in localStorage, mirroring `useBlur`/`useOnboarding`) so a
-// manual switch survives reloads and restarts; with no saved choice we follow
-// the Windows UI language (the primary browser language on web), falling back
-// to English when it is unavailable or unsupported.
+// manual switch survives reloads and restarts. With no saved choice the app
+// opens in Persian: RESA is a Persian-first build, and a brand-new install must
+// not land the user in English with a Gregorian calendar.
 
 import { LOCALES, matchLanguage, normalizeLanguage, SUPPORTED_LANGUAGES, type Language } from './locales';
 export { normalizeLanguage, SUPPORTED_LANGUAGES };
@@ -17,14 +17,8 @@ export type { Language };
 
 const LANGUAGE_STORAGE_KEY = 'nowly.language';
 
-function detectSystemLanguage(): Language {
-  // The native shell injects this before any app script in every window,
-  // avoiding WebView language preferences and an asynchronous language flash.
-  if (typeof window !== 'undefined' && '__NOWLY_SYSTEM_LANGUAGE__' in window) {
-    return normalizeLanguage(window.__NOWLY_SYSTEM_LANGUAGE__);
-  }
-  return normalizeLanguage(typeof navigator === 'undefined' ? null : navigator.language);
-}
+/** The language of a fresh install, before the user picks one. */
+export const DEFAULT_LANGUAGE: Language = 'fa';
 
 // Read a persisted choice, ignoring anything unrecognized (or storage errors in
 // restricted environments) so a bad value can never wedge startup.
@@ -37,7 +31,7 @@ function readSavedLanguage(): Language | null {
   }
 }
 
-let current: Language = readSavedLanguage() ?? detectSystemLanguage();
+let current: Language = readSavedLanguage() ?? DEFAULT_LANGUAGE;
 const listeners = new Set<() => void>();
 
 function updateDocumentLanguage(): void {
@@ -54,7 +48,7 @@ updateDocumentLanguage();
 function handleStorageChange(event: StorageEvent): void {
   if (event.key !== LANGUAGE_STORAGE_KEY && event.key !== null) return;
   if (event.storageArea && event.storageArea !== localStorage) return;
-  const next = event.newValue === null ? detectSystemLanguage() : normalizeLanguage(event.newValue);
+  const next = event.newValue === null ? DEFAULT_LANGUAGE : normalizeLanguage(event.newValue);
   if (next === current) return;
   current = next;
   updateDocumentLanguage();

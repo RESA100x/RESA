@@ -1,6 +1,8 @@
 import { BarChart3 } from '../components/icons';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatNumber, t } from '../i18n';
+import { useCurrentTime } from '../app/useCurrentTime';
+import { useOptionalTaskWorkspace } from '../tasks/TaskWorkspaceContext';
 import { ReportsDialog } from './ReportsDialog';
 import { useTaskReport } from './useTaskReport';
 import type { ReportRange } from './report-model';
@@ -13,9 +15,37 @@ import './reports.css';
  */
 export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
   const [days, setDays] = useState<ReportRange>(30);
-  const { report, reload } = useTaskReport(days);
+  const { report, reload, refresh } = useTaskReport(days);
   const [open, setOpen] = useState(false);
   const tileRef = useRef<HTMLButtonElement>(null);
+  // The report is a snapshot of the board, so it has to follow the board: every
+  // task write (a new due date, a completion, an archive) changes this
+  // signature and the numbers re-read themselves without a manual refresh.
+  const taskWorkspace = useOptionalTaskWorkspace();
+  const boardTasks = taskWorkspace?.workspace.data.tasks;
+  const boardSignature = useMemo(
+    () => boardTasks
+      ? boardTasks.map((task) => `${task.id}:${task.status}:${task.completed ? 1 : 0}:${task.dueDate ?? ''}:${task.updatedAt}`).join('|')
+      : '',
+    [boardTasks]
+  );
+  const lastSignature = useRef(boardSignature);
+  useEffect(() => {
+    if (lastSignature.current === boardSignature) return;
+    lastSignature.current = boardSignature;
+    void refresh();
+  }, [boardSignature, refresh]);
+
+  // "Overdue" and "open" are counted against today, so the report also has to
+  // roll over at midnight instead of waiting for the next click.
+  const now = useCurrentTime();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const lastDay = useRef(today);
+  useEffect(() => {
+    if (lastDay.current === today) return;
+    lastDay.current = today;
+    void refresh();
+  }, [today, refresh]);
 
   const totals = report.data?.totals;
   const ready = report.status === 'ready' && totals !== undefined;
@@ -43,7 +73,12 @@ export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
             : t('reports.openTile', { open: formatNumber(openCount) })
         }
         title={detail}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          // Opening is also the moment to pick up focus sessions, which the
+          // board signature does not see.
+          void refresh();
+        }}
       >
         <span className="reports-tile__plate" aria-hidden="true">
           <BarChart3 />

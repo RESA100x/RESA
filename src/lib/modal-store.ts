@@ -17,4 +17,5 @@ export type ModalState =
   | { type: 'external-detail'; event: CalendarEvent; trigger: HTMLElement | null }
   | { type: 'calendar-settings'; trigger: HTMLElement | null }
   | { type: 'task-settings'; trigger: HTMLElement | null }
+  | { type: 'meeting-edit'; meetingId: string | null; trigger: HTMLElement | null }
   | null;

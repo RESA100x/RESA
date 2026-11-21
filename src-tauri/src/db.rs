@@ -1,8 +1,71 @@
 use rusqlite::{Connection, OptionalExtension, Result, Transaction};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub struct AppDb(pub Mutex<Connection>);
+
+/// How many daily snapshots each backup folder keeps. Two weeks is enough to
+/// notice a problem and still keep the workspace small.
+const SNAPSHOT_KEEP: usize = 14;
+
+/// Copy the live database into every backup folder once per day.
+///
+/// This runs before the connection opens, so the copy is a clean file, and
+/// before migrations, so the snapshot is always the last state that actually
+/// started. A wiped profile, a failed upgrade or a bad edit can then be undone
+/// by copying the snapshot back over `nowly.sqlite`.
+pub fn snapshot_database(path: &Path, dirs: &[PathBuf], today: &str) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    // An empty file is a database that never finished creating; snapshotting it
+    // would only overwrite a good copy with nothing.
+    if std::fs::metadata(path).map(|meta| meta.len()).unwrap_or(0) == 0 {
+        return Ok(());
+    }
+    for dir in dirs {
+        if std::fs::create_dir_all(dir).is_err() {
+            continue;
+        }
+        let target = dir.join(format!("RESA-{today}.sqlite"));
+        if !target.exists() {
+            // A failure here must never block launch: the next start retries.
+            if let Err(error) = std::fs::copy(path, &target) {
+                // Leave a breadcrumb: a silent failure here is exactly the case
+                // where the user later has no copy to fall back on.
+                let _ = std::fs::write(
+                    dir.join("snapshot-error.txt"),
+                    format!("{today}: {error}\n"),
+                );
+            }
+        }
+        prune_snapshots(dir);
+    }
+    Ok(())
+}
+
+/// Keep the newest `SNAPSHOT_KEEP` snapshots. Names carry an ISO date, so a
+/// plain name sort is a chronological sort.
+fn prune_snapshots(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut snapshots: Vec<PathBuf> = entries
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+            name.starts_with("RESA-") && name.ends_with(".sqlite")
+        })
+        .collect();
+    if snapshots.len() <= SNAPSHOT_KEEP {
+        return;
+    }
+    snapshots.sort();
+    let excess = snapshots.len() - SNAPSHOT_KEEP;
+    for path in snapshots.into_iter().take(excess) {
+        let _ = std::fs::remove_file(path);
+    }
+}
 
 type Migration = fn(&Transaction<'_>) -> Result<()>;
 
@@ -78,6 +141,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (48, crate::contacts::migrate_profiles),
     (49, migration_49_task_archive),
     (50, migration_50_task_status_and_projects),
+    (51, migration_51_meetings_and_task_assignee),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -331,6 +395,19 @@ fn migration_50_task_status_and_projects(transaction: &Transaction<'_>) -> Resul
          UPDATE tasks SET status = CASE WHEN completed=1 THEN 'done' ELSE 'open' END
           WHERE status IS NULL OR status='';",
     )
+}
+
+/// Meetings (with attendees and agenda items) and the person a task is
+/// assigned to. The assignee points at a phone-book contact so a task, a
+/// meeting and a person all resolve to the same row.
+fn migration_51_meetings_and_task_assignee(transaction: &Transaction<'_>) -> Result<()> {
+    crate::meetings::migrate(transaction)?;
+    if !column_exists(transaction, "tasks", "assignee_contact_id")? {
+        transaction.execute_batch(
+            "ALTER TABLE tasks ADD COLUMN assignee_contact_id TEXT;",
+        )?;
+    }
+    Ok(())
 }
 
 /// Highest schema version this build knows about; used by the backup importer
@@ -1941,6 +2018,64 @@ fn migration_22_remove_reminder_dispatch_foreign_key(transaction: &Transaction<'
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn snapshot_database_writes_one_copy_per_day_and_prunes_old_ones() {
+        let root = std::env::temp_dir().join(format!(
+            "resa-snapshot-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let live = root.join("nowly.sqlite");
+        let backups = root.join("backups");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(&live, b"database-bytes").unwrap();
+
+        super::snapshot_database(&live, &[backups.clone()], "2026-11-21").unwrap();
+        let today = backups.join("RESA-2026-11-21.sqlite");
+        assert_eq!(std::fs::read(&today).unwrap(), b"database-bytes");
+
+        // A second launch the same day keeps the first snapshot untouched.
+        std::fs::write(&live, b"newer-bytes").unwrap();
+        super::snapshot_database(&live, &[backups.clone()], "2026-11-21").unwrap();
+        assert_eq!(std::fs::read(&today).unwrap(), b"database-bytes");
+
+        // Old snapshots beyond the keep window are removed, newest kept.
+        for day in 1..=20 {
+            std::fs::write(backups.join(format!("RESA-2026-10-{day:02}.sqlite")), b"old").unwrap();
+        }
+        super::snapshot_database(&live, &[backups.clone()], "2026-11-21").unwrap();
+        let remaining = std::fs::read_dir(&backups).unwrap().count();
+        assert_eq!(remaining, super::SNAPSHOT_KEEP);
+        assert!(today.exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn snapshot_database_skips_a_missing_or_empty_database() {
+        let root = std::env::temp_dir().join(format!(
+            "resa-snapshot-empty-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let backups = root.join("backups");
+        super::snapshot_database(&root.join("nowly.sqlite"), &[backups.clone()], "2026-11-21").unwrap();
+        assert!(!backups.exists());
+
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("nowly.sqlite"), b"").unwrap();
+        super::snapshot_database(&root.join("nowly.sqlite"), &[backups.clone()], "2026-11-21").unwrap();
+        assert!(!backups.exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
     #[test]
     fn migration_32_only_records_the_reset_capability_without_erasing_data() {
         let mut connection = Connection::open_in_memory().unwrap();

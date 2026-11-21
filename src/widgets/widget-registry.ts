@@ -88,8 +88,20 @@ export const timeDefinition: WidgetDefinition = {
 };
 
 export function buildDefinitions(): WidgetDefinition[] {
-  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, reportsDefinition, archiveDefinition, projectsDefinition, ...extensionDefinitions];
+  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, reportsDefinition, archiveDefinition, projectsDefinition, meetingsDefinition, ...extensionDefinitions];
 }
+
+// Meetings is a launcher too: the cell carries the next-meeting count, the
+// schedule and the editor open in modals.
+export const meetingsDefinition: WidgetDefinition = {
+  id: 'meetings',
+  get name() { return t('widget.meetings.name'); },
+  get description() { return t('widget.meetings.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
+};
 
 // The archive and the project list are launchers too: one cell, one glyph, the
 // list and the history in a modal.

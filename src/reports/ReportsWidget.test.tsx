@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RepositoryProvider } from '../data/RepositoryContext';
 import type { NowlyRepository } from '../data/nowly-repository';
 import { t } from '../i18n';
+import { TaskWorkspaceProvider, useTaskWorkspace } from '../tasks/TaskWorkspaceContext';
+import type { Task, TaskWorkspaceSnapshot } from '../tasks/task-model';
 import { ReportsWidget } from './ReportsWidget';
 import type { TaskReport } from './report-model';
 
@@ -52,6 +54,44 @@ function renderWidget(repo: NowlyRepository) {
 
 afterEach(() => vi.restoreAllMocks());
 
+const emptySnapshot: TaskWorkspaceSnapshot = {
+  lanes: [],
+  tasks: [],
+  tags: [],
+  defaultLaneId: null,
+  viewPreferences: {}
+};
+
+function task(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 't1',
+    title: 'کار',
+    description: '',
+    priority: 'not_important_not_urgent',
+    dueDate: null,
+    completed: false,
+    completedAt: null,
+    laneId: null,
+    boardPosition: 0,
+    tagIds: [],
+    steps: [],
+    projectId: null,
+    archivedAt: null,
+    createdAt: '2026-11-01T08:00:00.000Z',
+    updatedAt: '2026-11-01T08:00:00.000Z',
+    ...overrides
+  };
+}
+
+function BoardProbe() {
+  const workspace = useTaskWorkspace();
+  return (
+    <button type="button" onClick={() => void workspace.createTask({ ...task(), title: 'کار تازه' })}>
+      add
+    </button>
+  );
+}
+
 describe('reports widget', () => {
   it('shows the open count on the tile and opens the report on click', async () => {
     const user = userEvent.setup();
@@ -94,7 +134,34 @@ describe('reports widget', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('alert').textContent).toContain('boom');
+    // Opening the dialog already re-reads once, so the retry is one more call
+    // on top of whatever the open did.
+    const read = repo.getTaskReport as unknown as ReturnType<typeof vi.fn>;
+    const before = read.mock.calls.length;
     await user.click(within(dialog).getByRole('button', { name: t('reports.retry') }));
-    await waitFor(() => expect(repo.getTaskReport).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(before + 1));
+  });
+
+  it('re-reads the report when the board changes underneath it', async () => {
+    const user = userEvent.setup();
+    const repo = {
+      ...repository(report()),
+      getTaskWorkspaceSnapshot: vi.fn(async () => emptySnapshot),
+      createWorkspaceTask: vi.fn(async () => task({ id: 't-new', title: 'کار تازه' }))
+    } as unknown as NowlyRepository;
+    render(
+      <RepositoryProvider repository={repo}>
+        <TaskWorkspaceProvider>
+          <ReportsWidget />
+          <BoardProbe />
+        </TaskWorkspaceProvider>
+      </RepositoryProvider>
+    );
+    const tile = await screen.findByTestId('reports-tile');
+    await waitFor(() => expect(tile.getAttribute('aria-label')).toBe(t('reports.openTile', { open: '3' })));
+    const read = repo.getTaskReport as unknown as ReturnType<typeof vi.fn>;
+    const before = read.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'add' }));
+    await waitFor(() => expect(read.mock.calls.length).toBeGreaterThan(before));
   });
 });

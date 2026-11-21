@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Download, FolderOpen } from '../components/icons';
@@ -33,7 +33,30 @@ export function BackupPanel({ reload = () => window.location.reload() }: { reloa
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [pendingImport, setPendingImport] = useState<string | null>(null);
+  const [snapshotFolder, setSnapshotFolder] = useState('');
   const available = Boolean(repository.exportBackup && repository.importBackup);
+
+  // The daily snapshots are written by the backend before the window opens, so
+  // this only has to show where they are.
+  useEffect(() => {
+    const read = repository.backupsFolder;
+    if (!read) return;
+    let live = true;
+    read.call(repository)
+      .then((folder) => { if (live) setSnapshotFolder(folder); })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [repository]);
+
+  async function openSnapshots() {
+    const openFolder = repository.openBackupsFolder;
+    if (!openFolder) return;
+    try {
+      setSnapshotFolder(await openFolder.call(repository));
+    } catch (reason) {
+      setError(message(reason));
+    }
+  }
 
   async function runExport() {
     setError('');
@@ -98,6 +121,15 @@ export function BackupPanel({ reload = () => window.location.reload() }: { reloa
           </button>
           <span className="backup-panel__hint">{t('backup.importHint')}</span>
         </div>
+        {snapshotFolder ? (
+          <div className="backup-panel__action">
+            <button type="button" className="good-button" onClick={() => void openSnapshots()}>
+              <FolderOpen aria-hidden="true" />
+              {t('backup.openFolder')}
+            </button>
+            <span className="backup-panel__hint">{t('backup.autoHint', { path: snapshotFolder })}</span>
+          </div>
+        ) : null}
       </div>
       {status ? <p className="backup-panel__status" role="status">{status}</p> : null}
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}

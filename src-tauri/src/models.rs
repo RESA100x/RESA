@@ -100,6 +100,10 @@ pub struct Task {
     // Set when the task was deleted from the board (kept for history).
     #[serde(default)]
     pub archived_at: Option<String>,
+    // The phone-book contact this task is assigned to, if any. Written only by
+    // the dedicated command so other task writers never wipe it.
+    #[serde(default)]
+    pub assignee_contact_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
