@@ -8,7 +8,7 @@ import './projects.css';
 // The projects launcher: one cell, the folder glyph, the active project count.
 // The list and its history live in the modal.
 export function ProjectsWidget({ readOnly = false }: { readOnly?: boolean }) {
-  const { projects, reload, createProject, updateProject, archiveProject } = useProjects();
+  const { projects, reload, createProject, updateProject, archiveProject, restoreProject } = useProjects();
   const [open, setOpen] = useState(false);
   const tileRef = useRef<HTMLButtonElement>(null);
 
@@ -55,6 +55,7 @@ export function ProjectsWidget({ readOnly = false }: { readOnly?: boolean }) {
           onCreate={createProject}
           onUpdate={(project, draft) => updateProject(project.id, draft)}
           onArchive={archiveProject}
+          onRestore={restoreProject}
         />
       ) : null}
     </div>

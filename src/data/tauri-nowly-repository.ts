@@ -103,6 +103,7 @@ export const tauriNowlyRepository: NowlyRepository = {
   createProject: (draft) => invalidating(invoke('create_project', { draft })),
   updateProject: (id, draft) => invalidating(invoke('update_project', { id, draft })),
   archiveProject: (id) => invalidating(invoke('archive_project', { id })),
+  restoreProject: (id) => invalidating(invoke('restore_project', { id })),
   getTaskReport: (days) => invoke('get_task_report', { days }),
   exportTaskReport: (path, days) => invoke('export_task_report', { path, days }),
   listPlants: () => invoke('list_plants'),

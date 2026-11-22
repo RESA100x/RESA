@@ -262,6 +262,7 @@ export type NowlyRepository = {
   createProject?(draft: ProjectDraft): Promise<Project>;
   updateProject?(id: string, draft: ProjectDraft): Promise<Project>;
   archiveProject?(id: string): Promise<void>;
+  restoreProject?(id: string): Promise<void>;
   // Aggregated task statistics for the reports module (created / completed /
   // open over the last `days` days, plus the current backlog snapshot).
   getTaskReport?(days: number): Promise<TaskReport>;

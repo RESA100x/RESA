@@ -66,11 +66,19 @@ export function useProjects() {
     await load(true);
   }, [load, repository]);
 
+  const restoreProject = useCallback(async (id: string) => {
+    const write = repository.restoreProject;
+    if (!write) throw missing('restoreProject');
+    await write.call(repository, id);
+    await load(true);
+  }, [load, repository]);
+
   return {
     projects,
     reload: () => load(false),
     createProject,
     updateProject,
-    archiveProject
+    archiveProject,
+    restoreProject
   };
 }

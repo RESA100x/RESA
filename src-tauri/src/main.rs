@@ -694,6 +694,7 @@ fn main() {
     projects::create_project,
     projects::update_project,
     projects::archive_project,
+    projects::restore_project,
     reports::get_task_report,
     reports::export_task_report,
             notes::list_notes,

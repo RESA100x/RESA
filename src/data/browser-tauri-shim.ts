@@ -1188,11 +1188,31 @@ export function installBrowserTauriBackend() {
       const wanted = ids ? rows.filter((task) => ids.includes(String(task.id))) : rows;
       return { path: String(a.path ?? ''), tasks: wanted.length };
     },
+    // The counters mirror the SQL in `projects.rs`: they are read from the
+    // tasks and meetings that point at the project, never stored.
     list_projects: () =>
-      store.projects.map((project) => ({
-        ...project,
-        taskCount: store.tasks.filter((task) => task.projectId === project.id).length
-      })),
+      store.projects.map((project) => {
+        const tasks = store.tasks.filter((task) => task.projectId === project.id);
+        const open = tasks.filter(
+          (task) => !task.archivedAt && String(task.status ?? (task.completed ? 'done' : 'open')) === 'open'
+        );
+        const today = nowIso().slice(0, 10);
+        return {
+          ...project,
+          tags: Array.isArray(project.tags) ? project.tags : [],
+          taskCount: tasks.length,
+          openCount: open.length,
+          inProgressCount: tasks.filter(
+            (task) => !task.archivedAt && String(task.status) === 'in_progress'
+          ).length,
+          doneCount: tasks.filter((task) => String(task.status) === 'done' || task.completed).length,
+          overdueCount: open.filter(
+            (task) => typeof task.dueDate === 'string' && task.dueDate.slice(0, 10) < today
+          ).length,
+          meetingCount: store.meetings.filter((meeting) => meeting.projectId === project.id).length,
+          lastActivityAt: project.updatedAt ?? null
+        };
+      }),
     create_project: (a) => {
       const draft = a.draft as Dict;
       const name = String(draft.name ?? '').replace(/\s+/g, ' ').trim();
@@ -1205,11 +1225,21 @@ export function installBrowserTauriBackend() {
         description: String(draft.description ?? ''),
         color: String(draft.color ?? '#4FC9DA'),
         status: String(draft.status ?? 'active'),
+        ownerContactId: draft.ownerContactId ? String(draft.ownerContactId) : null,
+        startDate: draft.startDate ? String(draft.startDate) : null,
+        dueDate: draft.dueDate ? String(draft.dueDate) : null,
+        tags: Array.isArray(draft.tags) ? draft.tags.map(String) : [],
         name,
         createdAt: nowIso(),
         updatedAt: nowIso(),
         archivedAt: null,
-        taskCount: 0
+        taskCount: 0,
+        openCount: 0,
+        inProgressCount: 0,
+        doneCount: 0,
+        overdueCount: 0,
+        meetingCount: 0,
+        lastActivityAt: nowIso()
       };
       store.projects.push(project);
       persist();
@@ -1227,6 +1257,10 @@ export function installBrowserTauriBackend() {
         description: String(draft.description ?? current.description ?? ''),
         color: String(draft.color ?? current.color ?? '#4FC9DA'),
         status: String(draft.status ?? current.status ?? 'active'),
+        ownerContactId: draft.ownerContactId ? String(draft.ownerContactId) : null,
+        startDate: draft.startDate ? String(draft.startDate) : null,
+        dueDate: draft.dueDate ? String(draft.dueDate) : null,
+        tags: Array.isArray(draft.tags) ? draft.tags.map(String) : current.tags ?? [],
         updatedAt: nowIso()
       };
       store.projects = store.projects.map((project) => project.id === a.id ? updated : project);
@@ -1236,6 +1270,12 @@ export function installBrowserTauriBackend() {
     archive_project: (a) => {
       store.projects = store.projects.map((project) =>
         project.id === a.id ? { ...project, archivedAt: project.archivedAt ?? nowIso(), updatedAt: nowIso() } : project
+      );
+      persist();
+    },
+    restore_project: (a) => {
+      store.projects = store.projects.map((project) =>
+        project.id === a.id ? { ...project, archivedAt: null, updatedAt: nowIso() } : project
       );
       persist();
     },

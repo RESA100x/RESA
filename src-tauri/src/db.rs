@@ -202,6 +202,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (50, migration_50_task_status_and_projects),
     (51, migration_51_meetings_and_task_assignee),
     (52, migration_52_task_archive_reason),
+    (53, migration_53_project_plan),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -478,6 +479,28 @@ fn migration_52_task_archive_reason(transaction: &Transaction<'_>) -> Result<()>
         transaction.execute_batch("ALTER TABLE tasks ADD COLUMN archive_reason TEXT;")?;
     }
     Ok(())
+}
+
+/// A project is planned work, not just a label: it gets an owner from the
+/// phone book, a start and a due date, and free tags. The project card reads
+/// its numbers from the tasks and meetings that point at it, so nothing here
+/// needs to be kept in sync by hand.
+fn migration_53_project_plan(transaction: &Transaction<'_>) -> Result<()> {
+    if !column_exists(transaction, "projects", "owner_contact_id")? {
+        transaction.execute_batch("ALTER TABLE projects ADD COLUMN owner_contact_id TEXT;")?;
+    }
+    if !column_exists(transaction, "projects", "start_date")? {
+        transaction.execute_batch("ALTER TABLE projects ADD COLUMN start_date TEXT;")?;
+    }
+    if !column_exists(transaction, "projects", "due_date")? {
+        transaction.execute_batch("ALTER TABLE projects ADD COLUMN due_date TEXT;")?;
+    }
+    if !column_exists(transaction, "projects", "tags")? {
+        transaction.execute_batch("ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';")?;
+    }
+    transaction.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_contact_id);",
+    )
 }
 
 /// Highest schema version this build knows about; used by the backup importer

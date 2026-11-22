@@ -2301,6 +2301,10 @@ mod tests {
                 description: None,
                 color: None,
                 status: None,
+                owner_contact_id: None,
+                start_date: None,
+                due_date: None,
+                tags: None,
             },
         )
         .unwrap();
