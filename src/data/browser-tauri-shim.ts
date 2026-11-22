@@ -63,6 +63,7 @@ type Store = {
   meetings: Dict[];
   settings: Dict;
   moduleLayout: Dict[];
+  moduleLayouts: Record<string, Dict[]>;
   focusSessions: Dict[];
   kanban: {
     lanes: Dict[];
@@ -76,6 +77,7 @@ const defaultSettings: Dict = {
   wallpaperEnabled: true,
   launchAtLogin: true,
   targetMonitorId: null,
+  multiMonitorWallpaper: false,
   density: 'compact',
   weekStart: 'monday',
   dateFormat: 'localized',
@@ -116,6 +118,7 @@ function emptyStore(): Store {
     meetings: [],
     settings: { ...defaultSettings },
     moduleLayout: [],
+    moduleLayouts: {},
     focusSessions: [],
     kanban: { lanes: [], cards: [], priorities: [], tags: [] }
   };
@@ -1857,13 +1860,42 @@ export function installBrowserTauriBackend() {
         scaleFactor: 1
       }
     ],
+    list_monitor_wallpaper_areas: () => {
+      const width = typeof window !== 'undefined' ? window.screen.width : 1920;
+      const height = typeof window !== 'undefined' ? window.screen.height : 1080;
+      return [
+        {
+          id: 'browser',
+          positionX: 0,
+          positionY: 0,
+          width,
+          height,
+          left: 0,
+          top: 0,
+          right: width,
+          bottom: height
+        }
+      ];
+    },
 
     // Module layout & per-module state
-    list_module_layout: () => store.moduleLayout,
+    list_module_layout: (a) => {
+      const monitor = typeof a?.monitor === 'string' ? a.monitor : null;
+      if (!monitor) return store.moduleLayout;
+      // Mirror the desktop fallback: a monitor without its own rows shows the
+      // global layout until it is edited.
+      return store.moduleLayouts[monitor] ?? store.moduleLayout;
+    },
     save_module_layout: (a) => {
-      store.moduleLayout = (a.layout as Dict[]) ?? [];
+      const monitor = typeof a?.monitor === 'string' ? a.monitor : null;
+      const layout = (a.layout as Dict[]) ?? [];
+      if (monitor) {
+        store.moduleLayouts = { ...store.moduleLayouts, [monitor]: layout };
+      } else {
+        store.moduleLayout = layout;
+      }
       persist();
-      return store.moduleLayout;
+      return layout;
     },
 
     // Focus timer
@@ -2130,6 +2162,7 @@ export function installBrowserTauriBackend() {
 
     // Window mode & shell — no desktop window to switch in the browser.
     enter_wallpaper_mode: () => 'ok',
+    get_window_mode: () => 'foreground',
     enter_foreground_mode: () => 'ok',
 
     // Open external links in a new browser tab; the desktop app defers to the OS.

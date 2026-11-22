@@ -36,6 +36,9 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
  // back here rather than trusting the saved id blindly keeps the dropdown from
  // showing a blank placeholder when the saved monitor is gone or unset.
  const resolvedMonitorId=monitors.length?((draft.targetMonitorId&&monitors.some(item=>item.id===draft.targetMonitorId))?draft.targetMonitorId:monitors.find(item=>item.isPrimary)?.id??monitors[0].id):null;
+ // A single WebView2 cannot render two DPI scales at once, so the spanning
+ // wallpaper stays off (and says why) when the monitors disagree.
+ const scaleMismatch=monitors.length>1&&monitors.some(item=>Math.abs(item.scaleFactor-monitors[0].scaleFactor)>0.001);
  // Sync that resolved id back into the draft so saving persists exactly what
  // the dropdown shows, instead of a null or stale id.
  useEffect(()=>{if(resolvedMonitorId&&resolvedMonitorId!==draft.targetMonitorId)setDraft(current=>({...current,targetMonitorId:resolvedMonitorId}));},[resolvedMonitorId,draft.targetMonitorId]);
@@ -82,6 +85,11 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
     <div className="settings-checks">
      <Check label={t('settings.restoreWallpaper')} checked={draft.wallpaperEnabled} onChange={toggle('wallpaperEnabled')}/><Check label={t('settings.launchAtLogin')} checked={draft.launchAtLogin} onChange={toggle('launchAtLogin')}/>
     </div>
+    <div className="settings-checks">
+     <Check label={t('settings.multiMonitorWallpaper')} checked={draft.multiMonitorWallpaper??false} onChange={toggle('multiMonitorWallpaper')}/>
+    </div>
+    <p className="settings-hint">{t('settings.multiMonitorWallpaperHint')}</p>
+    {scaleMismatch?<p className="settings-warning" role="status">{t('settings.multiMonitorScaleMismatch')}</p>:null}
    </TabPanel>
    <TabPanel idPrefix="settings" tabId="shortcuts" active={tab==='shortcuts'}>
     <div className="shortcut-settings">

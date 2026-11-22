@@ -178,6 +178,7 @@ mod tests {
             wallpaper_enabled: false,
             launch_at_login: false,
             target_monitor_id: None,
+            multi_monitor_wallpaper: false,
             density: "balanced".into(),
             week_start: "monday".into(),
             date_format: "localized".into(),

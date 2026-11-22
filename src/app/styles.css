@@ -168,6 +168,15 @@ button:disabled { cursor: default; opacity: .65; }
 .tip--end .tip__bubble { right: 0; left: auto; transform: none; }
 .topbar-time { color: var(--text-strong); font-size: 1.075rem; font-weight: 600; }
 .workspace { position: relative; z-index: 1; min-width: 0; min-height: 0; padding: 24px 36px 36px; display: flex; }
+/* Opt-in multi-monitor wallpaper: one absolute slice per monitor inside the
+   spanning window. Each slice lays out its own module grid. */
+.wallpaper-span { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+.wallpaper-monitor { position: absolute; overflow: hidden; }
+.wallpaper-monitor .workspace { height: 100%; box-sizing: border-box; }
+.wallpaper-monitor .module-grid { height: 100%; }
+.layout-target { flex: none; padding: 4px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-secondary); background: var(--bg-subtle); font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
+.settings-hint { margin: 8px 0 0; color: var(--text-muted); font-size: 0.85rem; }
+.settings-warning { margin: 8px 0 0; color: var(--color-danger); font-size: 0.85rem; }
 
 /* Fixed destination layouts are revealed by the centered shell morph. */
 .status-rail {

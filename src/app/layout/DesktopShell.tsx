@@ -1,12 +1,13 @@
 import { Check, LayoutGrid, MonitorDown, Plus, Search, Settings } from '../../components/icons';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   builtinDefinitions,
   getWidgetDefinition,
   type WidgetDefinition,
   type WidgetId
 } from '../../widgets/widget-registry';
-import type { UpdateInfo } from '../../data/nowly-repository';
+import type { MonitorInfo, MonitorWallpaperArea, UpdateInfo } from '../../data/nowly-repository';
+import { useNowlyRepository } from '../../data/RepositoryContext';
 import { useModuleLayout } from '../../widgets/useModuleLayout';
 import { TemplatePickerDialog } from '../../widgets/TemplatePickerDialog';
 import { AboutDialog } from '../../settings/AboutDialog';
@@ -35,6 +36,14 @@ type DesktopShellProps = {
   // return in the foreground.
   hideTopbarInWallpaper?: boolean;
   hideModuleBackgroundInWallpaper?: boolean;
+  // Opt-in per-monitor wallpaper. When off (the default) nothing below changes.
+  multiMonitorWallpaper?: boolean;
+  monitors?: MonitorInfo[];
+  // Which monitor's layout the foreground window edits (undefined = the single
+  // global layout).
+  monitorKey?: string | null;
+  // Human-readable name of the monitor being edited, shown while editing.
+  layoutTargetLabel?: string;
   overlay?: ReactNode;
   // The launch-time update check result. When it reports a newer release the
   // logo button shows a red dot, and the About dialog surfaces the changelog.
@@ -47,6 +56,126 @@ type DesktopShellProps = {
 // so the blur filter can soften the modules over the desktop wallpaper.
 function WallpaperLayer() {
   return <div className="wallpaper-layer" data-testid="wallpaper-layer" aria-hidden="true" hidden />;
+}
+
+// One monitor's slice of the spanning wallpaper window. Each slice owns its own
+// layout, so a module can sit on one screen without appearing on the others.
+function MonitorPanel({
+  monitorId,
+  rect,
+  modules,
+  definitions
+}: {
+  monitorId: string;
+  // Physical pixels relative to the spanning window's top-left.
+  rect: { left: number; top: number; width: number; height: number };
+  modules: Partial<Record<WidgetId, ReactNode>>;
+  definitions: WidgetDefinition[];
+}) {
+  const { layout, loaded } = useModuleLayout(definitions, monitorId);
+  const items: ModuleGridItem[] = layout
+    .filter(
+      (entry) => modules[entry.id] !== undefined && getWidgetDefinition(entry.id, definitions) !== undefined
+    )
+    .map((entry) => ({
+      id: entry.id,
+      rect: { x: entry.x, y: entry.y, w: entry.w, h: entry.h },
+      content: modules[entry.id]
+    }));
+  const scale = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+  return (
+    <div
+      className="wallpaper-monitor"
+      data-testid={`wallpaper-monitor-${monitorId}`}
+      style={{
+        left: rect.left / scale,
+        top: rect.top / scale,
+        width: rect.width / scale,
+        height: rect.height / scale
+      }}
+    >
+      <main className="workspace" aria-busy={!loaded}>
+        {loaded ? (
+          <ModuleGrid
+            items={items}
+            editing={false}
+            definitions={definitions}
+            onMove={() => undefined}
+            onResize={() => undefined}
+          />
+        ) : null}
+      </main>
+    </div>
+  );
+}
+
+// The wallpaper window spans the whole virtual desktop; every monitor is placed
+// at its own offset inside it. Positions are physical pixels, converted to CSS
+// pixels with the device pixel ratio the webview was pinned to.
+function WallpaperSpan({
+  monitors,
+  modules,
+  definitions,
+  style
+}: {
+  monitors: MonitorInfo[];
+  modules: Partial<Record<WidgetId, ReactNode>>;
+  definitions: WidgetDefinition[];
+  style?: CSSProperties;
+}) {
+  const repository = useNowlyRepository();
+  // Work areas (taskbar excluded) so modules never end up behind a taskbar.
+  const [areas, setAreas] = useState<MonitorWallpaperArea[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    void repository
+      .listMonitorWallpaperAreas?.()
+      .then((list) => {
+        if (active) setAreas(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [repository]);
+  const left = Math.min(...monitors.map((monitor) => monitor.positionX));
+  const top = Math.min(...monitors.map((monitor) => monitor.positionY));
+  return (
+    <div className="wallpaper-span" style={style}>
+      {monitors.map((monitor) => {
+        const area = areas?.find(
+          (item) =>
+            item.id === monitor.id ||
+            (item.positionX === monitor.positionX &&
+              item.positionY === monitor.positionY &&
+              item.width === monitor.width &&
+              item.height === monitor.height)
+        );
+        const rect = area
+          ? {
+              left: area.left - left,
+              top: area.top - top,
+              width: area.right - area.left,
+              height: area.bottom - area.top
+            }
+          : {
+              left: monitor.positionX - left,
+              top: monitor.positionY - top,
+              width: monitor.width,
+              height: monitor.height
+            };
+        return (
+          <MonitorPanel
+            key={monitor.id}
+            monitorId={monitor.id}
+            rect={rect}
+            modules={modules}
+            definitions={definitions}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 export function DesktopShell({
@@ -63,15 +192,25 @@ export function DesktopShell({
   configurations,
   hideTopbarInWallpaper = true,
   hideModuleBackgroundInWallpaper = false,
+  multiMonitorWallpaper = false,
+  monitors = [],
+  monitorKey,
+  layoutTargetLabel,
   overlay,
   update
 }: DesktopShellProps) {
   const foreground = mode === 'foreground';
+  // A single WebView2 cannot render two different DPI scales correctly, so the
+  // spanning mode is only used when every monitor shares one scale factor.
+  const sharedScale =
+    monitors.length > 1 &&
+    monitors.every((monitor) => Math.abs(monitor.scaleFactor - monitors[0].scaleFactor) < 0.001);
+  const spanMode = !foreground && multiMonitorWallpaper && sharedScale;
   // The no-topbar shell state also hides module headers via workspace CSS.
   // A double-click anywhere in wallpaper mode still returns to the foreground.
   const showTopbar = foreground || !hideTopbarInWallpaper;
   const { layout, loaded, move, resize, addWidget, removeWidget, presentIds } =
-    useModuleLayout(definitions);
+    useModuleLayout(definitions, spanMode ? undefined : monitorKey);
   const { blur, setBlur } = useBlur();
   const [isEditing, setIsEditing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -114,6 +253,11 @@ export function DesktopShell({
           <p>{summary}</p>
         </div>
         <div className="top-actions">
+          {foreground && isEditing && layoutTargetLabel ? (
+            <span className="layout-target" title={layoutTargetLabel}>
+              {t('shell.layoutForMonitor', { name: layoutTargetLabel })}
+            </span>
+          ) : null}
           {foreground ? (
             <Tip content={t('commandPalette.openHint')}>
               <button type="button" className="btn btn-icon topbar-search" aria-label={t('commandPalette.open')} onClick={onOpenSearch}>
@@ -165,17 +309,26 @@ export function DesktopShell({
         </div>
       </header>
       ) : null}
-      <main className="workspace" data-guide="workspace" aria-busy={!loaded} style={workspaceStyle}>
-        {!loaded || items.length === 0 ? <WelcomeSticker loading={!loaded} /> : <ModuleGrid
-          items={items}
-          editing={foreground && isEditing}
+      {spanMode ? (
+        <WallpaperSpan
+          monitors={monitors}
+          modules={modules}
           definitions={definitions}
-          onMove={move}
-          onResize={resize}
-          onRemove={removeWidget}
-          configurations={configurations}
-        />}
-      </main>
+          style={workspaceStyle}
+        />
+      ) : (
+        <main className="workspace" data-guide="workspace" aria-busy={!loaded} style={workspaceStyle}>
+          {!loaded || items.length === 0 ? <WelcomeSticker loading={!loaded} /> : <ModuleGrid
+            items={items}
+            editing={foreground && isEditing}
+            definitions={definitions}
+            onMove={move}
+            onResize={resize}
+            onRemove={removeWidget}
+            configurations={configurations}
+          />}
+        </main>
+      )}
       {overlay}
 
       {foreground && pickerOpen ? (

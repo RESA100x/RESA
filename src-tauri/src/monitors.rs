@@ -13,6 +13,22 @@ pub struct MonitorInfo {
     pub scale_factor: f64,
 }
 
+// Where one monitor's wallpaper content may be drawn: its work area, so the
+// taskbar is never covered by modules in the spanning multi-monitor layout.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorWallpaperArea {
+    pub id: String,
+    pub position_x: i32,
+    pub position_y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+}
+
 // A monitor's stable identity. The OS name is preferred; when it is absent we
 // fall back to the physical position so the id is still deterministic. Both
 // listing (what the UI saves) and positioning (what moves the window) must
@@ -79,6 +95,39 @@ pub fn list_monitors(
                 width: size.width,
                 height: size.height,
                 scale_factor: monitor.scale_factor(),
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn list_monitor_wallpaper_areas(
+    window: tauri::Window,
+) -> Result<Vec<MonitorWallpaperArea>, crate::error::CommandError> {
+    let monitors = window
+        .available_monitors()
+        .map_err(crate::error::CommandError::system)?;
+    Ok(monitors
+        .into_iter()
+        .map(|monitor| {
+            let position = monitor.position();
+            let size = monitor.size();
+            let rect = crate::wallpaper::monitor_wallpaper_rect(
+                position.x,
+                position.y,
+                size.width,
+                size.height,
+            );
+            MonitorWallpaperArea {
+                id: monitor_id(monitor.name().map(String::as_str), position.x, position.y),
+                position_x: position.x,
+                position_y: position.y,
+                width: size.width,
+                height: size.height,
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
             }
         })
         .collect())

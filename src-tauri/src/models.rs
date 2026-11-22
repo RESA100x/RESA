@@ -451,6 +451,11 @@ pub struct AppSettings {
     pub wallpaper_enabled: bool,
     pub launch_at_login: bool,
     pub target_monitor_id: Option<String>,
+    /// Opt-in: give every monitor its own module layout while running as the
+    /// desktop wallpaper. Off by default so the single-monitor flow is
+    /// untouched for anyone who never asks for it.
+    #[serde(default)]
+    pub multi_monitor_wallpaper: bool,
     pub density: String,
     pub week_start: String,
     pub date_format: String,

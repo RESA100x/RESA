@@ -62,6 +62,8 @@ export type AppSettings = {
   wallpaperEnabled: boolean;
   launchAtLogin: boolean;
   targetMonitorId: string | null;
+  // Opt-in: every monitor gets its own module layout in wallpaper mode.
+  multiMonitorWallpaper?: boolean;
   density: 'compact' | 'balanced' | 'comfortable';
   weekStart: 'monday' | 'sunday' | 'saturday';
   dateFormat: 'localized' | 'iso';
@@ -117,6 +119,9 @@ export type FocusStatistics = {
 };
 
 export type MonitorInfo = { id:string; name:string; isPrimary:boolean; positionX:number; positionY:number; width:number; height:number; scaleFactor:number };
+
+// A monitor's drawable wallpaper rect (its work area, taskbar excluded).
+export type MonitorWallpaperArea = { id:string; positionX:number; positionY:number; width:number; height:number; left:number; top:number; right:number; bottom:number };
 
 // The result of a software update check against the public GitHub releases.
 // `latestVersion`, `releaseNotes`, and `publishedAt` are absent when GitHub
@@ -329,8 +334,14 @@ export type NowlyRepository = {
   installUpdate?(): Promise<void>;
   updateSettings(settings: AppSettings): Promise<AppSettings>;
   listMonitors(): Promise<MonitorInfo[]>;
-  listModuleLayout(): Promise<ModuleLayoutEntry[]>;
-  saveModuleLayout(layout: ModuleLayoutEntry[]): Promise<ModuleLayoutEntry[]>;
+  // Work areas for the spanning multi-monitor wallpaper. Optional so test
+  // doubles and the browser shim keep working; the shell falls back to the full
+  // monitor rect when it is missing.
+  listMonitorWallpaperAreas?(): Promise<MonitorWallpaperArea[]>;
+  // Without a monitor the original single global layout is used, so existing
+  // callers and databases keep working unchanged.
+  listModuleLayout(monitor?: string | null): Promise<ModuleLayoutEntry[]>;
+  saveModuleLayout(layout: ModuleLayoutEntry[], monitor?: string | null): Promise<ModuleLayoutEntry[]>;
   createFocusSession(session: FocusSession): Promise<FocusSession>;
   listFocusSessions(range: FocusRange): Promise<FocusSession[]>;
   getFocusStatistics(boundaries: FocusPeriodBoundary[]): Promise<FocusStatistics>;

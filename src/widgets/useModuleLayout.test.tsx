@@ -161,4 +161,40 @@ describe('useModuleLayout', () => {
     expect(saved().some((entry) => entry.id === 'devModule')).toBe(false);
     expect(rectOf(saved(), 'calendar')).toMatchObject({ x: 0, y: 4 });
   });
+
+  it('keeps the original single-argument repository calls without a monitor', async () => {
+    const { repository } = fakeRepository(sparse);
+    const view = renderHook(() => useModuleLayout(definitions, undefined), {
+      wrapper: wrapperFor(repository)
+    });
+    await waitFor(() => expect(view.result.current.loaded).toBe(true));
+    expect(repository.listModuleLayout).toHaveBeenCalledWith();
+  });
+
+  it('loads and saves against the given monitor', async () => {
+    const listModuleLayout = vi.fn(async () => sparse.map((item) => ({ ...item })));
+    const saveModuleLayout = vi.fn(async (layout: ModuleLayoutEntry[]) => layout);
+    const repository = { listModuleLayout, saveModuleLayout } as unknown as NowlyRepository;
+    const view = renderHook(() => useModuleLayout(definitions, '\\\\.\\DISPLAY2'), {
+      wrapper: wrapperFor(repository)
+    });
+    await waitFor(() => expect(view.result.current.loaded).toBe(true));
+    expect(listModuleLayout).toHaveBeenCalledWith('\\\\.\\DISPLAY2');
+    act(() => view.result.current.move('notes', { x: 5, y: 4 }));
+    expect(saveModuleLayout).toHaveBeenCalledWith(expect.any(Array), '\\\\.\\DISPLAY2');
+  });
+
+  it('waits instead of loading while the monitor is still unresolved', async () => {
+    const listModuleLayout = vi.fn(async () => sparse);
+    const repository = {
+      listModuleLayout,
+      saveModuleLayout: vi.fn()
+    } as unknown as NowlyRepository;
+    const view = renderHook(() => useModuleLayout(definitions, null), {
+      wrapper: wrapperFor(repository)
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(listModuleLayout).not.toHaveBeenCalled();
+    expect(view.result.current.loaded).toBe(false);
+  });
 });

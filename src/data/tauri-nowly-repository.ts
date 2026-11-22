@@ -173,8 +173,15 @@ export const tauriNowlyRepository: NowlyRepository = {
   installUpdate: () => invoke('install_update'),
   updateSettings: (settings) => invoke('update_app_settings', { settings }),
   listMonitors: () => invoke('list_monitors'),
-  listModuleLayout: () => invoke('list_module_layout'),
-  saveModuleLayout: (layout) => invoke('save_module_layout', { layout }),
+  listMonitorWallpaperAreas: () => invoke('list_monitor_wallpaper_areas'),
+  // Without a monitor the original command payload is sent unchanged, so the
+  // single-layout path stays byte-for-byte the same as before.
+  listModuleLayout: (monitor) =>
+    monitor ? invoke('list_module_layout', { monitor }) : invoke('list_module_layout'),
+  saveModuleLayout: (layout, monitor) =>
+    monitor
+      ? invoke('save_module_layout', { layout, monitor })
+      : invoke('save_module_layout', { layout }),
   createFocusSession: (session) => invoke('create_focus_session', { session }),
   listFocusSessions: (range) => invoke('list_focus_sessions', { range }),
   getFocusStatistics: (boundaries) => invoke('get_focus_statistics', { boundaries }),

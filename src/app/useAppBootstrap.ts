@@ -12,6 +12,7 @@ const defaultSettings: AppSettings = {
   wallpaperEnabled: true,
   launchAtLogin: true,
   targetMonitorId: null,
+  multiMonitorWallpaper: false,
   density: 'compact',
   weekStart: 'monday',
   dateFormat: 'localized',

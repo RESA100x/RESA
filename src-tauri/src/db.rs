@@ -205,6 +205,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (53, migration_53_project_plan),
     (54, crate::books::migrate),
     (55, crate::books::migrate_planning),
+    (56, migration_56_per_monitor_layout),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -1093,6 +1094,34 @@ fn migration_6_module_layout_and_templates(transaction: &Transaction<'_>) -> Res
         )?;
     }
     Ok(())
+}
+
+// Per-monitor module layouts. The old table keyed rows by module id alone, so
+// it could only describe one layout. Rebuilding it with (id, monitor) as the
+// primary key keeps every existing row on the legacy `''` monitor, which stays
+// the fallback for any monitor that has never been customised. An empty id is a
+// sentinel that marks a monitor as customised even when the user cleared every
+// module from it, so an intentionally empty layout is not replaced by the
+// legacy one.
+fn migration_56_per_monitor_layout(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE module_layout_by_monitor (
+            id TEXT NOT NULL,
+            monitor TEXT NOT NULL DEFAULT '',
+            x INTEGER NOT NULL,
+            y INTEGER NOT NULL,
+            w INTEGER NOT NULL,
+            h INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            PRIMARY KEY (id, monitor)
+         );
+         INSERT INTO module_layout_by_monitor(id, monitor, x, y, w, h, position)
+            SELECT id, '', x, y, w, h, position FROM module_layout;
+         DROP TABLE module_layout;
+         ALTER TABLE module_layout_by_monitor RENAME TO module_layout;
+         INSERT OR IGNORE INTO settings(key, value, updated_at)
+            VALUES ('multi_monitor_wallpaper', 'false', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
+    )
 }
 
 fn migration_7_module_state(transaction: &Transaction<'_>) -> Result<()> {
@@ -2261,8 +2290,8 @@ mod tests {
              INSERT INTO module_state VALUES('focusTimer','{\"snapshot\":\"old\"}','now');
              INSERT INTO module_state VALUES('time','{\"clocks\":[]}','now');
              INSERT OR IGNORE INTO module_state VALUES('other','{\"snapshot\":\"keep\"}','now');
-             INSERT INTO module_layout VALUES('focusTimer',0,0,4,4,3);
-             INSERT INTO module_layout VALUES('time',4,0,4,4,4);
+             INSERT INTO module_layout(id,x,y,w,h,position) VALUES('focusTimer',0,0,4,4,3);
+             INSERT INTO module_layout(id,x,y,w,h,position) VALUES('time',4,0,4,4,4);
              INSERT OR IGNORE INTO status_island_reminders(local_date,identity,updated_at) VALUES
                 ('today','focus:old-session:completed:1','now'),('today','alarm:n1','now'),
                 ('today','missedSummary:n2','now'),('today','event:keep:start','now'),

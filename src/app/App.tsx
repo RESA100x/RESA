@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { currentMonitor as currentWindowMonitor, getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   buildDefinitions,
@@ -71,10 +72,79 @@ function localIsoDate(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+// Mirrors `monitors::monitor_id` in Rust so the layout key written here matches
+// the id the backend reports for the same screen.
+function monitorIdOf(monitor: { name: string | null; position: { x: number; y: number } }) {
+  return monitor.name && monitor.name.length > 0
+    ? monitor.name
+    : `display:${monitor.position.x}:${monitor.position.y}`;
+}
+
+// The monitor the foreground window currently sits on. Only tracked while the
+// opt-in multi-monitor layout is enabled; otherwise the global layout is used.
+function useCurrentMonitorId(enabled: boolean) {
+  const [state, setState] = useState<{ resolved: boolean; id: string | null }>({
+    resolved: false,
+    id: null
+  });
+  useEffect(() => {
+    if (!enabled) {
+      setState({ resolved: true, id: null });
+      return;
+    }
+    let active = true;
+    let unlisten: (() => void) | null = null;
+    const read = () => {
+      try {
+        void currentWindowMonitor()
+          .then((monitor) => {
+            if (!active) return;
+            setState({ resolved: true, id: monitor ? monitorIdOf(monitor) : null });
+          })
+          .catch(() => {
+            if (active) setState({ resolved: true, id: null });
+          });
+      } catch {
+        // Outside the desktop shell (browser dev) there is no window to ask.
+        if (active) setState({ resolved: true, id: null });
+      }
+    };
+    read();
+    try {
+      void getCurrentWindow()
+        .onMoved(() => read())
+        .then((stop) => {
+          if (active) unlisten = stop;
+          else stop();
+        })
+        .catch(() => undefined);
+    } catch {
+      // Same as above: no native window in a plain browser.
+    }
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [enabled]);
+  return state;
+}
+
 function AppContent() {
   useTranslation();
   const repository = useNowlyRepository();
   const settingsFeature = useSettings();
+  const multiMonitorWallpaper = settingsFeature.settings.data.multiMonitorWallpaper ?? false;
+  const currentMonitor = useCurrentMonitorId(multiMonitorWallpaper);
+  const layoutMonitorKey = !multiMonitorWallpaper
+    ? undefined
+    : currentMonitor.resolved
+      ? currentMonitor.id ?? undefined
+      : null;
+  const layoutTargetLabel =
+    multiMonitorWallpaper && currentMonitor.id
+      ? settingsFeature.monitors.data.find((monitor) => monitor.id === currentMonitor.id)?.name ??
+        currentMonitor.id
+      : undefined;
   const weekStart = effectiveWeekStart(settingsFeature.settings.data.weekStart);
   const eventsFeature = useEvents({ weekStart });
   const categoriesFeature = useCategories();
@@ -398,6 +468,31 @@ function AppContent() {
 
   useEffect(() => {
     const removers: Array<() => void> = [];
+    // A login launch can start the window already parked as the wallpaper, so
+    // ask once instead of assuming foreground. Without this the spanning
+    // multi-monitor layout would not render until the user switched modes.
+    void invoke<string>('get_window_mode')
+      .then((mode) => {
+        if (mode === 'wallpaper') setWindowMode('wallpaper');
+      })
+      .catch(() => undefined);
+    // The desktop double-click hook can restore the window natively without the
+    // webview seeing the click, so re-read the mode whenever we gain focus. This
+    // is what brings the topbar back on the first double-click.
+    try {
+      void getCurrentWindow()
+        .onFocusChanged(({ payload: focused }) => {
+          if (!focused) return;
+          void invoke<string>('get_window_mode')
+            .then((mode) => {
+              if (mode === 'foreground' || mode === 'wallpaper') setWindowMode(mode);
+            })
+            .catch(() => undefined);
+        })
+        .then((remove) => removers.push(remove));
+    } catch {
+      // No native window in a plain browser.
+    }
     void listen<WindowMode>('window-mode-changed', (event) => setWindowMode(event.payload)).then(remove => removers.push(remove));
     void listen('open-settings', () => setModal({type:'settings',trigger:null})).then(remove => removers.push(remove));
     void listen('request-overlay-cleanup', () => setModal(null)).then(remove => removers.push(remove));
@@ -581,6 +676,10 @@ function AppContent() {
         onOpenSearch={() => setPaletteOpen(true)}
         hideTopbarInWallpaper={settingsFeature.settings.data.hideTopbarInWallpaper}
         hideModuleBackgroundInWallpaper={settingsFeature.settings.data.hideModuleBackgroundInWallpaper}
+        multiMonitorWallpaper={multiMonitorWallpaper}
+        monitors={settingsFeature.monitors.data}
+        monitorKey={layoutMonitorKey}
+        layoutTargetLabel={layoutTargetLabel}
         overlay={windowMode === 'wallpaper' ? <FocusWallpaperOverlay /> : null}
         update={update}
       />

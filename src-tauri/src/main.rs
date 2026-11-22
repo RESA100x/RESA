@@ -131,6 +131,15 @@ fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
         eprintln!("failed to enter foreground mode from tray: {error}");
         return;
     }
+    // Keep the recorded mode in sync: the desktop double-click hook reaches this
+    // path without going through `enter_foreground_mode`, and a stale
+    // `Wallpaper` mode makes the frontend keep the wallpaper shell (no topbar).
+    if let Ok(mut lifecycle) = app
+        .state::<Mutex<window_lifecycle::WindowLifecycle>>()
+        .lock()
+    {
+        lifecycle.enter_foreground();
+    }
     if let Err(error) = sync_window_visibility(|| window.show()) {
         eprintln!("failed to synchronize foreground window visibility: {error}");
         return;
@@ -263,6 +272,7 @@ fn main() {
             status_island::initialize(app.handle().clone());
             let quick_settings = settings::read_app_settings(&app.state::<AppDb>().0.lock().unwrap()).unwrap_or_else(|_| crate::models::AppSettings {
                 wallpaper_enabled: true, launch_at_login: true, target_monitor_id: None, density: crate::models::default_density(),
+                multi_monitor_wallpaper: false,
                 week_start: "monday".into(), date_format: "localized".into(), show_weekends: true, icon_style: "duotone".into(),
                 hide_topbar_in_wallpaper: true,
             hide_module_background_in_wallpaper: false, notification_mode: crate::models::default_notification_mode(), sound_settings: Default::default(), quick_panel_enabled: true, quick_panel_shortcut: "Ctrl+Space".into(), screenshot_shortcut: crate::models::default_screenshot_shortcut(), screenshot_history_shortcut: crate::models::default_screenshot_history_shortcut(), quick_create_event_shortcut: String::new(), quick_create_task_shortcut: String::new(), quick_create_note_shortcut: String::new(), bar_menu: crate::models::default_bar_menu(), recent_colors: vec![]
@@ -478,16 +488,23 @@ fn main() {
 
             if package_policy::background_launch(std::env::args().collect::<Vec<_>>().iter().map(String::as_str)) {
                 if let Some(window) = app.get_webview_window("main") {
-                    let wallpaper_enabled = app
+                    let saved_settings = app
                         .state::<AppDb>()
                         .0
                         .lock()
                         .ok()
-                        .and_then(|connection| settings::read_app_settings(&connection).ok())
-                        .is_some_and(|settings| settings.wallpaper_enabled);
+                        .and_then(|connection| settings::read_app_settings(&connection).ok());
+                    let wallpaper_enabled =
+                        saved_settings.as_ref().is_some_and(|settings| settings.wallpaper_enabled);
                     #[cfg(target_os = "windows")]
                     if wallpaper_enabled {
-                        match wallpaper::enter_wallpaper_webview(&window) {
+                        let span = saved_settings
+                            .as_ref()
+                            .is_some_and(|settings| settings.multi_monitor_wallpaper)
+                            .then(|| window.available_monitors().ok())
+                            .flatten()
+                            .and_then(|monitors| wallpaper::span_rect(&monitors));
+                        match wallpaper::enter_wallpaper_webview(&window, span) {
                             Ok(_) => {
                                 if let Ok(mut lifecycle) = app
                                     .state::<Mutex<window_lifecycle::WindowLifecycle>>()
@@ -599,16 +616,23 @@ fn main() {
                     api.prevent_close();
                     let _ = window.emit("request-overlay-cleanup", ());
                     let app = window.app_handle();
-                    let wallpaper_enabled = app
+                    let saved_settings = app
                         .state::<AppDb>()
                         .0
                         .lock()
                         .ok()
-                        .and_then(|connection| settings::read_app_settings(&connection).ok())
-                        .is_some_and(|settings| settings.wallpaper_enabled);
+                        .and_then(|connection| settings::read_app_settings(&connection).ok());
+                    let wallpaper_enabled =
+                        saved_settings.as_ref().is_some_and(|settings| settings.wallpaper_enabled);
                     if wallpaper_enabled {
                         if let Some(webview) = app.get_webview_window("main") {
-                            if wallpaper::enter_wallpaper_webview(&webview).is_ok() {
+                            let span = saved_settings
+                                .as_ref()
+                                .is_some_and(|settings| settings.multi_monitor_wallpaper)
+                                .then(|| webview.available_monitors().ok())
+                                .flatten()
+                                .and_then(|monitors| wallpaper::span_rect(&monitors));
+                            if wallpaper::enter_wallpaper_webview(&webview, span).is_ok() {
                                 if let Ok(mut lifecycle) = app
                                     .state::<Mutex<window_lifecycle::WindowLifecycle>>()
                                     .lock()
@@ -700,6 +724,7 @@ fn main() {
     reports::export_task_report,
             notes::list_notes,
             monitors::list_monitors,
+            monitors::list_monitor_wallpaper_areas,
             notes::create_note,
             notes::update_note,
             notes::delete_note,

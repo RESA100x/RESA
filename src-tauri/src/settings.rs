@@ -36,6 +36,7 @@ pub fn read_app_settings(connection: &Connection) -> Result<AppSettings, rusqlit
         wallpaper_enabled: read_value_or(connection, "wallpaper_enabled", true)?,
         launch_at_login: read_value_or(connection, "launch_at_login", true)?,
         target_monitor_id: read_value(connection, "target_monitor_id")?.flatten(),
+        multi_monitor_wallpaper: read_value_or(connection, "multi_monitor_wallpaper", false)?,
         density: read_value_or(connection, "density", crate::models::default_density())?,
         week_start: read_value_or(connection, "week_start", "monday".to_string())?,
         date_format: read_value_or(connection, "date_format", "localized".to_string())?,
@@ -144,6 +145,10 @@ pub fn write_app_settings(
         (
             "target_monitor_id",
             serde_json::to_string(&settings.target_monitor_id),
+        ),
+        (
+            "multi_monitor_wallpaper",
+            serde_json::to_string(&settings.multi_monitor_wallpaper),
         ),
         ("density", serde_json::to_string(&settings.density)),
         ("week_start", serde_json::to_string(&settings.week_start)),
@@ -256,6 +261,8 @@ mod tests {
         assert!(settings.wallpaper_enabled);
         assert!(settings.launch_at_login);
         assert_eq!(settings.target_monitor_id, None);
+        // Multi-monitor wallpaper is opt-in, so a fresh database keeps it off.
+        assert!(!settings.multi_monitor_wallpaper);
         assert_eq!(settings.density, "compact");
         assert_eq!(settings.week_start, "monday");
         assert_eq!(settings.date_format, "localized");
@@ -443,6 +450,7 @@ mod tests {
             wallpaper_enabled: true,
             launch_at_login: true,
             target_monitor_id: Some("DISPLAY-2".into()),
+            multi_monitor_wallpaper: true,
             density: "comfortable".into(),
             week_start: "sunday".into(),
             date_format: "iso".into(),

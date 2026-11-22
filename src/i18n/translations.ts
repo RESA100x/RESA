@@ -242,6 +242,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'shell.addModule': '添加模块',
     'shell.finishEditing': '完成编辑',
     'shell.editLayout': '编辑布局',
+    'shell.layoutForMonitor': '布局：{name}',
     'shell.openSettings': '打开设置',
     'shell.setWallpaper': '设为壁纸',
 
@@ -1017,6 +1018,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.targetMonitor': '目标显示器',
     'settings.primaryMonitor': '（主显示器）',
     'settings.restoreWallpaper': '关闭时恢复壁纸',
+    'settings.multiMonitorWallpaper': '为每个显示器使用独立布局',
+    'settings.multiMonitorWallpaperHint': '开启后，壁纸模式下每个显示器显示自己的模块布局。要调整某个显示器，请把窗口移到该显示器并打开布局编辑。',
+    'settings.multiMonitorScaleMismatch': '显示器的缩放比例不同，为避免画面拉伸，此功能暂时停用。',
     'settings.launchAtLogin': '开机自动启动',
 
     // FocusTimer
@@ -2089,6 +2093,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'shell.addModule': 'Add module',
     'shell.finishEditing': 'Finish editing',
     'shell.editLayout': 'Edit layout',
+    'shell.layoutForMonitor': 'Layout: {name}',
     'shell.openSettings': 'Open settings',
     'shell.setWallpaper': 'Set as wallpaper',
 
@@ -2864,6 +2869,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.targetMonitor': 'Target monitor',
     'settings.primaryMonitor': ' (primary)',
     'settings.restoreWallpaper': 'Restore wallpaper on close',
+    'settings.multiMonitorWallpaper': 'Separate layout for each monitor',
+    'settings.multiMonitorWallpaperHint': 'When on, each monitor shows its own module layout in wallpaper mode. To arrange a monitor, move the window to it and turn on layout editing.',
+    'settings.multiMonitorScaleMismatch': 'The monitors use different display scales, so this stays off to avoid a stretched picture.',
     'settings.launchAtLogin': 'Launch at login',
 
     // FocusTimer

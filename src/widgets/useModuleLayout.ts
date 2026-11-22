@@ -23,15 +23,31 @@ function toEntries(layout: LayoutState): ModuleLayoutEntry[] {
 //
 // Stored entries whose definition no longer exists (a module removed in a newer
 // version) are dropped on load and disappear from the database on the next save.
-export function useModuleLayout(definitions: WidgetDefinition[]) {
+// `monitorKey` selects a per-monitor layout:
+//   undefined -> the original single global layout (feature off);
+//   null      -> the feature is on but the window's monitor is not known yet,
+//                so nothing is loaded to avoid showing the wrong layout;
+//   string    -> that monitor's layout, falling back to the global one until
+//                the monitor is edited for the first time.
+export function useModuleLayout(
+  definitions: WidgetDefinition[],
+  monitorKey?: string | null
+) {
   const repository = useNowlyRepository();
   const [layout, setLayout] = useState<LayoutState>(() => defaultLayout);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (monitorKey === null) {
+      setLoaded(false);
+      return;
+    }
     let active = true;
-    void repository
-      .listModuleLayout()
+    const request =
+      monitorKey === undefined
+        ? repository.listModuleLayout()
+        : repository.listModuleLayout(monitorKey);
+    void request
       .then((entries) => {
         if (!active) return;
         setLayout(normalizeLayout(entries, definitions));
@@ -46,13 +62,18 @@ export function useModuleLayout(definitions: WidgetDefinition[]) {
     };
     // Loading only depends on the repository; the definition set is static.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repository]);
+  }, [repository, monitorKey]);
 
   const persist = useCallback(
     (next: LayoutState) => {
-      void repository.saveModuleLayout(toEntries(next)).catch(() => undefined);
+      if (monitorKey === null) return;
+      const entries = toEntries(next);
+      void (monitorKey === undefined
+        ? repository.saveModuleLayout(entries)
+        : repository.saveModuleLayout(entries, monitorKey)
+      ).catch(() => undefined);
     },
-    [repository]
+    [repository, monitorKey]
   );
 
   const commit = useCallback(

@@ -246,8 +246,8 @@ mod platform {
         CloseHandle, COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
     };
     use windows::Win32::Graphics::Gdi::{
-        GetMonitorInfoW, MapWindowPoints, MonitorFromWindow, ScreenToClient, HMONITOR, MONITORINFO,
-        MONITOR_DEFAULTTONEAREST,
+        GetMonitorInfoW, MapWindowPoints, MonitorFromPoint, MonitorFromWindow, ScreenToClient,
+        HMONITOR, MONITORINFO, MONITOR_DEFAULTTONEAREST,
     };
     use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
     use windows::Win32::System::Memory::{
@@ -294,6 +294,10 @@ mod platform {
         taskbar_hwnd: isize,
         hooks: Vec<isize>,
         last_rect: Option<MonitorRect>,
+        // Set only while the window spans every monitor (opt-in multi-monitor
+        // wallpaper). The rect is the union of all monitor bounds, so taskbar
+        // events must not recompute it from a single monitor.
+        span_rect: Option<MonitorRect>,
     }
 
     static LISTENER: OnceLock<Mutex<WallpaperListener>> = OnceLock::new();
@@ -462,6 +466,40 @@ mod platform {
         });
         let target = wallpaper_rect(bounds.monitor, bounds.work, state);
         Ok((bounds, taskbar, state, target))
+    }
+
+    /// The wallpaper rect for the monitor containing `point`, using the same
+    /// work-area/taskbar rules as the single-monitor path. Used per monitor when
+    /// the window spans the whole desktop, so modules never sit under a taskbar.
+    pub fn wallpaper_rect_for_point(point: POINT) -> Option<MonitorRect> {
+        unsafe {
+            let monitor = MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST);
+            if monitor.is_invalid() {
+                return None;
+            }
+            let mut info = MONITORINFO {
+                cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                ..Default::default()
+            };
+            if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+                return None;
+            }
+            let monitor_rect = MonitorRect {
+                left: info.rcMonitor.left,
+                top: info.rcMonitor.top,
+                right: info.rcMonitor.right,
+                bottom: info.rcMonitor.bottom,
+            };
+            let work = MonitorRect {
+                left: info.rcWork.left,
+                top: info.rcWork.top,
+                right: info.rcWork.right,
+                bottom: info.rcWork.bottom,
+            };
+            let taskbar = taskbar_for_monitor(monitor)
+                .and_then(|taskbar| taskbar_state(taskbar).ok());
+            Some(wallpaper_rect(monitor_rect, work, taskbar))
+        }
     }
 
     fn initialize_desktop_layer() -> Result<DesktopLayer, String> {
@@ -648,6 +686,7 @@ mod platform {
         state.parent_hwnd = 0;
         state.taskbar_hwnd = 0;
         state.last_rect = None;
+        state.span_rect = None;
         std::mem::take(&mut state.hooks)
     }
 
@@ -714,14 +753,19 @@ mod platform {
     }
 
     fn recalculate_if_current(generation: u64, token: u64) -> Result<(), String> {
-        let (wallpaper_value, parent_value, last_rect) = {
+        let (wallpaper_value, parent_value, last_rect, span_rect) = {
             let state = listener()
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             if !state.lifecycle.is_current(generation) || state.debounce_token != token {
                 return Ok(());
             }
-            (state.wallpaper_hwnd, state.parent_hwnd, state.last_rect)
+            (
+                state.wallpaper_hwnd,
+                state.parent_hwnd,
+                state.last_rect,
+                state.span_rect,
+            )
         };
         if wallpaper_value == 0 || parent_value == 0 {
             return Ok(());
@@ -729,7 +773,16 @@ mod platform {
 
         let hwnd = hwnd_from_isize(wallpaper_value);
         let parent = hwnd_from_isize(parent_value);
-        let (bounds, taskbar, taskbar_state, target) = current_wallpaper_rect(hwnd)?;
+        // A spanning window keeps the union of every monitor; resolving it from
+        // the window handle would collapse it onto the monitor holding most of
+        // the window. Only the single-monitor path follows the taskbar.
+        let (taskbar, target) = match span_rect {
+            Some(rect) => (None, rect),
+            None => {
+                let (_, taskbar, _, target) = current_wallpaper_rect(hwnd)?;
+                (taskbar, target)
+            }
+        };
         let _operation = window_operation()
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -756,15 +809,7 @@ mod platform {
             state.last_rect = Some(target);
         }
 
-        println!(
-            "wallpaper bounds monitor={:?} work={:?} taskbar={:?} state={:?} target={:?} fallback={}",
-            bounds.monitor,
-            bounds.work,
-            taskbar,
-            taskbar_state,
-            target,
-            taskbar_state.is_none()
-        );
+        println!("wallpaper bounds target={target:?} spanning={}", span_rect.is_some());
         Ok(())
     }
 
@@ -876,13 +921,16 @@ mod platform {
         BOOL(1)
     }
 
-    pub fn enter_wallpaper(hwnd: HWND) -> Result<String, String> {
+    pub fn enter_wallpaper(hwnd: HWND, span: Option<MonitorRect>) -> Result<String, String> {
         stop_listener();
         let _operation = window_operation()
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let layer = initialize_desktop_layer()?;
-        let (bounds, taskbar, state, rect) = current_wallpaper_rect(hwnd)?;
+        let (bounds, taskbar, state, rect) = match span {
+            Some(rect) => (monitor_bounds_for_hwnd(hwnd)?, None, None, rect),
+            None => current_wallpaper_rect(hwnd)?,
+        };
         let target_parent = if layer.raised_desktop {
             layer.progman
         } else {
@@ -943,6 +991,7 @@ mod platform {
             listener.parent_hwnd = target_parent.0 as isize;
             listener.taskbar_hwnd = taskbar.map_or(0, |value| value.0 as isize);
             listener.last_rect = Some(rect);
+            listener.span_rect = span;
             listener.hooks = hooks;
         }
 
@@ -1652,9 +1701,71 @@ fn current_scale_factor<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> 
         .unwrap_or(1.0)
 }
 
+// The union of every monitor, in physical pixels, used as the wallpaper window
+// rect when the user opts into a per-monitor layout. Returns `None` for a
+// single monitor, or when the monitors do not share one scale factor: a single
+// WebView2 cannot render two different DPI scales correctly, so the caller
+// falls back to the untouched single-monitor path instead of stretching the
+// content on one of the screens.
+pub fn span_rect(monitors: &[tauri::Monitor]) -> Option<MonitorRect> {
+    if monitors.len() < 2 {
+        return None;
+    }
+    let scale = monitors[0].scale_factor();
+    if monitors
+        .iter()
+        .any(|monitor| (monitor.scale_factor() - scale).abs() > 0.001)
+    {
+        return None;
+    }
+    let mut rect = MonitorRect {
+        left: i32::MAX,
+        top: i32::MAX,
+        right: i32::MIN,
+        bottom: i32::MIN,
+    };
+    for monitor in monitors {
+        let position = monitor.position();
+        let size = monitor.size();
+        rect.left = rect.left.min(position.x);
+        rect.top = rect.top.min(position.y);
+        rect.right = rect.right.max(position.x + size.width as i32);
+        rect.bottom = rect.bottom.max(position.y + size.height as i32);
+    }
+    (rect.right > rect.left && rect.bottom > rect.top).then_some(rect)
+}
+
+/// The wallpaper rect for one monitor: its work area, adjusted for the taskbar
+/// exactly like the single-monitor path. Falls back to the full monitor rect if
+/// the platform cannot report a work area.
+pub fn monitor_wallpaper_rect(
+    position_x: i32,
+    position_y: i32,
+    width: u32,
+    height: u32,
+) -> MonitorRect {
+    #[cfg(target_os = "windows")]
+    {
+        let point = windows::Win32::Foundation::POINT {
+            x: position_x + width as i32 / 2,
+            y: position_y + height as i32 / 2,
+        };
+        if let Some(rect) = platform::wallpaper_rect_for_point(point) {
+            return rect;
+        }
+    }
+    MonitorRect {
+        left: position_x,
+        top: position_y,
+        right: position_x + width as i32,
+        bottom: position_y + height as i32,
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub fn enter_wallpaper_webview<R: tauri::Runtime>(
     window: &tauri::WebviewWindow<R>,
+    span: Option<MonitorRect>,
 ) -> Result<String, String> {
     let hwnd = window
         .hwnd()
@@ -1662,7 +1773,7 @@ pub fn enter_wallpaper_webview<R: tauri::Runtime>(
     platform::capture_foreground_placement(hwnd)?;
     // Capture the target monitor's scale before reparenting freezes detection.
     let scale = current_scale_factor(window);
-    let message = platform::enter_wallpaper(hwnd)?;
+    let message = platform::enter_wallpaper(hwnd, span)?;
     pin_webview_scale(window, scale, false);
     println!("{message}");
     Ok(message)
@@ -1724,14 +1835,24 @@ pub fn enter_wallpaper_mode(
     #[cfg(target_os = "windows")]
     {
         use tauri::Manager;
-        let target_monitor_id =
+        let settings =
             db.0.lock()
                 .map_err(crate::error::CommandError::database)
                 .and_then(|connection| {
                     crate::settings::read_app_settings(&connection)
                         .map_err(crate::error::CommandError::database)
-                })?
-                .target_monitor_id;
+                })?;
+        let target_monitor_id = settings.target_monitor_id;
+        // Opt-in only: with the flag off this stays `None` and the window is
+        // placed exactly as it always was.
+        let span = if settings.multi_monitor_wallpaper {
+            window
+                .available_monitors()
+                .ok()
+                .and_then(|monitors| span_rect(&monitors))
+        } else {
+            None
+        };
         let hwnd = window.hwnd().map_err(crate::error::CommandError::system)?;
         // Monitor positioning must not replace the user's foreground placement.
         platform::capture_foreground_placement(hwnd).map_err(crate::error::CommandError::system)?;
@@ -1740,7 +1861,7 @@ pub fn enter_wallpaper_mode(
             .get_webview_window("main")
             .ok_or_else(|| crate::error::CommandError::system("main window not found"))?;
         let message =
-            enter_wallpaper_webview(&webview).map_err(crate::error::CommandError::system)?;
+            enter_wallpaper_webview(&webview, span).map_err(crate::error::CommandError::system)?;
         {
             let mut connection = db.0.lock().map_err(crate::error::CommandError::database)?;
             let mut settings = crate::settings::read_app_settings(&connection)
