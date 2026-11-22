@@ -6,6 +6,7 @@ mod attachments;
 mod autostart;
 mod axelor;
 mod backup;
+mod books;
 mod package;
 mod package_policy;
 mod calendar_api;
@@ -724,6 +725,11 @@ fn main() {
             plants::update_plant,
             plants::delete_plant,
             plants::water_plant,
+            books::list_books,
+            books::create_book,
+            books::update_book,
+            books::delete_book,
+            books::read_book_cover,
             contacts::list_contacts,
             contacts::create_contact,
             contacts::update_contact,

@@ -203,6 +203,8 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (51, migration_51_meetings_and_task_assignee),
     (52, migration_52_task_archive_reason),
     (53, migration_53_project_plan),
+    (54, crate::books::migrate),
+    (55, crate::books::migrate_planning),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would

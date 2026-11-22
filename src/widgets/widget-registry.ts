@@ -88,7 +88,7 @@ export const timeDefinition: WidgetDefinition = {
 };
 
 export function buildDefinitions(): WidgetDefinition[] {
-  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, reportsDefinition, archiveDefinition, projectsDefinition, meetingsDefinition, ...extensionDefinitions];
+  return [...builtinDefinitions, kanbanDefinition, timeDefinition, stickersDefinition, plantsDefinition, phonebookDefinition, libraryDefinition, reportsDefinition, archiveDefinition, projectsDefinition, meetingsDefinition, ...extensionDefinitions];
 }
 
 // Meetings is a launcher too: the cell carries the next-meeting count, the
@@ -161,6 +161,19 @@ export const plantsDefinition: WidgetDefinition = {
   minW: 2,
   minH: 3,
   default: { x: 0, y: 0, w: 4, h: 5 }
+};
+
+// The library is both shapes at once: one cell is a launcher, a wider cell turns
+// the same block into the shelf slideshow. minW/minH stay at 1 so the user can
+// park it as an icon and grow it later.
+export const libraryDefinition: WidgetDefinition = {
+  id: 'library',
+  get name() { return t('widget.library.name'); },
+  get description() { return t('widget.library.desc'); },
+  category: 'builtin',
+  minW: 1,
+  minH: 1,
+  default: { x: 0, y: 0, w: 1, h: 1 }
 };
 
 export const stickersDefinition: WidgetDefinition = {

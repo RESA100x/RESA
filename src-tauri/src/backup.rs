@@ -24,9 +24,11 @@ const DATABASE_NAME: &str = db::DATABASE_FILE;
 const LEGACY_DATABASE_NAME: &str = db::LEGACY_DATABASE_FILE;
 const ATTACHMENTS_DIR: &str = "attachments";
 // Image bytes live beside the database, not inside it: note attachments and
-// the sticker board's uploaded pictures. Both travel with the backup.
+// the sticker board's uploaded pictures, plus book covers. All travel with the
+// backup.
 const STICKERS_DIR: &str = "stickers";
-const ASSET_DIRS: [&str; 2] = [ATTACHMENTS_DIR, STICKERS_DIR];
+const COVERS_DIR: &str = "covers";
+const ASSET_DIRS: [&str; 3] = [ATTACHMENTS_DIR, STICKERS_DIR, COVERS_DIR];
 const FORMAT: &str = "resa-backup";
 const FORMAT_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");

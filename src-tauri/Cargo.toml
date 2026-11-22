@@ -19,6 +19,7 @@ chrono-tz = { version = "0.10", features = ["serde"] }
 rrule = "0.14"
 iana-time-zone = "0.1"
 uuid = { version = "1", features = ["v4"] }
+base64 = "0.22"
 sha2 = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 rig-core = { version = "=0.42.0", default-features = false, features = ["reqwest", "rustls"] }

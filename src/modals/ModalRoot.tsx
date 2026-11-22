@@ -15,6 +15,7 @@ import { UnifiedTaskDialog } from '../tasks/UnifiedTaskDialog';
 import { TaskSettingsDialog } from '../tasks/TaskSettingsDialog';
 import { MeetingDialog } from '../meetings/MeetingDialog';
 import { ContactCardDialog } from '../phonebook/ContactCardDialog';
+import { LibraryModalHost } from '../library/LibraryModalHost';
 import { isEventWritable } from '../calendar/calendar-model';
 import { effectiveWeekStart } from '../lib/date';
 import type { Task } from '../tasks/task-model';
@@ -204,6 +205,9 @@ export function ModalRoot({
         onOpenTask={(id) => onChangeModal({ type:'task-open', taskId:id, trigger:modal.trigger })}
         onOpenMeeting={(id) => onChangeModal({ type:'meeting-edit', meetingId:id, trigger:modal.trigger })}
       />
+    ) : null}
+    {modal.type === 'book-card' ? (
+      <LibraryModalHost bookId={modal.bookId} onClose={onClose} />
     ) : null}
   </>;
 }

@@ -35,7 +35,10 @@ import { TimeModule } from '../time/TimeModule';
 import { StickersWidget } from '../stickers/StickersWidget';
 import { PlantsWidget } from '../plants/PlantsWidget';
 import { PhonebookWidget } from '../phonebook/PhonebookWidget';
+import { LibraryWidget } from '../library/LibraryWidget';
 import { useContacts } from '../phonebook/useContacts';
+import { bookCalendarChips } from '../library/calendar-chips';
+import { useBooks } from '../library/useBooks';
 import { ReportsWidget } from '../reports/ReportsWidget';
 import { ArchiveWidget } from '../archive/ArchiveWidget';
 import { ProjectsWidget } from '../projects/ProjectsWidget';
@@ -80,6 +83,7 @@ function AppContent() {
   const notesFeature = useNotes();
   const meetingsFeature = useMeetings();
   const phonebook = useContacts();
+  const library = useBooks();
   const notesView = useNotesView();
   const refreshEvents = useCallback(() => eventsFeature.retryEvents(), [eventsFeature]);
   const events = eventsFeature.events.data;
@@ -174,9 +178,32 @@ function AppContent() {
         occurrenceStartAt: null,
         isOverridden: false,
         subscriptionId: null
+      })),
+      ...bookCalendarChips(library.books.data).map((chip) => ({
+        id: chip.id,
+        bookId: chip.bookId,
+        title: chip.title,
+        startAt: `${chip.date}T00:00`,
+        endAt: `${chip.date}T23:59`,
+        allDay: true,
+        category: '',
+        color: chip.color,
+        note: '',
+        reminders: [],
+        createdAt: '',
+        updatedAt: '',
+        recurrence: null,
+        startTz: null,
+        endTz: null,
+        rrule: null,
+        seriesId: null,
+        seriesStartAt: null,
+        occurrenceStartAt: null,
+        isOverridden: false,
+        subscriptionId: null
       }))
     ];
-  }, [events, meetingsFeature.meetings.data, taskWorkspace.data.tasks, phonebook.contacts.data, eventsFeature.year, localeTag()]);
+  }, [events, meetingsFeature.meetings.data, taskWorkspace.data.tasks, phonebook.contacts.data, library.books.data, eventsFeature.year, localeTag()]);
   const notes = notesFeature.notes.data;
   const [modal, setModal] = useState<ModalState>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -257,6 +284,7 @@ function AppContent() {
   modules.stickers = <StickersWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   modules.plants = <PlantsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   modules.phonebook = <PhonebookWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+  modules.library = <LibraryWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
     modules.reports = <ReportsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
     modules.archive = <ArchiveWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
     modules.projects = <ProjectsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
@@ -282,6 +310,10 @@ function AppContent() {
         onCreateEventForDate={(dateIso) => openModalInForeground({ type: 'event-create', dateIso, trigger: null })}
         onOpenDate={(isoDate) => openModalInForeground({ type: 'date', isoDate, trigger: null })}
         onOpenEvent={(event) => {
+          if (event.bookId) {
+            openModalInForeground({ type: 'book-card', bookId: event.bookId, trigger: null });
+            return;
+          }
           if (event.contactId) {
             openModalInForeground({ type: 'contact-card', contactId: event.contactId, trigger: null });
             return;

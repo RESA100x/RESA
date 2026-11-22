@@ -57,7 +57,7 @@ describe('widget definitions', () => {
 
   it('merges built-ins and extensions into the full placeable set', () => {
     const all = buildDefinitions();
-    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(12);
+    expect(all.filter((definition) => definition.category === 'builtin')).toHaveLength(13);
     expect(getWidgetDefinition('stickers', all)).toMatchObject({ minW: 2, minH: 2, category: 'builtin' });
     expect(defaultLayout.map(item => item.id)).not.toContain('stickers');
     expect(all.filter((definition) => definition.category === 'extension')).toHaveLength(0);

@@ -40,6 +40,7 @@ function createIcon(name: IconName) {
 
 export const AlertTriangle=createIcon('AlertTriangle'), ArrowRightUp=createIcon('ArrowRightUp'), BarChart3=createIcon('BarChart3'),
   Bell=createIcon('Bell'), CalendarDays=createIcon('CalendarDays'), CalendarRange=createIcon('CalendarRange'),
+  Book=createIcon('Book'),
   Check=createIcon('Check'), ChevronDown=createIcon('ChevronDown'), ChevronLeft=createIcon('ChevronLeft'),
   ChevronRight=createIcon('ChevronRight'), ChevronUp=createIcon('ChevronUp'),
   Circle=createIcon('Circle'), Mosaic=createIcon('Mosaic'), Text=createIcon('Text'), ScrollVertical=createIcon('ScrollVertical'),

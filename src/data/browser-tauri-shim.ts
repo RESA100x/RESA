@@ -55,6 +55,7 @@ type Store = {
   tasks: Dict[];
   notes: Dict[];
   plants: Dict[];
+  books: Dict[];
   contacts: Dict[];
   contactCategories: Dict[];
   projects: Dict[];
@@ -107,6 +108,7 @@ function emptyStore(): Store {
     tasks: [],
     notes: [],
     plants: [],
+    books: [],
     contacts: [],
     contactCategories: [],
     projects: [],
@@ -144,6 +146,7 @@ function loadStore(): Store {
         return migrated;
       }),
       plants: parsed.plants ?? [],
+      books: parsed.books ?? [],
       contacts: parsed.contacts ?? [],
       contactCategories: parsed.contactCategories ?? [],
       projects: parsed.projects ?? [],
@@ -1548,6 +1551,40 @@ export function installBrowserTauriBackend() {
       );
       persist();
       return updated;
+    },
+
+    // Home library
+    list_books: () => store.books,
+    create_book: (a) => {
+      const draft = a.draft as Dict;
+      const title = String(draft.title ?? '').replace(/\s+/g, ' ').trim();
+      if (!title) throw { code: 'validation_error', field: 'title', message: '书名不能为空。' };
+      const book = { id: id('book'), createdAt: nowIso(), updatedAt: nowIso(), ...draft, title };
+      store.books.push(book);
+      persist();
+      return book;
+    },
+    update_book: (a) => {
+      const existing = store.books.find((book) => book.id === a.id);
+      if (!existing) throw { code: 'not_found', message: '未找到这本书。' };
+      const draft = a.draft as Dict;
+      const title = String(draft.title ?? '').replace(/\s+/g, ' ').trim();
+      if (!title) throw { code: 'validation_error', field: 'title', message: '书名不能为空。' };
+      let updated: Dict | undefined;
+      store.books = store.books.map((book) =>
+        book.id === a.id ? (updated = { ...book, ...draft, title, updatedAt: nowIso() }) : book
+      );
+      persist();
+      return updated;
+    },
+    delete_book: (a) => {
+      store.books = store.books.filter((book) => book.id !== a.id);
+      persist();
+    },
+    read_book_cover: (a) => {
+      const book = store.books.find((row) => row.id === a.id);
+      const cover = typeof book?.cover === 'string' ? book.cover : '';
+      return cover.startsWith('data:image/') ? cover : null;
     },
 
     // Meetings: one row plus attendees and agenda/follow-up items.

@@ -24,6 +24,7 @@ import type { MatrixTask, TaskDraft } from '../matrix/matrix-model';
 import type { Attachment } from '../lib/attachment';
 import type { Note, NoteDraft } from '../notes/notes-model';
 import type { Plant, PlantDraft } from '../plants/plant-model';
+import type { Book, BookDraft } from '../library/book-model';
 import type { Meeting, MeetingDraft, MeetingExportSummary } from '../meetings/meeting-model';
 import type {
   Contact,
@@ -147,6 +148,12 @@ export type NowlyRepository = {
   updatePlant?(id: string, draft: PlantDraft): Promise<Plant>;
   deletePlant?(id: string): Promise<void>;
   waterPlant?(id: string, wateredAt: string): Promise<Plant>;
+  // 家庭图书馆：藏书 + 阅读状态 + 借阅。
+  listBooks?(): Promise<Book[]>;
+  createBook?(draft: BookDraft): Promise<Book>;
+  updateBook?(id: string, draft: BookDraft): Promise<Book>;
+  deleteBook?(id: string): Promise<void>;
+  readBookCover?(id: string): Promise<string | null>;
   // 会议协调：会议 + 参会人（通讯录联系人）+ 议程 / 跟进事项。
   listMeetings?(): Promise<Meeting[]>;
   saveMeeting?(id: string | null, draft: MeetingDraft): Promise<Meeting>;

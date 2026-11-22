@@ -2683,6 +2683,7 @@ name = "nowly"
 version = "0.2.0"
 dependencies = [
  "arboard",
+ "base64 0.22.1",
  "bytes",
  "chrono",
  "chrono-tz",

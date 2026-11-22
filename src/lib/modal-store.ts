@@ -19,6 +19,7 @@ export type ModalState =
   | { type: 'task-settings'; trigger: HTMLElement | null }
   | { type: 'meeting-edit'; meetingId: string | null; trigger: HTMLElement | null }
   | { type: 'contact-card'; contactId: string; trigger: HTMLElement | null }
+  | { type: 'book-card'; bookId: string; trigger: HTMLElement | null }
   | { type: 'task-open'; taskId: string; trigger: HTMLElement | null }
   | null;
 

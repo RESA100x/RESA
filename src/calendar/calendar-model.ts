@@ -111,6 +111,9 @@ export type CalendarEvent = {
   // Set when this chip is a contact's birthday or work anniversary. Like the
   // other read-only chips it opens the contact card instead of the event form.
   contactId?: string | null;
+  // Set when this chip is a library date (purchase reminder, reading target or
+  // loan return). It opens the book card and is never dragged or edited here.
+  bookId?: string | null;
   // Non-null when this event comes from a read-only calendar subscription; the
   // value is the source subscription id. Local events are always null.
   subscriptionId: string | null;

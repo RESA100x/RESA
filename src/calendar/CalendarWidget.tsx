@@ -254,7 +254,7 @@ export function CalendarWidget({
   const hourResizeEnabled = Boolean(onResizeEventToHour);
   // A task's due-date chip is a pointer to the task, not a calendar event: it
   // must not be dragged, stretched or moved to another hour.
-  const editable = (event: CalendarEvent) => !event.taskId && !event.meetingId && !event.contactId && isEventWritable(event);
+  const editable = (event: CalendarEvent) => !event.taskId && !event.meetingId && !event.contactId && !event.bookId && isEventWritable(event);
 
   // All views drive move/resize with pointer events instead of native HTML5
   // drag-and-drop. Native DnD is unreliable in the Tauri webview (drags often
