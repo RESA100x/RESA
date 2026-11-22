@@ -1,10 +1,11 @@
-import { Download, Mail, RefreshCw, X } from '../components/icons';
+import { ChevronLeft, Download, Mail, RefreshCw, X } from '../components/icons';
 import { useEffect, useId, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Dialog } from '../components/Dialog';
 import type { UpdateInfo } from '../data/nowly-repository';
 import { useNowlyRepository } from '../data/RepositoryContext';
 import { FEEDBACK_EMAIL, FEEDBACK_REPO_URL, openExternal } from '../lib/feedback';
+import { versionsBehind } from '../lib/version';
 import { t } from '../i18n';
 
 type Props = {
@@ -28,9 +29,10 @@ function errorMessage(error: unknown) {
     : '';
 }
 
-// About / feedback entry. Shows the current software version, can re-check for
-// a newer release, and downloads + installs it in place (the app restarts when
-// the installer finishes). The release page stays available as a fallback.
+// About / feedback entry. Shows the running version next to the newest
+// published one, how far behind it is, and downloads + installs the update in
+// place (the app restarts when the installer finishes). The release page stays
+// available as a fallback.
 export function AboutDialog({ onClose, update }: Props) {
   const titleId = useId();
   const repository = useNowlyRepository();
@@ -64,7 +66,9 @@ export function AboutDialog({ onClose, update }: Props) {
 
   const mailto = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(t('about.mailSubject'))}`;
   const currentVersion = info?.currentVersion ?? __APP_VERSION__;
+  const latestVersion = info?.latestVersion ?? null;
   const updateAvailable = info?.updateAvailable ?? false;
+  const behind = latestVersion ? versionsBehind(currentVersion, latestVersion) : null;
   const busy = phase.kind !== 'idle';
 
   const recheck = async () => {
@@ -115,14 +119,8 @@ export function AboutDialog({ onClose, update }: Props) {
     >
       <div className="about-info">
         <section className="about-version">
-          <div className="about-version__row">
-            <span className="about-version__label">{t('about.versionLabel')}</span>
-            <span className="about-version__value">{currentVersion}</span>
-            {updateAvailable ? (
-              <span className="about-version__badge">{t('about.updateAvailable')}</span>
-            ) : (
-              <span className="about-version__latest">{t('about.upToDate')}</span>
-            )}
+          <div className="about-version__head">
+            <span className="about-version__heading">{t('about.versionLabel')}</span>
             <button
               type="button"
               className="about-version__recheck"
@@ -135,11 +133,44 @@ export function AboutDialog({ onClose, update }: Props) {
             </button>
           </div>
 
+          <div className="about-version__compare">
+            <div className="about-version__item">
+              <span className="about-version__item-label">{t('about.currentVersion')}</span>
+              <span className="about-version__item-value">{currentVersion}</span>
+            </div>
+            {latestVersion ? (
+              <>
+                <span className="about-version__arrow" aria-hidden="true">
+                  <ChevronLeft />
+                </span>
+                <div className={`about-version__item${updateAvailable ? ' about-version__item--latest' : ''}`}>
+                  <span className="about-version__item-label">{t('about.latestVersion')}</span>
+                  <span className="about-version__item-value">{latestVersion}</span>
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="about-version__status">
+            {updateAvailable ? (
+              <>
+                <span className="about-version__badge">{t('about.updateAvailable')}</span>
+                <span className="about-version__behind">
+                  {behind === null
+                    ? t('about.versionsBehindMany')
+                    : t('about.versionsBehind', { count: behind })}
+                </span>
+              </>
+            ) : (
+              <span className="about-version__latest">{t('about.upToDate')}</span>
+            )}
+          </div>
+
           {updateAvailable ? (
-            <div className="about-version__update">
+            <div className="about-version__actions">
               <button
                 type="button"
-                className="good-button good-button--primary about-version__download"
+                className="good-button good-button--primary about-version__install"
                 disabled={busy}
                 onClick={() => void install()}
               >

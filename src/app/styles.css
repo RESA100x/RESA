@@ -1617,20 +1617,28 @@ body:has(.screen-status-island-root),
 .about-dialog { width: min(560px, calc(100vw - 32px)); }
 .about-dialog__actions { width: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .about-info { display: grid; gap: 24px; }
-.about-version { display: grid; gap: 12px; padding: 20px; border-radius: var(--radius-default); background: var(--bg-subtle); }
-.about-version__row { display: flex; align-items: center; gap: 12px; }
-.about-version__label { color: var(--text-tertiary); font-size: 0.85rem; font-weight: 500; line-height: 1.5; }
-.about-version__value { color: var(--text-primary); font-size: 1.075rem; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
-.about-version__badge { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-danger-light); color: var(--color-danger-active); font-size: 0.85rem; font-weight: 600; line-height: 1.5; }
-.about-version__latest { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-success-light); color: #6f8617; font-size: 0.85rem; font-weight: 600; line-height: 1.5; }
-.about-version__download { align-self: start; display: inline-flex; align-items: center; gap: 8px; }
-.about-version__download svg { width: 18px; height: 18px; }
+.about-version { display: grid; gap: 16px; padding: 20px; border-radius: var(--radius-default); background: var(--bg-subtle); }
+.about-version__head { display: flex; align-items: center; gap: 12px; }
+.about-version__heading { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; line-height: 1.5; }
 .about-version__recheck { display: grid; width: 28px; height: 28px; margin-inline-start: auto; flex: none; place-items: center; border-radius: var(--radius-sm); color: var(--text-tertiary); }
 .about-version__recheck:hover { background: var(--bg-surface); color: var(--color-primary-active); }
 .about-version__recheck:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
 .about-version__recheck:disabled { opacity: .5; }
 .about-version__recheck svg { width: 16px; height: 16px; }
-.about-version__update { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.about-version__compare { display: flex; align-items: center; gap: 12px; }
+.about-version__item { display: grid; flex: 1 1 0; gap: 2px; min-width: 0; padding: 10px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.about-version__item--latest { border-color: var(--color-primary); background: var(--color-primary-light); }
+.about-version__item-label { color: var(--text-tertiary); font-size: 0.78rem; font-weight: 500; line-height: 1.5; }
+.about-version__item-value { color: var(--text-primary); font-size: 1.1rem; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.about-version__arrow { display: grid; flex: none; place-items: center; color: var(--text-tertiary); }
+.about-version__arrow svg { width: 18px; height: 18px; }
+.about-version__status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.about-version__badge { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-danger-light); color: var(--color-danger-active); font-size: 0.85rem; font-weight: 600; line-height: 1.5; }
+.about-version__latest { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-success-light); color: #6f8617; font-size: 0.85rem; font-weight: 600; line-height: 1.5; }
+.about-version__behind { color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; }
+.about-version__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.about-version__install { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding-inline: 18px; }
+.about-version__install svg { width: 18px; height: 18px; }
 .about-version__link { padding: 6px 4px; color: var(--color-primary); font-size: 0.9rem; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .about-version__link:hover { color: var(--color-primary-active); }
 .about-version__link:disabled { opacity: .5; }

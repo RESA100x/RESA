@@ -38,15 +38,22 @@ test('about dialog installs the update in place', async ({ page }) => {
   await page.locator('.about-button').click();
   const dialog = page.locator('.about-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.about-version__download')).toBeVisible();
+  await expect(dialog.locator('.about-version__install')).toBeVisible();
   await expect(dialog.locator('.about-version__link')).toBeVisible();
+  // Both sides of the update are visible: the running build and the release.
+  await expect(dialog.locator('.about-version__item-value')).toHaveCount(2);
+  await expect(dialog.locator('.about-version__item-value').first()).toHaveText('0.2.0');
+  await expect(dialog.locator('.about-version__item-value').last()).toHaveText('v0.2.23');
+  // Persian locales render the count in Persian digits.
+  await expect(dialog.locator('.about-version__behind')).toContainText(/۲۳|23/);
   const countChecks = async () => (await page.evaluate(() => Reflect.get(window, '__calls') as string[])).filter((command) => command === 'check_for_update').length;
   const before = await countChecks();
   await dialog.locator('.about-version__recheck').click();
   await expect.poll(countChecks).toBe(before + 1);
-  await dialog.locator('.about-version__download').click();
+  await dialog.locator('.about-version__install').click();
   await expect(dialog.getByRole('progressbar')).toBeVisible();
-  await expect(dialog.locator('.about-version__download')).toBeDisabled();
+  await expect(dialog.locator('.about-version__install')).toBeDisabled();
   const calls = await page.evaluate(() => Reflect.get(window, '__calls') as string[]);
   expect(calls).toContain('install_update');
 });
+
