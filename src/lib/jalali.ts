@@ -147,7 +147,11 @@ export function toPersianDigits(value: string | number): string {
 }
 
 export function toLatinDigits(value: string): string {
-  return value.replace(/[۰-۹]/g, (digit) => String(PERSIAN_DIGITS.indexOf(digit)));
+  // Persian (۰-۹) and Arabic-Indic (٠-٩) digits both arrive from keyboards and
+  // pasted text; the year box and every numeric field accept either.
+  return value
+    .replace(/[۰-۹]/g, (digit) => String(PERSIAN_DIGITS.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660));
 }
 
 export type JalaliFormat = 'full' | 'long' | 'medium' | 'short' | 'monthYear' | 'numeric';

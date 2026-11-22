@@ -479,6 +479,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'datePicker.clear': '清除日期',
     'datePicker.clearShort': '清除',
     'datePicker.today': '今天',
+    'datePicker.prevYear': '上一年',
+    'datePicker.nextYear': '下一年',
+    'datePicker.prevYears': '前十二年',
+    'datePicker.nextYears': '后十二年',
+    'datePicker.chooseMonth': '选择月份和年份',
+    'datePicker.chooseYear': '选择年份',
+    'datePicker.yearRange': '{from} 至 {to}',
+    'datePicker.yearInput': '年份',
+    'datePicker.go': '前往',
+    'datePicker.backToCalendar': '返回日历',
 
     // Select
     'select.placeholder': '请选择',
@@ -2187,6 +2197,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'datePicker.clear': 'Clear date',
     'datePicker.clearShort': 'Clear',
     'datePicker.today': 'Today',
+    'datePicker.prevYear': 'Previous year',
+    'datePicker.nextYear': 'Next year',
+    'datePicker.prevYears': 'Previous years',
+    'datePicker.nextYears': 'Next years',
+    'datePicker.chooseMonth': 'Choose month and year',
+    'datePicker.chooseYear': 'Choose a year',
+    'datePicker.yearRange': '{from} – {to}',
+    'datePicker.yearInput': 'Year',
+    'datePicker.go': 'Go',
+    'datePicker.backToCalendar': 'Back to the calendar',
 
     // Select
     'select.placeholder': 'Select',

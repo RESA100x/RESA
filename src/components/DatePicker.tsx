@@ -1,16 +1,17 @@
-import { CalendarDays, ChevronLeft, ChevronRight } from '../components/icons';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, type AppIcon } from '../components/icons';
+import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { buildMonthGrid, effectiveWeekStart, formatChineseDate, toIsoDate } from '../lib/date';
 import { t, formatNumber, isRtl } from '../i18n';
 import {
   addDisplayMonths,
   displayMonthLength,
+  displayMonthDayOf,
   displayMonthName,
   displayMonthOf,
   displayMonthStart,
   usesJalaliCalendar
 } from '../lib/calendar-system';
-import { formatJalali } from '../lib/jalali';
+import { formatJalali, toLatinDigits } from '../lib/jalali';
 
 function weekdayHeadingsList() {
   return t('datePicker.weekdays').split(',');
@@ -28,6 +29,9 @@ export type DatePickerProps = {
   onChange: (value: string) => void;
   today?: Date;
 };
+
+/** How many years one page of the year grid holds. */
+const YEARS_PER_PAGE = 12;
 
 function parseIsoDate(value: string, fallback: Date) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -49,6 +53,36 @@ function monthHeading(year: number, monthIndex: number) {
   return t('datePicker.header', { year, month: monthIndex + 1 });
 }
 
+/**
+ * Two chevrons drawn as icons, not as the « » characters: those are
+ * bidi-mirrored, so in a right-to-left page the browser flips them and a
+ * "previous year" arrow ends up pointing the wrong way. Icons follow the same
+ * direction as the month chevrons next to them.
+ */
+function DoubleChevron({ icon: Icon }: { icon: AppIcon }) {
+  return (
+    <span className="date-picker__double" aria-hidden="true">
+      <Icon />
+      <Icon />
+    </span>
+  );
+}
+
+/** First year of the page that holds `year`. */
+function pageStart(year: number) {
+  return year - (((year % YEARS_PER_PAGE) + YEARS_PER_PAGE) % YEARS_PER_PAGE);
+}
+
+/**
+ * A date field with a calendar.
+ *
+ * The calendar is a *range* picker as much as a month picker: a production date
+ * is often twenty or thirty years back, and paging there month by month is
+ * unusable. So the header carries a year step on each side, the title opens a
+ * year grid (twelve years a page) and then a month grid, and the year grid has
+ * a box to type the year directly. Shift+PageUp/PageDown does the same from the
+ * keyboard.
+ */
 export function DatePicker({
   id,
   label,
@@ -63,11 +97,19 @@ export function DatePicker({
 }: DatePickerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const yearInputRef = useRef<HTMLInputElement>(null);
   const initialDate = parseIsoDate(value, today);
   const [visibleMonth, setVisibleMonth] = useState(() => displayMonthOf(initialDate));
   const [cursorDate, setCursorDate] = useState(initialDate);
+  const [panel, setPanel] = useState<'days' | 'months' | 'years'>('days');
+  const [yearPage, setYearPage] = useState(() => pageStart(displayMonthOf(initialDate).year));
+  const [yearDraft, setYearDraft] = useState('');
   const cursorDateRef = useRef(initialDate);
   const shouldRestoreFocusRef = useRef(false);
+  // Keyboard moves re-render the grid, which replaces the focused button. The
+  // focus is handed back in a layout effect so the next key press (Enter, Space)
+  // always lands on the day the cursor actually moved to.
+  const pendingFocusRef = useRef(false);
 
   const days = buildMonthGrid(visibleMonth.year, visibleMonth.monthIndex, today, effectiveWeekStart('monday'));
   // Month navigation is a logical back/forward control, so the chevrons flip
@@ -82,6 +124,9 @@ export function DatePicker({
     cursorDateRef.current = selected;
     setCursorDate(selected);
     setVisibleMonth(displayMonthOf(selected));
+    setPanel('days');
+    setYearPage(pageStart(displayMonthOf(selected).year));
+    setYearDraft('');
     requestAnimationFrame(() => {
       rootRef.current?.querySelector<HTMLElement>(`[data-date="${toIsoDate(selected)}"]`)?.focus();
     });
@@ -110,6 +155,14 @@ export function DatePicker({
     }
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open || panel !== 'days' || !pendingFocusRef.current) return;
+    pendingFocusRef.current = false;
+    rootRef.current
+      ?.querySelector<HTMLElement>(`[data-date="${toIsoDate(cursorDateRef.current)}"]`)
+      ?.focus();
+  });
+
   function close(restoreFocus: boolean) {
     shouldRestoreFocusRef.current = restoreFocus;
     onOpenChange(false);
@@ -124,13 +177,55 @@ export function DatePicker({
     cursorDateRef.current = nextDate;
     setCursorDate(nextDate);
     setVisibleMonth(displayMonthOf(nextDate));
-    requestAnimationFrame(() => {
-      rootRef.current?.querySelector<HTMLElement>(`[data-date="${toIsoDate(nextDate)}"]`)?.focus();
-    });
+    pendingFocusRef.current = true;
   }
 
   function changeVisibleMonth(offset: number) {
     setVisibleMonth(addDisplayMonths(visibleMonth.year, visibleMonth.monthIndex, offset));
+  }
+
+  /** Move the calendar a whole year, keeping the day where the month allows. */
+  function changeVisibleYear(offset: number) {
+    const targetYear = visibleMonth.year + offset;
+    const length = displayMonthLength(targetYear, visibleMonth.monthIndex);
+    if (length <= 0) return;
+    setVisibleMonth({ year: targetYear, monthIndex: visibleMonth.monthIndex });
+    setYearPage(pageStart(targetYear));
+    // The cursor's day is read in the *display* calendar: in Jalali mode the
+    // Gregorian day-of-month is a different number.
+    const day = Math.min(displayMonthDayOf(toIsoDate(cursorDateRef.current)).day, length);
+    const start = displayMonthStart(targetYear, visibleMonth.monthIndex);
+    const next = new Date(start.getFullYear(), start.getMonth(), day);
+    cursorDateRef.current = next;
+    setCursorDate(next);
+  }
+
+  function openYears() {
+    setYearPage(pageStart(visibleMonth.year));
+    setYearDraft('');
+    setPanel('years');
+    requestAnimationFrame(() => yearInputRef.current?.focus());
+  }
+
+  function pickYear(year: number) {
+    const length = displayMonthLength(year, visibleMonth.monthIndex);
+    if (length <= 0) return;
+    setVisibleMonth({ year, monthIndex: visibleMonth.monthIndex });
+    setPanel('months');
+  }
+
+  function pickMonth(monthIndex: number) {
+    setVisibleMonth({ year: visibleMonth.year, monthIndex });
+    setPanel('days');
+    pendingFocusRef.current = true;
+  }
+
+  function submitYearDraft() {
+    const digits = toLatinDigits(yearDraft).trim();
+    const year = Number(digits);
+    if (!digits || !Number.isInteger(year) || year < 1 || year > 9999) return;
+    setYearPage(pageStart(year));
+    pickYear(year);
   }
 
   function handleDateKeyDown(event: KeyboardEvent<HTMLButtonElement>, date: Date) {
@@ -142,9 +237,15 @@ export function DatePicker({
     if (event.key === 'ArrowDown') nextDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7);
     if (event.key === 'PageUp' || event.key === 'PageDown') {
       const month = displayMonthOf(cursor);
-      const target = addDisplayMonths(month.year, month.monthIndex, event.key === 'PageUp' ? -1 : 1);
+      const step = event.key === 'PageUp' ? -1 : 1;
+      const target = event.shiftKey
+        ? { year: month.year + step, monthIndex: month.monthIndex }
+        : addDisplayMonths(month.year, month.monthIndex, step);
       const start = displayMonthStart(target.year, target.monthIndex);
-      const day = Math.min(cursor.getDate(), displayMonthLength(target.year, target.monthIndex));
+      const day = Math.min(
+        displayMonthDayOf(toIsoDate(cursor)).day,
+        displayMonthLength(target.year, target.monthIndex)
+      );
       nextDate = new Date(start.getFullYear(), start.getMonth(), day);
     }
     if (nextDate) {
@@ -155,6 +256,9 @@ export function DatePicker({
       choose(cursor);
     }
   }
+
+  const yearPageYears = Array.from({ length: YEARS_PER_PAGE }, (_, index) => yearPage + index);
+  const monthNames = Array.from({ length: 12 }, (_, index) => displayMonthName(index));
 
   return (
     <div ref={rootRef} className="date-picker">
@@ -177,44 +281,148 @@ export function DatePicker({
       </button>
       {open ? (
         <div id={dialogId} role="dialog" aria-label={t('datePicker.select', { label })} className="date-picker__popup">
-          <div className="date-picker__header">
-            <button type="button" aria-label={t('datePicker.prevMonth')} onClick={() => changeVisibleMonth(-1)}><PreviousIcon aria-hidden="true" /></button>
-            <strong>{monthHeading(visibleMonth.year, visibleMonth.monthIndex)}</strong>
-            <button type="button" aria-label={t('datePicker.nextMonth')} onClick={() => changeVisibleMonth(1)}><NextIcon aria-hidden="true" /></button>
-          </div>
-          <div role="grid" aria-label={monthHeading(visibleMonth.year, visibleMonth.monthIndex)} className="date-picker__calendar">
-            <div role="row" className="date-picker__weekdays">
-              {weekdayHeadingsList().map((heading) => <span role="columnheader" key={heading}>{heading}</span>)}
-            </div>
-            <div role="rowgroup" className="date-picker__days">
-              {days.map((day) => {
-                const date = parseIsoDate(day.isoDate, today);
-                const selected = day.isoDate === value;
-                const current = day.isoDate === toIsoDate(today);
-                return (
+          {panel === 'days' ? (
+            <>
+              <div className="date-picker__header date-picker__header--days">
+                <button type="button" aria-label={t('datePicker.prevYear')} title={t('datePicker.prevYear')} onClick={() => changeVisibleYear(-1)}>
+                  <DoubleChevron icon={PreviousIcon} />
+                </button>
+                <button type="button" aria-label={t('datePicker.prevMonth')} onClick={() => changeVisibleMonth(-1)}><PreviousIcon aria-hidden="true" /></button>
+                <button
+                  type="button"
+                  className="date-picker__title"
+                  aria-label={t('datePicker.chooseMonth')}
+                  title={t('datePicker.chooseMonth')}
+                  onClick={openYears}
+                >
+                  {monthHeading(visibleMonth.year, visibleMonth.monthIndex)}
+                </button>
+                <button type="button" aria-label={t('datePicker.nextMonth')} onClick={() => changeVisibleMonth(1)}><NextIcon aria-hidden="true" /></button>
+                <button type="button" aria-label={t('datePicker.nextYear')} title={t('datePicker.nextYear')} onClick={() => changeVisibleYear(1)}>
+                  <DoubleChevron icon={NextIcon} />
+                </button>
+              </div>
+              <div role="grid" aria-label={monthHeading(visibleMonth.year, visibleMonth.monthIndex)} className="date-picker__calendar">
+                <div role="row" className="date-picker__weekdays">
+                  {weekdayHeadingsList().map((heading) => <span role="columnheader" key={heading}>{heading}</span>)}
+                </div>
+                <div role="rowgroup" className="date-picker__days">
+                  {days.map((day) => {
+                    const date = parseIsoDate(day.isoDate, today);
+                    const selected = day.isoDate === value;
+                    const current = day.isoDate === toIsoDate(today);
+                    return (
+                      <button
+                        key={day.isoDate}
+                        type="button"
+                        role="gridcell"
+                        data-date={day.isoDate}
+                        tabIndex={day.isoDate === toIsoDate(cursorDate) ? 0 : -1}
+                        aria-label={formatChineseDate(date)}
+                        aria-selected={selected}
+                        aria-current={current ? 'date' : undefined}
+                        className={`date-picker__day${day.isCurrentMonth ? '' : ' date-picker__day--outside'}${selected ? ' date-picker__day--selected' : ''}${current ? ' date-picker__day--today' : ''}`}
+                        onClick={() => choose(date)}
+                        onKeyDown={(event) => handleDateKeyDown(event, date)}
+                      >
+                        {formatNumber(day.dayOfMonth)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {panel === 'years' ? (
+            <div className="date-picker__panel">
+              <div className="date-picker__header date-picker__header--years">
+                <button type="button" aria-label={t('datePicker.prevYears')} onClick={() => setYearPage(yearPage - YEARS_PER_PAGE)}>
+                  <DoubleChevron icon={PreviousIcon} />
+                </button>
+                <strong>{t('datePicker.yearRange', {
+                  from: formatNumber(yearPage, { useGrouping: false }),
+                  to: formatNumber(yearPage + YEARS_PER_PAGE - 1, { useGrouping: false })
+                })}</strong>
+                <button type="button" aria-label={t('datePicker.nextYears')} onClick={() => setYearPage(yearPage + YEARS_PER_PAGE)}>
+                  <DoubleChevron icon={NextIcon} />
+                </button>
+              </div>
+              <div className="date-picker__year-input">
+                <label htmlFor={`${id}-year`}>{t('datePicker.yearInput')}</label>
+                <input
+                  ref={yearInputRef}
+                  id={`${id}-year`}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={yearDraft}
+                  onChange={(event) => setYearDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      submitYearDraft();
+                    }
+                  }}
+                />
+                <button type="button" onClick={submitYearDraft}>{t('datePicker.go')}</button>
+              </div>
+              <div className="date-picker__years" role="group" aria-label={t('datePicker.chooseYear')}>
+                {yearPageYears.map((year) => (
                   <button
-                    key={day.isoDate}
+                    key={year}
                     type="button"
-                    role="gridcell"
-                    data-date={day.isoDate}
-                    tabIndex={day.isoDate === toIsoDate(cursorDate) ? 0 : -1}
-                    aria-label={formatChineseDate(date)}
-                    aria-selected={selected}
-                    aria-current={current ? 'date' : undefined}
-                    className={`date-picker__day${day.isCurrentMonth ? '' : ' date-picker__day--outside'}${selected ? ' date-picker__day--selected' : ''}${current ? ' date-picker__day--today' : ''}`}
-                    onClick={() => choose(date)}
-                    onKeyDown={(event) => handleDateKeyDown(event, date)}
+                    aria-pressed={year === visibleMonth.year}
+                    className={`date-picker__year${year === visibleMonth.year ? ' is-current' : ''}`}
+                    onClick={() => pickYear(year)}
                   >
-                    {formatNumber(day.dayOfMonth)}
+                    {formatNumber(year, { useGrouping: false })}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+              <div className="date-picker__footer">
+                <button type="button" onClick={() => setPanel('days')}>{t('datePicker.backToCalendar')}</button>
+                <button type="button" onClick={() => choose(today)}>{t('datePicker.today')}</button>
+              </div>
             </div>
-          </div>
-          <div className="date-picker__footer">
-            <button type="button" aria-label={t('datePicker.clear')} onClick={() => { onChange(''); close(true); }}>{t('datePicker.clearShort')}</button>
-            <button type="button" onClick={() => choose(today)}>{t('datePicker.today')}</button>
-          </div>
+          ) : null}
+
+          {panel === 'months' ? (
+            <div className="date-picker__panel">
+              <div className="date-picker__header date-picker__header--years">
+                <button type="button" aria-label={t('datePicker.prevYear')} onClick={() => pickYear(visibleMonth.year - 1)}>
+                  <DoubleChevron icon={PreviousIcon} />
+                </button>
+                <strong>{formatNumber(visibleMonth.year, { useGrouping: false })}</strong>
+                <button type="button" aria-label={t('datePicker.nextYear')} onClick={() => pickYear(visibleMonth.year + 1)}>
+                  <DoubleChevron icon={NextIcon} />
+                </button>
+              </div>
+              <div className="date-picker__months" role="group" aria-label={t('datePicker.chooseMonth')}>
+                {monthNames.map((name, index) => (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={index === visibleMonth.monthIndex}
+                    className={`date-picker__month${index === visibleMonth.monthIndex ? ' is-current' : ''}`}
+                    onClick={() => pickMonth(index)}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+              <div className="date-picker__footer">
+                <button type="button" onClick={() => setPanel('years')}>{t('datePicker.chooseYear')}</button>
+                <button type="button" onClick={() => setPanel('days')}>{t('datePicker.backToCalendar')}</button>
+              </div>
+            </div>
+          ) : null}
+
+          {panel === 'days' ? (
+            <div className="date-picker__footer">
+              <button type="button" aria-label={t('datePicker.clear')} onClick={() => { onChange(''); close(true); }}>{t('datePicker.clearShort')}</button>
+              <button type="button" onClick={() => choose(today)}>{t('datePicker.today')}</button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

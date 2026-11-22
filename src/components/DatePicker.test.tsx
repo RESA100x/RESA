@@ -164,4 +164,67 @@ describe('DatePicker', () => {
     await user.click(trigger);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  it('steps a whole year from the header, so a far date is a few clicks away', async () => {
+    const user = userEvent.setup();
+    render(<Harness initiallyOpen />);
+    expect(screen.getByText('2026 年 7 月')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '下一年' }));
+    expect(screen.getByText('2027 年 7 月')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '上一年' }));
+    await user.click(screen.getByRole('button', { name: '上一年' }));
+    expect(screen.getByText('2025 年 7 月')).toBeInTheDocument();
+  });
+
+  it('jumps to a typed year through the year grid', async () => {
+    const user = userEvent.setup();
+    render(<Harness initiallyOpen />);
+
+    await user.click(screen.getByRole('button', { name: '选择月份和年份' }));
+    expect(screen.getByRole('group', { name: '选择年份' })).toBeInTheDocument();
+
+    const yearBox = screen.getByLabelText('年份');
+    await user.clear(yearBox);
+    await user.type(yearBox, '1990{Enter}');
+
+    // Picking the year lands on the month grid for that year.
+    expect(screen.getByRole('group', { name: '选择月份和年份' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '返回日历' }));
+    expect(screen.getByText('1990 年 7 月')).toBeInTheDocument();
+  });
+
+  it('moves a whole year with Shift+PageDown from the keyboard', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Harness initiallyOpen onChange={onChange} />);
+
+    screen.getByRole('gridcell', { name: '2026年7月23日 星期四' }).focus();
+    await user.keyboard('{Shift>}{PageDown}{/Shift} ');
+    expect(onChange).toHaveBeenLastCalledWith('2027-07-23');
+  });
+
+  it('points the year chevrons the same way as the month chevrons', () => {
+    const { unmount } = render(<Harness initiallyOpen />);
+    const dialog = screen.getByRole('dialog', { name: '选择开始日期' });
+    const previousMonth = within(dialog).getByRole('button', { name: '上一个月' }).querySelector('svg')!.innerHTML;
+    const previousYear = within(dialog).getByRole('button', { name: '上一年' }).querySelector('svg')!.innerHTML;
+    expect(previousYear).toBe(previousMonth);
+    unmount();
+
+    // Right-to-left: both pairs flip together, so "previous" still points the
+    // way the reading direction says it should.
+    setLanguage('fa');
+    try {
+      render(<Harness initiallyOpen />);
+      const faDialog = screen.getByRole('dialog');
+      const faPreviousMonth = within(faDialog).getByRole('button', { name: 'ماه قبل' }).querySelector('svg')!.innerHTML;
+      const faPreviousYear = within(faDialog).getByRole('button', { name: 'سال قبل' }).querySelector('svg')!.innerHTML;
+      expect(faPreviousYear).toBe(faPreviousMonth);
+      expect(faPreviousMonth).not.toBe(previousMonth);
+    } finally {
+      setLanguage('zh');
+    }
+  });
 });
