@@ -68,10 +68,14 @@ export function Select({ id, name, label, options, value, onChange, placeholder,
       setPlaceAbove(above);
       setPopupMaxHeight(Math.max(96, Math.min(320, above ? spaceAbove : spaceBelow)));
       // Anchor the popup with viewport coordinates so it can escape the
-      // modal body's overflow clipping via position: fixed.
-      const width = fitContent ? Math.max(rect.width, popupRef.current?.offsetWidth ?? 0) : rect.width;
-      const left = fitContent ? Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)) : rect.left;
-      setPopupRect({ left, top: rect.bottom, bottom: rect.top, width: rect.width });
+      // modal body's overflow clipping via position: fixed. The popup is as
+      // wide as its longest option (never narrower than the trigger), because a
+      // narrow inline filter would otherwise clip every label.
+      const natural = popupRef.current?.offsetWidth ?? 0;
+      const floor = fitContent ? 0 : rect.width;
+      const width = Math.max(floor, Math.min(natural, window.innerWidth - 32));
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
+      setPopupRect({ left, top: rect.bottom, bottom: rect.top, width });
     }
     measurePlacement();
     window.addEventListener('resize', measurePlacement);
@@ -162,7 +166,7 @@ export function Select({ id, name, label, options, value, onChange, placeholder,
         aria-describedby={errorId}
         disabled={disabled}
         className={`select-trigger${triggerIcon ? ' select-trigger--icon' : ''}`}
-        title={triggerIcon ? `${label}: ${selected?.label ?? resolvedPlaceholder}` : undefined}
+        title={triggerIcon ? `${label}: ${selected?.label ?? resolvedPlaceholder}` : selected?.label ?? resolvedPlaceholder}
         onClick={() => open ? close(false) : openList()}
         onKeyDown={handleKeyDown}
       >
@@ -177,11 +181,12 @@ export function Select({ id, name, label, options, value, onChange, placeholder,
           className={`select-popup${placeAbove ? ' select-popup--above' : ''}`}
           style={{
             maxHeight: `${popupMaxHeight}px`,
-            ...(fitContent ? { width: 'max-content', maxWidth: 'calc(100vw - 32px)' } : {}),
+            width: 'max-content',
+            maxWidth: 'calc(100vw - 32px)',
             ...(popupRect
               ? {
                   left: `${popupRect.left}px`,
-                  ...(fitContent ? { minWidth: `${popupRect.width}px` } : { width: `${popupRect.width}px` }),
+                  minWidth: `${popupRect.width}px`,
                   ...(placeAbove
                     ? { bottom: `${window.innerHeight - popupRect.bottom + 8}px` }
                     : { top: `${popupRect.top + 8}px` })

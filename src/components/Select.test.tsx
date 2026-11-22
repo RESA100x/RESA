@@ -143,6 +143,36 @@ describe('Select', () => {
     }
   });
 
+  it('opens a narrow filter menu wide enough for its longest option', async () => {
+    const user = userEvent.setup();
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    const offset = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.getAttribute('role') === 'combobox') return { top: 100, bottom: 148, left: 40, right: 140, width: 100, height: 48, x: 40, y: 100, toJSON() {} };
+      return original.call(this);
+    };
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return this.classList.contains('select-popup') ? 260 : 100; } });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    try {
+      const { container } = render(
+        <Select
+          id="narrow"
+          label="状态"
+          hideLabel
+          options={[{ value: 'reading', label: 'در حال خواندن' }, { value: 'read', label: 'تمام‌شده' }]}
+          value="reading"
+          onChange={() => undefined}
+        />
+      );
+      await user.click(screen.getByRole('combobox', { name: '状态' }));
+      // The trigger is 100px, but the menu takes the width of its label.
+      expect(container.querySelector('.select-popup')).toHaveStyle({ minWidth: '260px', left: '40px' });
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = original;
+      if (offset) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offset);
+    }
+  });
+
   it('places the popup above when there is more room above the trigger', async () => {
     const user = userEvent.setup();
     const original = HTMLElement.prototype.getBoundingClientRect;

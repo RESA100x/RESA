@@ -1027,6 +1027,7 @@ body:has(.screen-status-island-root),
   min-height: 44px;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 12px;
   color: var(--text-secondary);
   font: 500 15.2px/1.5 var(--font-sans);
@@ -1039,6 +1040,10 @@ body:has(.screen-status-island-root),
 .select-option[data-active="true"] { color: var(--color-primary-active); background: var(--bg-subtle); }
 .select-option[aria-selected="true"] { color: var(--color-primary-active); background: var(--color-primary-light); }
 .select-option svg { width: 18px; height: 18px; }
+.select-option > svg { flex: 0 0 auto; }
+/* The trigger keeps one line and ellipses; inside the menu a long label wraps
+   instead of being cut off, so every option stays readable in a narrow field. */
+.select-option > .select-value { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 .select-option:focus-visible { outline: 0; }
 .select-value { display: inline-flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .select-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
