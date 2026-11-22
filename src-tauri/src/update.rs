@@ -2,6 +2,7 @@ use crate::error::CommandError;
 use crate::net;
 use serde::Serialize;
 use std::sync::OnceLock;
+use tauri::{AppHandle, Emitter};
 
 // Software update check.
 //
@@ -155,6 +156,197 @@ pub fn check_for_update() -> Result<UpdateInfo, CommandError> {
     run_check(env!("CARGO_PKG_VERSION").to_owned())
 }
 
+// ---------------------------------------------------------------------------
+// In-app install
+//
+// The check above only tells the user a newer release exists. This half fetches
+// the release's installer asset, verifies its published SHA-256 when the
+// release ships a `SHA256SUMS.txt`, writes it to a temp folder, and hands off to
+// a detached PowerShell helper that waits for this process to exit, runs the
+// NSIS installer silently, then relaunches the app. The UI shows download
+// progress from the `update-download-progress` event.
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProgress {
+    pub downloaded: u64,
+    pub total: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReleaseAsset {
+    name: String,
+    url: String,
+}
+
+fn parse_assets(json: &str) -> Vec<ReleaseAsset> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(json) else {
+        return Vec::new();
+    };
+    value
+        .get("assets")
+        .and_then(|assets| assets.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let name = item.get("name")?.as_str()?.to_owned();
+                    let url = item.get("browser_download_url")?.as_str()?.to_owned();
+                    Some(ReleaseAsset { name, url })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// Prefer the x64 NSIS setup, then any NSIS setup, then any .exe. MSI is not
+// used: it cannot be installed silently without elevation.
+fn pick_installer(assets: &[ReleaseAsset]) -> Option<&ReleaseAsset> {
+    let setup = |asset: &&ReleaseAsset| asset.name.to_ascii_lowercase().ends_with("-setup.exe");
+    assets
+        .iter()
+        .find(|asset| setup(&asset) && asset.name.to_ascii_lowercase().contains("x64"))
+        .or_else(|| assets.iter().find(setup))
+        .or_else(|| {
+            assets
+                .iter()
+                .find(|asset| asset.name.to_ascii_lowercase().ends_with(".exe"))
+        })
+}
+
+fn find_checksum_asset(assets: &[ReleaseAsset]) -> Option<&ReleaseAsset> {
+    assets
+        .iter()
+        .find(|asset| asset.name.eq_ignore_ascii_case("SHA256SUMS.txt"))
+}
+
+// Read the hash for `file_name` out of a `sha256sum`-style listing. Lines look
+// like `<hex>  <name>` or `<hex> *<name>`; blank lines and `#` comments are
+// ignored.
+fn expected_sha256(sums: &str, file_name: &str) -> Option<String> {
+    for line in sums.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let hash = parts.next()?;
+        let name = parts.next()?.trim_start_matches('*');
+        if name.eq_ignore_ascii_case(file_name) && hash.len() == 64 {
+            return Some(hash.to_ascii_lowercase());
+        }
+    }
+    None
+}
+
+fn hex_sha256(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(bytes);
+    let mut out = String::with_capacity(64);
+    for byte in digest {
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
+}
+
+#[cfg(target_os = "windows")]
+fn launch_installer(
+    installer: &std::path::Path,
+    exe: &std::path::Path,
+) -> Result<(), CommandError> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    // Wait for this process to exit first: the NSIS installer cannot replace a
+    // running executable. Then install silently and relaunch the app.
+    let script = format!(
+        "$p={pid}; while (Get-Process -Id $p -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 400 }}; \
+         Start-Process -FilePath '{installer}' -ArgumentList '/S' -Wait; \
+         Start-Process -FilePath '{exe}'",
+        pid = std::process::id(),
+        installer = installer.display(),
+        exe = exe.display(),
+    );
+    std::process::Command::new("powershell")
+        .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map_err(CommandError::system)?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn launch_installer(
+    _installer: &std::path::Path,
+    _exe: &std::path::Path,
+) -> Result<(), CommandError> {
+    Err(CommandError::validation(
+        "update",
+        "نصب خودکار فقط در ویندوز پشتیبانی می‌شود.",
+    ))
+}
+
+fn download_and_install(app: &AppHandle, repo: &str) -> Result<(), CommandError> {
+    let body = net::fetch_public_text(&latest_release_api(repo))?;
+    let assets = parse_assets(&body);
+    let installer = pick_installer(&assets)
+        .ok_or_else(|| CommandError::validation("update", "فایل نصب در این نسخه پیدا نشد."))?;
+
+    // A missing checksum file is not fatal (older releases have none), but when
+    // it exists the downloaded installer must match it.
+    let expected = find_checksum_asset(&assets)
+        .and_then(|asset| net::fetch_public_text(&asset.url).ok())
+        .and_then(|sums| expected_sha256(&sums, &installer.name));
+
+    let mut last_emitted = 0u64;
+    let bytes = net::fetch_release_asset(&installer.url, net::installer_size_limit(), |downloaded, total| {
+        if downloaded.saturating_sub(last_emitted) >= 256 * 1024 || Some(downloaded) == total {
+            last_emitted = downloaded;
+            let _ = app.emit("update-download-progress", UpdateProgress { downloaded, total });
+        }
+    })?;
+
+    if let Some(expected) = expected {
+        if hex_sha256(&bytes) != expected {
+            return Err(CommandError::validation(
+                "update",
+                "هش فایل نصب با فایل منتشرشده نمی‌خواند.",
+            ));
+        }
+    }
+
+    let dir = std::env::temp_dir().join("resa-update");
+    std::fs::create_dir_all(&dir).map_err(CommandError::system)?;
+    let installer_path = dir.join(&installer.name);
+    std::fs::write(&installer_path, &bytes).map_err(CommandError::system)?;
+
+    let exe = std::env::current_exe().map_err(CommandError::system)?;
+    launch_installer(&installer_path, &exe)?;
+    let _ = app.emit("update-installing", ());
+    app.exit(0);
+    Ok(())
+}
+
+/// Download the newest release's installer and install it, then restart RESA.
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> Result<(), CommandError> {
+    if crate::package::aumid().map_err(CommandError::system)?.is_some() {
+        return Err(CommandError::validation(
+            "update",
+            "این نسخه از فروشگاه به‌روزرسانی می‌شود.",
+        ));
+    }
+    let repo = update_repo();
+    if repo.is_empty() {
+        return Err(CommandError::validation(
+            "update",
+            "مخزن به‌روزرسانی تنظیم نشده است.",
+        ));
+    }
+    tauri::async_runtime::spawn_blocking(move || download_and_install(&app, &repo))
+        .await
+        .map_err(CommandError::system)?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +411,43 @@ mod tests {
             releases_page_url("someone/resa"),
             "https://github.com/someone/resa/releases"
         );
+    }
+
+    #[test]
+    fn picks_the_x64_setup_installer() {
+        let json = r#"{
+            "tag_name": "v0.2.22",
+            "assets": [
+                { "name": "RESA_0.2.22_x64_en-US.msi", "browser_download_url": "https://github.com/a/b/releases/download/v0.2.22/a.msi" },
+                { "name": "RESA_0.2.22_x64-setup.exe", "browser_download_url": "https://github.com/a/b/releases/download/v0.2.22/b.exe" },
+                { "name": "SHA256SUMS.txt", "browser_download_url": "https://github.com/a/b/releases/download/v0.2.22/sums.txt" }
+            ]
+        }"#;
+        let assets = parse_assets(json);
+        assert_eq!(assets.len(), 3);
+        let installer = pick_installer(&assets).expect("an installer is present");
+        assert_eq!(installer.name, "RESA_0.2.22_x64-setup.exe");
+        assert_eq!(
+            find_checksum_asset(&assets).map(|asset| asset.name.as_str()),
+            Some("SHA256SUMS.txt")
+        );
+    }
+
+    #[test]
+    fn no_installer_means_no_asset() {
+        let json = r#"{ "assets": [ { "name": "notes.txt", "browser_download_url": "https://github.com/a/b/c" } ] }"#;
+        assert!(pick_installer(&parse_assets(json)).is_none());
+    }
+
+    #[test]
+    fn reads_a_matching_checksum_line() {
+        let hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let sums = format!("# generated\n{hash}  RESA_0.2.22_x64-setup.exe\n");
+        assert_eq!(
+            expected_sha256(&sums, "RESA_0.2.22_x64-setup.exe").as_deref(),
+            Some(hash)
+        );
+        assert_eq!(expected_sha256(&sums, "other.exe"), None);
     }
 
     #[test]

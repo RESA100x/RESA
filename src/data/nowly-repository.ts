@@ -318,6 +318,8 @@ export type NowlyRepository = {
   // Check GitHub for a newer release. Optional so lightweight test doubles and
   // the browser dev shim need not implement it.
   checkForUpdate?(): Promise<UpdateInfo>;
+  // Download and install the newest release, then restart the app.
+  installUpdate?(): Promise<void>;
   updateSettings(settings: AppSettings): Promise<AppSettings>;
   listMonitors(): Promise<MonitorInfo[]>;
   listModuleLayout(): Promise<ModuleLayoutEntry[]>;

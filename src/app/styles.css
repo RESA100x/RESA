@@ -1625,6 +1625,20 @@ body:has(.screen-status-island-root),
 .about-version__latest { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-success-light); color: #6f8617; font-size: 0.85rem; font-weight: 600; line-height: 1.5; }
 .about-version__download { align-self: start; display: inline-flex; align-items: center; gap: 8px; }
 .about-version__download svg { width: 18px; height: 18px; }
+.about-version__recheck { display: grid; width: 28px; height: 28px; margin-inline-start: auto; flex: none; place-items: center; border-radius: var(--radius-sm); color: var(--text-tertiary); }
+.about-version__recheck:hover { background: var(--bg-surface); color: var(--color-primary-active); }
+.about-version__recheck:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+.about-version__recheck:disabled { opacity: .5; }
+.about-version__recheck svg { width: 16px; height: 16px; }
+.about-version__update { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.about-version__link { padding: 6px 4px; color: var(--color-primary); font-size: 0.9rem; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.about-version__link:hover { color: var(--color-primary-active); }
+.about-version__link:disabled { opacity: .5; }
+.about-version__progress { position: relative; display: flex; align-items: center; height: 30px; overflow: hidden; border-radius: var(--radius-sm); background: var(--bg-surface); border: 1px solid var(--border-default); }
+.about-version__progress-bar { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--color-primary-light); transition: width .2s ease; }
+.about-version__progress-label { position: relative; padding-inline: 12px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.about-version__hint { margin: 0; color: var(--text-tertiary); font-size: 0.9rem; line-height: 1.6; }
+.about-version__error { margin: 0; color: var(--color-danger-active); font-size: 0.9rem; line-height: 1.6; }
 .about-changelog { display: grid; gap: 8px; }
 .about-changelog__title { margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 600; line-height: 1.5; }
 .about-changelog__body { margin: 0; max-height: 220px; overflow: auto; padding: 16px; border-radius: var(--radius-default); border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--text-secondary); font-family: var(--font-sans); font-size: 0.95rem; font-weight: 400; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }

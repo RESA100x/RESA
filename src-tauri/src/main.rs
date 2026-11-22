@@ -716,6 +716,7 @@ fn main() {
             commands::update_app_settings,
             feedback::open_external,
             update::check_for_update,
+            update::install_update,
             layout::list_module_layout,
             layout::save_module_layout,
             plants::list_plants,

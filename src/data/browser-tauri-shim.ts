@@ -1780,6 +1780,11 @@ export function installBrowserTauriBackend() {
       releaseUrl: typeof __RESA_REPO__ === 'string' && __RESA_REPO__ ? `https://github.com/${__RESA_REPO__.trim()}/releases` : '',
       publishedAt: null
     }),
+    // Installing an update needs the desktop runtime; the browser preview has
+    // no installer to run.
+    install_update: () => {
+      throw { code: 'system_error', message: 'Installing updates is only available in the desktop app.' };
+    },
 
     // Settings & environment
     get_app_settings: () => store.settings,

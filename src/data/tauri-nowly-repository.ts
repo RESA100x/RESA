@@ -165,6 +165,7 @@ export const tauriNowlyRepository: NowlyRepository = {
   openAttachment: (id) => invoke('open_attachment', { id }),
   getSettings: () => invoke('get_app_settings'),
   checkForUpdate: () => invoke('check_for_update'),
+  installUpdate: () => invoke('install_update'),
   updateSettings: (settings) => invoke('update_app_settings', { settings }),
   listMonitors: () => invoke('list_monitors'),
   listModuleLayout: () => invoke('list_module_layout'),

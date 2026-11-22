@@ -15,6 +15,11 @@ use std::time::Duration;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_ICS_BYTES: usize = 1024 * 1024; // 1 MiB 的订阅日历
 const MAX_RELEASE_BYTES: usize = 256 * 1024; // 256 KiB GitHub release payload
+// A full installer is tens of megabytes; allow a generous ceiling and a long
+// timeout so a slow link still completes instead of failing mid-download.
+const MAX_INSTALLER_BYTES: usize = 320 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(900);
+const MAX_REDIRECTS: usize = 5;
 const USER_AGENT: &str = "RESA/1";
 
 fn is_public_ip(ip: &IpAddr) -> bool {
@@ -85,13 +90,20 @@ fn resolve_public_addrs(host: &str, port: u16) -> Result<Vec<SocketAddr>, Comman
 // reqwest will only connect to those addresses, so a hostname cannot be re-
 // resolved to an internal IP after validation.
 fn pinned_client(url: &reqwest::Url) -> Result<reqwest::blocking::Client, CommandError> {
+    pinned_client_with_timeout(url, REQUEST_TIMEOUT)
+}
+
+fn pinned_client_with_timeout(
+    url: &reqwest::Url,
+    timeout: Duration,
+) -> Result<reqwest::blocking::Client, CommandError> {
     let host = url
         .host_str()
         .ok_or_else(|| CommandError::validation("url", "请求地址缺少域名。"))?;
     let port = url.port_or_known_default().unwrap_or(443);
     let addrs = resolve_public_addrs(host, port)?;
     let mut builder = reqwest::blocking::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(timeout)
         .connect_timeout(REQUEST_TIMEOUT)
         // Refuse redirects: a permitted host must not be able to bounce us to an
         // internal address or an out-of-allow-list domain.
@@ -299,6 +311,87 @@ pub fn fetch_ics(url: &str) -> Result<String, CommandError> {
 /// 复用同一套 https-only / 拦内网 IP / 禁重定向 / 限大小 / 超时基线。
 pub fn fetch_public_text(url: &str) -> Result<String, CommandError> {
     fetch_text(url, MAX_RELEASE_BYTES)
+}
+
+// GitHub answers a release download URL with a 302 to
+// `objects.githubusercontent.com`, so the installer download cannot use the
+// redirect-refusing `fetch_text`. Instead it follows a short redirect chain
+// where every hop must be https and must land on one of GitHub's own asset
+// hosts, and each hop is still resolved and pinned to public addresses.
+const RELEASE_DOWNLOAD_HOSTS: &[&str] = &[
+    "github.com",
+    "api.github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+    "codeload.github.com",
+];
+
+/// Download a release asset (the installer) with a byte cap and a per-chunk
+/// progress callback. The callback receives the bytes received so far and the
+/// total size when the server sent a `Content-Length`.
+pub fn fetch_release_asset<F>(
+    url: &str,
+    limit: usize,
+    mut on_progress: F,
+) -> Result<Vec<u8>, CommandError>
+where
+    F: FnMut(u64, Option<u64>),
+{
+    let mut current = reqwest::Url::parse(url)
+        .map_err(|_| CommandError::validation("url", "地址无效。"))?;
+    for _ in 0..=MAX_REDIRECTS {
+        if current.scheme() != "https" {
+            return Err(CommandError::validation("url", "仅允许 https 地址。"));
+        }
+        let host = current
+            .host_str()
+            .ok_or_else(|| CommandError::validation("url", "请求地址缺少域名。"))?
+            .to_ascii_lowercase();
+        if !RELEASE_DOWNLOAD_HOSTS.contains(&host.as_str()) {
+            return Err(CommandError::validation("url", "下载域名不在授权白名单内。"));
+        }
+        let client = pinned_client_with_timeout(&current, DOWNLOAD_TIMEOUT)?;
+        let response = client.get(current.clone()).send().map_err(|error| {
+            CommandError::validation("url", &format!("请求失败：{}", short_reqwest_error(&error)))
+        })?;
+        let status = response.status();
+        if status.is_redirection() {
+            let location = response
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| CommandError::validation("url", "下载重定向缺少地址。"))?;
+            current = current
+                .join(location)
+                .map_err(|_| CommandError::validation("url", "下载重定向地址无效。"))?;
+            continue;
+        }
+        if !status.is_success() {
+            return Err(CommandError::validation("url", "下载地址返回错误状态。"));
+        }
+        let total = response.content_length();
+        let mut reader = response.take(limit as u64 + 1);
+        let mut buffer: Vec<u8> = Vec::with_capacity(total.unwrap_or(0).min(limit as u64) as usize);
+        let mut chunk = vec![0u8; 64 * 1024];
+        loop {
+            let read = reader.read(&mut chunk).map_err(CommandError::system)?;
+            if read == 0 {
+                break;
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+            if buffer.len() > limit {
+                return Err(CommandError::validation("url", "安装包过大。"));
+            }
+            on_progress(buffer.len() as u64, total);
+        }
+        return Ok(buffer);
+    }
+    Err(CommandError::validation("url", "下载重定向次数过多。"))
+}
+
+/// The size cap used by the installer download.
+pub fn installer_size_limit() -> usize {
+    MAX_INSTALLER_BYTES
 }
 
 // Axelor 服务器地址由用户在自己的设置里显式填写（自建服务器、局域网、
@@ -548,6 +641,26 @@ mod tests {
     fn fetch_ics_rejects_private_ip() {
         let err = fetch_ics("https://192.168.0.10/a.ics").unwrap_err();
         assert_eq!(err.field.as_deref(), Some("url"));
+    }
+
+    #[test]
+    fn release_asset_download_rejects_foreign_hosts() {
+        let err = fetch_release_asset("https://example.com/installer.exe", 1024, |_, _| {})
+            .unwrap_err();
+        assert_eq!(err.field.as_deref(), Some("url"));
+    }
+
+    #[test]
+    #[ignore = "requires live GitHub connectivity"]
+    fn release_asset_download_follows_github_redirects() {
+        // GitHub answers a release download with a 302 to its asset host; the
+        // allow-list and per-hop pinning must still let a real installer through.
+        let url = "https://github.com/RESA100x/RESA/releases/download/v0.2.22/RESA_0.2.22_x64-setup.exe";
+        let mut last = 0u64;
+        let bytes = fetch_release_asset(url, MAX_INSTALLER_BYTES, |downloaded, _| last = downloaded)
+            .expect("a public release asset should download");
+        assert!(bytes.len() > 1024 * 1024);
+        assert_eq!(last as usize, bytes.len());
     }
 
     #[test]
