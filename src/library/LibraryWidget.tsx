@@ -1,6 +1,7 @@
 import { Book as BookIcon } from '../components/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n';
+import { BookCover } from './BookCover';
 import { BookCardDialog } from './BookCardDialog';
 import { BookDialog } from './BookDialog';
 import { BookSpotlight } from './BookSpotlight';
@@ -40,6 +41,9 @@ export function LibraryWidget({ readOnly = false }: { readOnly?: boolean }) {
   const card = cardId ? books.data.find((book) => book.id === cardId) ?? null : null;
   const spotlight = wide && ordered.length > 0;
   const count = books.data.length;
+  // The single cell shows the book the shelf would open first, so the module
+  // always looks like a book rather than a generic icon.
+  const featured = ordered[0] ?? null;
 
   const quickUpdate = (book: Book, patch: Partial<BookDraft>) =>
     updateBook(book, { ...bookToDraft(book), ...patch });
@@ -76,9 +80,18 @@ export function LibraryWidget({ readOnly = false }: { readOnly?: boolean }) {
           title={books.status === 'error' ? books.message ?? t('library.readError') : t('library.count', { count })}
           onClick={() => setOpen(true)}
         >
-          <span className="library-tile__plate" aria-hidden="true">
-            <BookIcon />
-          </span>
+          {featured ? (
+            <BookCover
+              title={featured.title}
+              cover={featured.cover}
+              bookId={featured.id}
+              className="library-tile__cover"
+            />
+          ) : (
+            <span className="library-tile__plate" aria-hidden="true">
+              <BookIcon />
+            </span>
+          )}
           <span className="library-tile__badge" aria-hidden="true">
             {books.status === 'error' ? '!' : books.status === 'ready' ? count : '…'}
           </span>

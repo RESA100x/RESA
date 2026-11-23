@@ -103,7 +103,7 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
     </div>
    </TabPanel>
    <TabPanel idPrefix="settings" tabId="data" active={tab==='data'}>
-    <BackupPanel/>
+    <BackupPanel settings={draft} onChange={patch=>setDraft(current=>({...current,...patch}))}/>
    </TabPanel>
    {error?<div className="dialog-error" role="alert">{error}</div>:null}
   </div>

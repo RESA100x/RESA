@@ -55,7 +55,7 @@ import type { StickerAsset, StickerBoard } from '../stickers/sticker-model';
 import type { WorldClock, TimeSettings, Alarm, AlarmDraft } from '../time/time-model';
 import type { SearchHit } from '../lib/search';
 import type { ReportExportSummary, TaskReport } from '../reports/report-model';
-import type { BackupSummary } from '../lib/backup';
+import type { BackupManifest, BackupSummary } from '../lib/backup';
 export type { WorldClock, TimeSettings, Alarm, AlarmDraft };
 
 export type AppSettings = {
@@ -85,6 +85,13 @@ export type AppSettings = {
   quickCreateEventShortcut?: string;
   quickCreateTaskShortcut?: string;
   quickCreateNoteShortcut?: string;
+  // Backup preferences. `backupFolder` is where one-click exports and the
+  // optional auto-export on quit are written; `lastBackupAt` is stamped by a
+  // successful export so the panel can warn when the copy is getting stale.
+  backupFolder?: string | null;
+  backupReminderDays?: number;
+  autoBackupOnClose?: boolean;
+  lastBackupAt?: string | null;
   // Hidden features retain their position in the ordered menu.
   barMenu?: BarMenuItem[];
   recentColors?: HexColor[];
@@ -285,6 +292,10 @@ export type NowlyRepository = {
   // One-click backup and transfer; both write/read a single `.resa` file.
   exportBackup?(path: string): Promise<BackupSummary>;
   importBackup?(path: string): Promise<BackupSummary>;
+  /** Writes an export into the configured folder without a save dialog. */
+  quickExportBackup?(): Promise<BackupSummary>;
+  /** Reads an archive's header so the import dialog can preview it. */
+  readBackupManifest?(path: string): Promise<BackupManifest>;
   /** Path of the folder holding the automatic daily snapshots. */
   backupsFolder?(): Promise<string>;
   /** Opens that folder in the system file manager and returns its path. */

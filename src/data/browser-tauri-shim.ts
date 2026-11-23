@@ -92,6 +92,10 @@ const defaultSettings: Dict = {
   quickCreateEventShortcut: '',
   quickCreateTaskShortcut: '',
   quickCreateNoteShortcut: '',
+  backupFolder: null,
+  backupReminderDays: 3,
+  autoBackupOnClose: false,
+  lastBackupAt: null,
   barMenu: normalizeBarMenu(undefined),
   recentColors: []
 };
@@ -1357,6 +1361,12 @@ export function installBrowserTauriBackend() {
       throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
     },
     import_backup: () => {
+      throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
+    },
+    quick_export_backup: () => {
+      throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
+    },
+    read_backup_manifest: () => {
       throw { code: 'system_error', message: 'Backups are only available in the desktop app.', field: null };
     },
     move_task_to_lane: (a) => {

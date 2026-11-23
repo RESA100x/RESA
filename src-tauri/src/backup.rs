@@ -33,14 +33,16 @@ const FORMAT: &str = "resa-backup";
 const FORMAT_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Header inside every archive. The import dialog reads it first so the user
+/// can see when and by which version a file was written before replacing data.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BackupManifest {
-    format: String,
-    version: u32,
-    app_version: String,
-    created_at: String,
-    attachments: usize,
+pub struct BackupManifest {
+    pub format: String,
+    pub version: u32,
+    pub app_version: String,
+    pub created_at: String,
+    pub attachments: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -344,6 +346,46 @@ fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, CommandError> {
     app.path().app_data_dir().map_err(CommandError::system)
 }
 
+fn backups_folder_path(app: &tauri::AppHandle) -> Result<PathBuf, CommandError> {
+    let directory = match app.path().document_dir() {
+        Ok(documents) => documents.join("RESA Backups"),
+        Err(_) => app_data_dir(app)?.join("backups"),
+    };
+    fs::create_dir_all(&directory).map_err(CommandError::system)?;
+    Ok(directory)
+}
+
+/// A timestamped name, so repeated exports never overwrite each other and the
+/// newest file sorts last in the folder.
+fn export_file_name() -> String {
+    format!(
+        "resa-backup-{}.resa",
+        chrono::Local::now().format("%Y%m%d-%H%M%S")
+    )
+}
+
+/// Writes an archive into `folder`, creating it if needed. Used by the
+/// one-click export and by the auto-export on exit, which both target a fixed
+/// folder instead of asking for a path.
+pub fn export_to_folder(
+    app: &tauri::AppHandle,
+    connection: &Connection,
+    folder: &Path,
+) -> Result<BackupSummary, CommandError> {
+    let directory = app_data_dir(app)?;
+    fs::create_dir_all(folder).map_err(CommandError::system)?;
+    let mut destination = folder.join(export_file_name());
+    let mut attempt = 1;
+    while destination.exists() {
+        destination = folder.join(format!(
+            "resa-backup-{}-{attempt}.resa",
+            chrono::Local::now().format("%Y%m%d-%H%M%S")
+        ));
+        attempt += 1;
+    }
+    export(connection, &directory, &destination)
+}
+
 #[tauri::command]
 pub fn export_backup(
     app: tauri::AppHandle,
@@ -352,7 +394,70 @@ pub fn export_backup(
 ) -> Result<BackupSummary, CommandError> {
     let directory = app_data_dir(&app)?;
     let connection = db.0.lock().map_err(CommandError::database)?;
-    export(&connection, &directory, Path::new(&path))
+    let summary = export(&connection, &directory, Path::new(&path))?;
+    crate::settings::record_last_backup(&connection, &timestamp())
+        .map_err(CommandError::database)?;
+    Ok(summary)
+}
+
+/// One-click export to the configured folder (or the snapshot folder when none
+/// is set). No save dialog, so "export before I switch devices" is one click.
+#[tauri::command]
+pub fn quick_export_backup(
+    app: tauri::AppHandle,
+    db: State<'_, AppDb>,
+) -> Result<BackupSummary, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    let settings =
+        crate::settings::read_app_settings(&connection).map_err(CommandError::database)?;
+    let folder = match settings.backup_folder.as_deref().map(Path::new) {
+        Some(folder) if !folder.as_os_str().is_empty() => folder.to_path_buf(),
+        _ => backups_folder_path(&app)?,
+    };
+    let summary = export_to_folder(&app, &connection, &folder)?;
+    crate::settings::record_last_backup(&connection, &timestamp())
+        .map_err(CommandError::database)?;
+    Ok(summary)
+}
+
+/// Reads an archive's header without touching live data, so the import dialog
+/// can show what the file holds before the user confirms.
+#[tauri::command]
+pub fn read_backup_manifest(path: String) -> Result<BackupManifest, CommandError> {
+    read_manifest(Path::new(&path))
+}
+
+/// Runs from `RunEvent::ExitRequested`. Best-effort: a failure is logged and
+/// the app still quits, because losing an automatic copy must never trap the
+/// user in the app.
+pub fn auto_export_on_exit(app: &tauri::AppHandle) {
+    let state = app.state::<AppDb>();
+    // Never wait for the database here: this runs on the UI thread while the
+    // app is quitting, and a background sync may still hold the lock. Skipping
+    // one automatic copy is far better than a hung process that cannot exit.
+    let Ok(connection) = state.0.try_lock() else {
+        eprintln!("automatic backup on exit skipped: database is busy");
+        return;
+    };
+    let Ok(settings) = crate::settings::read_app_settings(&connection) else {
+        return;
+    };
+    if !settings.auto_backup_on_close {
+        return;
+    }
+    let folder = match settings.backup_folder.as_deref().map(Path::new) {
+        Some(folder) if !folder.as_os_str().is_empty() => folder.to_path_buf(),
+        _ => match backups_folder_path(app) {
+            Ok(folder) => folder,
+            Err(_) => return,
+        },
+    };
+    match export_to_folder(app, &connection, &folder) {
+        Ok(_) => {
+            let _ = crate::settings::record_last_backup(&connection, &timestamp());
+        }
+        Err(error) => eprintln!("automatic backup on exit failed: {}", error.message),
+    }
 }
 
 #[tauri::command]
@@ -370,12 +475,7 @@ pub fn import_backup(
 /// so a wiped profile or a cleanup tool cannot take the only copy with it.
 #[tauri::command]
 pub fn backups_folder(app: tauri::AppHandle) -> Result<String, CommandError> {
-    let directory = match app.path().document_dir() {
-        Ok(documents) => documents.join("RESA Backups"),
-        Err(_) => app_data_dir(&app)?.join("backups"),
-    };
-    fs::create_dir_all(&directory).map_err(CommandError::system)?;
-    Ok(directory.to_string_lossy().to_string())
+    Ok(backups_folder_path(&app)?.to_string_lossy().to_string())
 }
 
 /// Opens that folder in the system file manager, so "where are my backups?"

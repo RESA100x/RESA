@@ -6,7 +6,7 @@ import { useNowlyRepository } from '../data/RepositoryContext';
 import { t } from '../i18n';
 
 export type SettingsResource = { status:'loading'|'ready'|'error'; data:AppSettings; message?:string };
-export const defaultSettings: AppSettings = { wallpaperEnabled:true, launchAtLogin:true, targetMonitorId:null, multiMonitorWallpaper:false, density:'compact', weekStart:'monday', dateFormat:'localized', showWeekends:true, iconStyle:DEFAULT_ICON_STYLE, hideTopbarInWallpaper: true, hideModuleBackgroundInWallpaper: false, notificationMode:'notification', quickPanelEnabled:true, quickPanelShortcut:'Ctrl+Space', screenshotShortcut:'Ctrl+Alt+A', screenshotHistoryShortcut:'Ctrl+Alt+H', quickCreateEventShortcut:'', quickCreateTaskShortcut:'', quickCreateNoteShortcut:'', barMenu:normalizeBarMenu(undefined), recentColors:[] };
+export const defaultSettings: AppSettings = { wallpaperEnabled:true, launchAtLogin:true, targetMonitorId:null, multiMonitorWallpaper:false, density:'compact', weekStart:'monday', dateFormat:'localized', showWeekends:true, iconStyle:DEFAULT_ICON_STYLE, hideTopbarInWallpaper: true, hideModuleBackgroundInWallpaper: false, notificationMode:'notification', quickPanelEnabled:true, quickPanelShortcut:'Ctrl+Space', screenshotShortcut:'Ctrl+Alt+A', screenshotHistoryShortcut:'Ctrl+Alt+H', quickCreateEventShortcut:'', quickCreateTaskShortcut:'', quickCreateNoteShortcut:'', backupFolder:null, backupReminderDays:3, autoBackupOnClose:false, lastBackupAt:null, barMenu:normalizeBarMenu(undefined), recentColors:[] };
 
 function message(error:unknown) {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' ? error.message : t('settings.opError');

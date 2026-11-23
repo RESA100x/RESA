@@ -195,6 +195,10 @@ mod tests {
             quick_create_event_shortcut: String::new(),
             quick_create_task_shortcut: String::new(),
             quick_create_note_shortcut: String::new(),
+            backup_folder: None,
+            backup_reminder_days: crate::models::default_backup_reminder_days(),
+            auto_backup_on_close: false,
+            last_backup_at: None,
             bar_menu: crate::models::default_bar_menu(),
             recent_colors: Vec::new(),
         }

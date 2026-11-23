@@ -174,6 +174,23 @@ button:disabled { cursor: default; opacity: .65; }
 .wallpaper-monitor { position: absolute; overflow: hidden; }
 .wallpaper-monitor .workspace { height: 100%; box-sizing: border-box; }
 .wallpaper-monitor .module-grid { height: 100%; }
+/* Foreground "all displays" overview: the whole virtual desktop drawn inside
+   the normal window and scaled to fit, so both screens can be seen and edited
+   at once without moving the window. */
+.monitor-overview { position: relative; z-index: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.monitor-overview__stage { position: relative; flex: none; }
+.monitor-overview__panel { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-page); box-shadow: var(--shadow-tooltip); }
+/* The stage is scaled down, so the per-monitor controls are scaled back up to
+   stay legible and clickable at any zoom level. */
+.monitor-panel__label { position: absolute; z-index: 6; top: 8px; left: 8px; display: flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--border-default); border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; box-shadow: var(--shadow-tooltip); transform: scale(calc(1 / var(--overview-scale, 1))); transform-origin: top left; }
+.monitor-panel__name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-panel__add { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; color: var(--text-strong); background: var(--bg-subtle); }
+.monitor-panel__add:disabled { opacity: 0.5; }
+/* Single-view monitor switch: pick which screen's layout the window shows. */
+.monitor-switch { flex: none; display: inline-flex; align-items: center; gap: 2px; max-width: 280px; padding: 2px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-subtle); overflow: hidden; }
+.monitor-switch__item { flex: none; max-width: 130px; padding: 3px 10px; border: 0; border-radius: calc(var(--radius-sm) - 2px); color: var(--text-secondary); background: transparent; font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.monitor-switch__item:hover { color: var(--text-strong); }
+.monitor-switch__item.is-active { color: var(--color-primary); background: var(--color-primary-light); }
 .layout-target { flex: none; padding: 4px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-secondary); background: var(--bg-subtle); font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
 .settings-hint { margin: 8px 0 0; color: var(--text-muted); font-size: 0.85rem; }
 .settings-warning { margin: 8px 0 0; color: var(--color-danger); font-size: 0.85rem; }
@@ -1537,6 +1554,21 @@ body:has(.screen-status-island-root),
 .backup-panel__action button { display: inline-flex; align-items: center; gap: 8px; }
 .backup-panel__action button svg { width: 16px; height: 16px; }
 .backup-panel__status { margin: 0; color: var(--color-primary-active); font-size: 0.85rem; line-height: 1.5; overflow-wrap: anywhere; }
+/* Staleness banner: quiet when the last export is recent, loud when it is not. */
+.backup-panel__status-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 14px; border: 1px solid var(--border-default); border-radius: var(--radius-default); background: var(--bg-subtle); color: var(--text-secondary); font-size: 0.85rem; }
+.backup-panel__status-line.is-stale { border-color: var(--color-warning); background: var(--color-warning-light); color: var(--color-warning-active); }
+.backup-panel__warn { font-weight: 600; }
+.backup-panel__settings { margin: 0; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--radius-default); display: grid; gap: 8px; }
+.backup-panel__settings legend { padding: 0 6px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; }
+.backup-panel__folder { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.backup-panel__folder-path { flex: 1 1 220px; min-width: 0; padding: 8px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-secondary); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backup-panel__folder button { display: inline-flex; align-items: center; gap: 6px; }
+.backup-panel__folder button svg { width: 16px; height: 16px; }
+.backup-panel__reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 0.85rem; }
+.backup-panel__reminder select { height: 34px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-primary); font: inherit; }
+.backup-preview { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 12px 0 0; font-size: 0.82rem; }
+.backup-preview dt { color: var(--text-tertiary); }
+.backup-preview dd { margin: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .task-dialog__actions .dialog-error { margin: 0 auto 0 0; }
 /* Task steps in the task dialog (design.md §10.14). */
 .task-steps { min-width: 0; display: grid; gap: 8px; }

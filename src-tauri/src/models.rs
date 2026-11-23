@@ -383,6 +383,11 @@ fn default_quick_panel_enabled() -> bool {
     true
 }
 
+// How many days may pass without an export before the backup panel warns.
+pub(crate) fn default_backup_reminder_days() -> u32 {
+    3
+}
+
 pub(crate) fn default_notification_mode() -> String {
     "notification".to_owned()
 }
@@ -485,6 +490,19 @@ pub struct AppSettings {
     pub quick_create_task_shortcut: String,
     #[serde(default)]
     pub quick_create_note_shortcut: String,
+    /// Where the one-click export and the auto-export-on-exit archive go.
+    /// `None` falls back to the automatic snapshot folder.
+    #[serde(default)]
+    pub backup_folder: Option<String>,
+    /// Warn in the backup panel when the newest export is older than this.
+    #[serde(default = "default_backup_reminder_days")]
+    pub backup_reminder_days: u32,
+    /// Write an export into `backup_folder` when the app really quits.
+    #[serde(default)]
+    pub auto_backup_on_close: bool,
+    /// Stamped by a successful export so the UI can show how stale the copy is.
+    #[serde(default)]
+    pub last_backup_at: Option<String>,
     /// Hidden features retain their position in the ordered menu.
     pub bar_menu: Vec<BarMenuItem>,
     #[serde(default)]

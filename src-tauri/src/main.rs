@@ -114,6 +114,40 @@ fn should_prevent_close(window_label: &str) -> bool {
     window_label == "quick-panel-handle"
 }
 
+// Startup breadcrumbs. A GUI build has no console, so if the window never
+// appears the only evidence is which step was reached last. The file is
+// truncated on every launch and lives beside the database.
+fn startup_log_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("APPDATA").map(|base| {
+        std::path::PathBuf::from(base)
+            .join("com.resa.app")
+            .join("startup.log")
+    })
+}
+
+fn startup_log_reset() {
+    if let Some(path) = startup_log_path() {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+fn startup_log(message: &str) {
+    use std::io::Write;
+    let Some(path) = startup_log_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(file, "{} {}", chrono::Local::now().format("%H:%M:%S%.3f"), message);
+    }
+}
+
 fn sync_window_visibility<F>(show: F) -> tauri::Result<()>
 where
     F: FnOnce() -> tauri::Result<()>,
@@ -122,15 +156,19 @@ where
 }
 
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    startup_log("show_main_window: begin");
     let Some(window) = app.get_webview_window("main") else {
         eprintln!("failed to show main window: window not found");
+        startup_log("show_main_window: window missing");
         return;
     };
 
     if let Err(error) = wallpaper::enter_foreground_webview(&window) {
         eprintln!("failed to enter foreground mode from tray: {error}");
+        startup_log("show_main_window: enter_foreground failed");
         return;
     }
+    startup_log("show_main_window: foreground webview ready");
     // Keep the recorded mode in sync: the desktop double-click hook reaches this
     // path without going through `enter_foreground_mode`, and a stale
     // `Wallpaper` mode makes the frontend keep the wallpaper shell (no topbar).
@@ -150,6 +188,7 @@ fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Err(error) = window.emit("window-mode-changed", "foreground") {
         eprintln!("failed to notify frontend of foreground mode: {error}");
     }
+    startup_log("show_main_window: done");
 }
 
 /// Keeps unpackaged taskbar grouping consistent with the app's bundle identity.
@@ -171,6 +210,12 @@ fn set_app_user_model_id() {
 fn main() {
     #[cfg(target_os = "windows")]
     set_app_user_model_id();
+
+    // A one-file breadcrumb trail. If the window ever fails to appear, the last
+    // line says which startup step stopped responding, which is otherwise
+    // invisible for a GUI build with no console.
+    startup_log_reset();
+    startup_log("main: start");
 
     tauri::Builder::default()
         .plugin(native_language::plugin())
@@ -216,6 +261,7 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            startup_log("setup: begin");
             let app_dir = app
                 .path()
                 .app_data_dir()
@@ -247,8 +293,10 @@ fn main() {
             if let Err(error) = snapshot_database(&database_path, &snapshot_dirs, &today) {
                 eprintln!("daily database snapshot failed: {error}");
             }
+            startup_log("setup: snapshot done");
             let mut connection =
                 open_database(database_path).expect("failed to open database");
+            startup_log("setup: database open");
             if let Err(error) = stickers::collect_startup_garbage(
                 &mut connection,
                 &stickers::stickers_dir(&app_dir),
@@ -275,7 +323,7 @@ fn main() {
                 multi_monitor_wallpaper: false,
                 week_start: "monday".into(), date_format: "localized".into(), show_weekends: true, icon_style: "duotone".into(),
                 hide_topbar_in_wallpaper: true,
-            hide_module_background_in_wallpaper: false, notification_mode: crate::models::default_notification_mode(), sound_settings: Default::default(), quick_panel_enabled: true, quick_panel_shortcut: "Ctrl+Space".into(), screenshot_shortcut: crate::models::default_screenshot_shortcut(), screenshot_history_shortcut: crate::models::default_screenshot_history_shortcut(), quick_create_event_shortcut: String::new(), quick_create_task_shortcut: String::new(), quick_create_note_shortcut: String::new(), bar_menu: crate::models::default_bar_menu(), recent_colors: vec![]
+            hide_module_background_in_wallpaper: false, notification_mode: crate::models::default_notification_mode(), sound_settings: Default::default(), quick_panel_enabled: true, quick_panel_shortcut: "Ctrl+Space".into(), screenshot_shortcut: crate::models::default_screenshot_shortcut(), screenshot_history_shortcut: crate::models::default_screenshot_history_shortcut(), quick_create_event_shortcut: String::new(), quick_create_task_shortcut: String::new(), quick_create_note_shortcut: String::new(), backup_folder: None, backup_reminder_days: crate::models::default_backup_reminder_days(), auto_backup_on_close: false, last_backup_at: None, bar_menu: crate::models::default_bar_menu(), recent_colors: vec![]
             });
             // Launch-at-login defaults to on, but the setting only lives in the
             // database until the OS entry exists. Bring the OS state up to the
@@ -481,6 +529,10 @@ fn main() {
                         {
                             timer.cancel();
                         }
+                        // The only real quit path: closing the window just parks
+                        // the app as the wallpaper. Best-effort and non-blocking,
+                        // so a busy database can never trap the user in the app.
+                        backup::auto_export_on_exit(app);
                         app.exit(0);
                     }
                 })
@@ -506,6 +558,7 @@ fn main() {
                             .and_then(|monitors| wallpaper::span_rect(&monitors));
                         match wallpaper::enter_wallpaper_webview(&window, span) {
                             Ok(_) => {
+                                startup_log("background: wallpaper entered");
                                 if let Ok(mut lifecycle) = app
                                     .state::<Mutex<window_lifecycle::WindowLifecycle>>()
                                     .lock()
@@ -515,11 +568,13 @@ fn main() {
                             }
                             Err(error) => {
                                 eprintln!("background wallpaper startup failed: {error}");
+                                startup_log("background: wallpaper failed, hiding");
                                 let _ = window.hide();
                             }
                         }
                     } else {
                         let _ = window.hide();
+                        startup_log("background: hidden to tray");
                         if let Ok(mut lifecycle) = app
                             .state::<Mutex<window_lifecycle::WindowLifecycle>>()
                             .lock()
@@ -547,6 +602,7 @@ fn main() {
                     |handle| quick_create::open(handle, quick_create::QuickCreateKind::Note),
                 ],
             );
+            startup_log("setup: complete");
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -688,6 +744,8 @@ fn main() {
             search::search_all,
             backup::export_backup,
             backup::import_backup,
+            backup::quick_export_backup,
+            backup::read_backup_manifest,
             backup::backups_folder,
             backup::open_backups_folder,
             task_workspace::move_task_to_lane,
@@ -873,7 +931,7 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("failed to run Nowly");
+        .expect("failed to run RESA");
 }
 
 #[cfg(test)]

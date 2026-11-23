@@ -64,6 +64,14 @@ pub fn read_app_settings(connection: &Connection) -> Result<AppSettings, rusqlit
         quick_create_event_shortcut: read_value_or(connection, "quick_create_event_shortcut", String::new())?,
         quick_create_task_shortcut: read_value_or(connection, "quick_create_task_shortcut", String::new())?,
         quick_create_note_shortcut: read_value_or(connection, "quick_create_note_shortcut", String::new())?,
+        backup_folder: read_value(connection, "backup_folder")?.flatten(),
+        backup_reminder_days: read_value_or(
+            connection,
+            "backup_reminder_days",
+            crate::models::default_backup_reminder_days(),
+        )?,
+        auto_backup_on_close: read_value_or(connection, "auto_backup_on_close", false)?,
+        last_backup_at: read_value(connection, "last_backup_at")?.flatten(),
         bar_menu: crate::models::normalize_bar_menu(read_value_or(connection, "bar_menu", crate::models::default_bar_menu())?),
         sound_settings: read_sound_settings(connection)?,
         recent_colors: read_value_or(connection, "recent_colors", Vec::new())?,
@@ -74,6 +82,21 @@ pub fn read_sound_settings(connection: &Connection) -> Result<crate::sound_setti
     let settings: crate::sound_settings::SoundSettings = read_value_or(connection, "sound_settings", Default::default())?;
     settings.validate()?;
     Ok(settings.normalize())
+}
+
+/// Stamps the newest successful export. Written outside `write_app_settings`
+/// because it is a record of an event, not a user preference, and the backup
+/// command only holds a shared connection.
+pub fn record_last_backup(connection: &Connection, at: &str) -> Result<(), rusqlite::Error> {
+    let value = serde_json::to_string(at)
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    connection.execute(
+        "INSERT INTO settings(key, value, updated_at)
+         VALUES ('last_backup_at', ?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        [value],
+    )?;
+    Ok(())
 }
 
 pub(crate) fn validate(settings: &AppSettings) -> Result<(), rusqlite::Error> {
@@ -112,6 +135,20 @@ pub(crate) fn validate(settings: &AppSettings) -> Result<(), rusqlite::Error> {
         "duotone" | "solid" | "outline"
     ) {
         return Err(rusqlite::Error::InvalidParameterName("iconStyle".into()));
+    }
+    if !(1..=365).contains(&settings.backup_reminder_days) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "backupReminderDays".into(),
+        ));
+    }
+    if settings
+        .backup_folder
+        .as_ref()
+        .is_some_and(|folder| folder.trim().is_empty())
+    {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "backupFolder".into(),
+        ));
     }
     let defaults = crate::models::default_bar_menu();
     if settings.bar_menu.len() != defaults.len() {
@@ -183,6 +220,16 @@ pub fn write_app_settings(
         ("quick_create_event_shortcut", serde_json::to_string(&settings.quick_create_event_shortcut)),
         ("quick_create_task_shortcut", serde_json::to_string(&settings.quick_create_task_shortcut)),
         ("quick_create_note_shortcut", serde_json::to_string(&settings.quick_create_note_shortcut)),
+        ("backup_folder", serde_json::to_string(&settings.backup_folder)),
+        (
+            "backup_reminder_days",
+            serde_json::to_string(&settings.backup_reminder_days),
+        ),
+        (
+            "auto_backup_on_close",
+            serde_json::to_string(&settings.auto_backup_on_close),
+        ),
+        ("last_backup_at", serde_json::to_string(&settings.last_backup_at)),
         ("bar_menu", serde_json::to_string(&settings.bar_menu)),
         ("sound_settings", serde_json::to_string(&settings.sound_settings.clone().normalize())),
         (
@@ -271,6 +318,11 @@ mod tests {
         assert!(settings.hide_topbar_in_wallpaper);
         assert!(!settings.hide_module_background_in_wallpaper);
         assert_eq!(settings.notification_mode, "notification");
+        // Backups stay manual by default; the folder is unset until chosen.
+        assert_eq!(settings.backup_folder, None);
+        assert_eq!(settings.backup_reminder_days, 3);
+        assert!(!settings.auto_backup_on_close);
+        assert_eq!(settings.last_backup_at, None);
         assert_eq!(settings.bar_menu, crate::models::default_bar_menu());
     }
 
@@ -470,6 +522,10 @@ mod tests {
             quick_create_event_shortcut: "Ctrl+Alt+E".into(),
             quick_create_task_shortcut: "Ctrl+Alt+T".into(),
             quick_create_note_shortcut: "Ctrl+Alt+N".into(),
+            backup_folder: Some("D:/RESA backups".into()),
+            backup_reminder_days: 7,
+            auto_backup_on_close: true,
+            last_backup_at: Some("2026-11-20T10:00:00.000Z".into()),
             bar_menu: crate::models::default_bar_menu().into_iter().rev().map(|mut item| { item.visible = false; item }).collect(),
             recent_colors: vec![],
         };

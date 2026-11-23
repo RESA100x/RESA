@@ -1,5 +1,5 @@
-import { Check, LayoutGrid, MonitorDown, Plus, Search, Settings } from '../../components/icons';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Check, LayoutGrid, MonitorDown, Mosaic, Plus, Search, Settings } from '../../components/icons';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   builtinDefinitions,
   getWidgetDefinition,
@@ -58,21 +58,29 @@ function WallpaperLayer() {
   return <div className="wallpaper-layer" data-testid="wallpaper-layer" aria-hidden="true" hidden />;
 }
 
-// One monitor's slice of the spanning wallpaper window. Each slice owns its own
-// layout, so a module can sit on one screen without appearing on the others.
+// One monitor's slice of the shell. Each slice owns its own layout, so a module
+// can sit on one screen without appearing on the others. In the wallpaper the
+// slices are read-only; in the foreground overview they stay editable.
 function MonitorPanel({
   monitorId,
-  rect,
+  style,
   modules,
-  definitions
+  definitions,
+  editing = false,
+  label,
+  className
 }: {
   monitorId: string;
-  // Physical pixels relative to the spanning window's top-left.
-  rect: { left: number; top: number; width: number; height: number };
+  style?: CSSProperties;
   modules: Partial<Record<WidgetId, ReactNode>>;
   definitions: WidgetDefinition[];
+  editing?: boolean;
+  label?: string;
+  className?: string;
 }) {
-  const { layout, loaded } = useModuleLayout(definitions, monitorId);
+  const { layout, loaded, move, resize, addWidget, removeWidget, presentIds } =
+    useModuleLayout(definitions, monitorId);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const items: ModuleGridItem[] = layout
     .filter(
       (entry) => modules[entry.id] !== undefined && getWidgetDefinition(entry.id, definitions) !== undefined
@@ -82,29 +90,46 @@ function MonitorPanel({
       rect: { x: entry.x, y: entry.y, w: entry.w, h: entry.h },
       content: modules[entry.id]
     }));
-  const scale = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
   return (
     <div
-      className="wallpaper-monitor"
+      className={className ? `wallpaper-monitor ${className}` : 'wallpaper-monitor'}
       data-testid={`wallpaper-monitor-${monitorId}`}
-      style={{
-        left: rect.left / scale,
-        top: rect.top / scale,
-        width: rect.width / scale,
-        height: rect.height / scale
-      }}
+      style={style}
     >
+      {editing ? (
+        <div className="monitor-panel__label">
+          <span className="monitor-panel__name">{label ?? monitorId}</span>
+          <button
+            type="button"
+            className="monitor-panel__add"
+            aria-label={t('shell.addModule')}
+            disabled={!loaded}
+            onClick={() => setPickerOpen(true)}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <main className="workspace" aria-busy={!loaded}>
         {loaded ? (
           <ModuleGrid
             items={items}
-            editing={false}
+            editing={editing}
             definitions={definitions}
-            onMove={() => undefined}
-            onResize={() => undefined}
+            onMove={move}
+            onResize={resize}
+            onRemove={editing ? removeWidget : undefined}
           />
         ) : null}
       </main>
+      {pickerOpen ? (
+        <TemplatePickerDialog
+          presentIds={presentIds}
+          onClose={() => setPickerOpen(false)}
+          onAdd={(id) => addWidget(id)}
+          onRemove={(id) => removeWidget(id)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -140,6 +165,7 @@ function WallpaperSpan({
   }, [repository]);
   const left = Math.min(...monitors.map((monitor) => monitor.positionX));
   const top = Math.min(...monitors.map((monitor) => monitor.positionY));
+  const scale = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
   return (
     <div className="wallpaper-span" style={style}>
       {monitors.map((monitor) => {
@@ -168,12 +194,133 @@ function WallpaperSpan({
           <MonitorPanel
             key={monitor.id}
             monitorId={monitor.id}
-            rect={rect}
             modules={modules}
             definitions={definitions}
+            style={{
+              left: rect.left / scale,
+              top: rect.top / scale,
+              width: rect.width / scale,
+              height: rect.height / scale
+            }}
           />
         );
       })}
+    </div>
+  );
+}
+
+const OVERVIEW_STORAGE_KEY = 'resa.showAllMonitors';
+
+// Windows reports monitors as device paths (`\\.\DISPLAY1`). Those are useless
+// as a heading, so fall back to a numbered label whenever the name is not a
+// human-friendly one.
+function monitorDisplayName(monitor: MonitorInfo, index: number) {
+  const name = monitor.name?.trim() ?? '';
+  if (!name || name.startsWith('\\\\.\\') || name.startsWith('display:')) {
+    return t('shell.displayNumber', { number: index + 1 });
+  }
+  return name;
+}
+
+function readOverviewPreference() {
+  try {
+    return window.localStorage.getItem(OVERVIEW_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeOverviewPreference(enabled: boolean) {
+  try {
+    window.localStorage.setItem(OVERVIEW_STORAGE_KEY, enabled ? '1' : '0');
+  } catch {
+    // A blocked storage API only costs the preference, never the view.
+  }
+}
+
+// Foreground "all displays" view. The real window can only sit on one screen at
+// a time, so instead of a second native window we draw the whole virtual desktop
+// inside this one: every monitor keeps its true size and offset, and the whole
+// stage is scaled down to fit. Each slice stays editable, so modules on the
+// other screen can be moved, resized, added and removed without dragging the
+// window over first.
+function MonitorOverview({
+  monitors,
+  modules,
+  definitions,
+  editing
+}: {
+  monitors: MonitorInfo[];
+  modules: Partial<Record<WidgetId, ReactNode>>;
+  definitions: WidgetDefinition[];
+  editing: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const measure = () => setSize({ width: element.clientWidth, height: element.clientHeight });
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const ratio = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+  const left = Math.min(...monitors.map((monitor) => monitor.positionX));
+  const top = Math.min(...monitors.map((monitor) => monitor.positionY));
+  const right = Math.max(...monitors.map((monitor) => monitor.positionX + monitor.width));
+  const bottom = Math.max(...monitors.map((monitor) => monitor.positionY + monitor.height));
+  const stageWidth = Math.max(1, (right - left) / ratio);
+  const stageHeight = Math.max(1, (bottom - top) / ratio);
+  const inset = 24;
+  // Before the first measurement (and in environments without layout, such as
+  // tests) fall back to the viewport so the stage still renders.
+  const availableWidth = size.width > 0 ? size.width : typeof window !== 'undefined' ? window.innerWidth : 0;
+  const availableHeight = size.height > 0 ? size.height : typeof window !== 'undefined' ? window.innerHeight : 0;
+  const fit =
+    availableWidth > 0 && availableHeight > 0
+      ? Math.min(
+          (availableWidth - inset * 2) / stageWidth,
+          (availableHeight - inset * 2) / stageHeight
+        )
+      : 0;
+  // Never blow a small monitor up past 1:1; this is a preview, not a zoom.
+  const scale = fit > 0 ? Math.min(fit, 1) : 0;
+  return (
+    <div className="monitor-overview" data-testid="monitor-overview" ref={containerRef}>
+      {scale > 0 ? (
+        <div
+          className="monitor-overview__stage"
+          style={
+            {
+              width: stageWidth,
+              height: stageHeight,
+              transform: `scale(${scale})`,
+              '--overview-scale': scale
+            } as CSSProperties
+          }
+        >
+          {monitors.map((monitor, index) => (
+            <MonitorPanel
+              key={monitor.id}
+              monitorId={monitor.id}
+              className="monitor-overview__panel"
+              label={monitorDisplayName(monitor, index)}
+              editing={editing}
+              modules={modules}
+              definitions={definitions}
+              style={{
+                left: (monitor.positionX - left) / ratio,
+                top: (monitor.positionY - top) / ratio,
+                width: monitor.width / ratio,
+                height: monitor.height / ratio
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -206,11 +353,32 @@ export function DesktopShell({
     monitors.length > 1 &&
     monitors.every((monitor) => Math.abs(monitor.scaleFactor - monitors[0].scaleFactor) < 0.001);
   const spanMode = !foreground && multiMonitorWallpaper && sharedScale;
+  // Opt-in foreground overview: the same per-monitor layouts, drawn side by side
+  // inside the normal window. Off by default so the single-monitor shell is
+  // untouched until the user asks for it.
+  const canOverview = foreground && multiMonitorWallpaper && sharedScale;
+  const [showAllMonitors, setShowAllMonitors] = useState(readOverviewPreference);
+  const overviewMode = canOverview && showAllMonitors;
+  // In the single view the window shows whichever monitor it physically sits
+  // on. This lets the user pin the view to another monitor's layout without
+  // dragging the window across, so each screen can be seen at its real size.
+  const [viewMonitorId, setViewMonitorId] = useState<string | null>(null);
+  const canSwitchMonitor = foreground && multiMonitorWallpaper && monitors.length > 1;
+  const effectiveMonitorKey = viewMonitorId ?? monitorKey;
+  const activeMonitor = monitors.find((monitor) => monitor.id === effectiveMonitorKey);
+  const activeMonitorLabel = activeMonitor
+    ? monitorDisplayName(activeMonitor, monitors.indexOf(activeMonitor))
+    : layoutTargetLabel;
+  // Moving the window to another screen means "show me this screen", so an
+  // explicit pin only lasts until the window itself moves.
+  useEffect(() => {
+    setViewMonitorId(null);
+  }, [monitorKey]);
   // The no-topbar shell state also hides module headers via workspace CSS.
   // A double-click anywhere in wallpaper mode still returns to the foreground.
   const showTopbar = foreground || !hideTopbarInWallpaper;
   const { layout, loaded, move, resize, addWidget, removeWidget, presentIds } =
-    useModuleLayout(definitions, spanMode ? undefined : monitorKey);
+    useModuleLayout(definitions, spanMode || overviewMode ? undefined : effectiveMonitorKey);
   const { blur, setBlur } = useBlur();
   const [isEditing, setIsEditing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -253,9 +421,9 @@ export function DesktopShell({
           <p>{summary}</p>
         </div>
         <div className="top-actions">
-          {foreground && isEditing && layoutTargetLabel ? (
-            <span className="layout-target" title={layoutTargetLabel}>
-              {t('shell.layoutForMonitor', { name: layoutTargetLabel })}
+          {foreground && isEditing && activeMonitorLabel && !overviewMode ? (
+            <span className="layout-target" title={activeMonitorLabel}>
+              {t('shell.layoutForMonitor', { name: activeMonitorLabel })}
             </span>
           ) : null}
           {foreground ? (
@@ -277,11 +445,49 @@ export function DesktopShell({
           {foreground ? (
             <BlurControl blur={blur} onChange={setBlur} onOpenChange={setPreviewingBlur} tipContent={t('blur.adjust')} />
           ) : null}
-          {foreground && isEditing ? (
+          {foreground && isEditing && !overviewMode ? (
             <Tip content={t('shell.addModule')}>
               <button type="button" className="btn" aria-label={t('shell.addModule')} disabled={!loaded} onClick={() => setPickerOpen(true)}>
                 <Plus aria-hidden="true" />
                 {t('shell.addModule')}
+              </button>
+            </Tip>
+          ) : null}
+          {canSwitchMonitor && !overviewMode ? (
+            <div className="monitor-switch" role="group" aria-label={t('shell.viewMonitor')}>
+              {monitors.map((monitor, index) => {
+                const active = monitor.id === effectiveMonitorKey;
+                const name = monitorDisplayName(monitor, index);
+                return (
+                  <button
+                    key={monitor.id}
+                    type="button"
+                    className={`monitor-switch__item${active ? ' is-active' : ''}`}
+                    aria-pressed={active}
+                    title={name}
+                    onClick={() => setViewMonitorId(monitor.id)}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {canOverview ? (
+            <Tip content={showAllMonitors ? t('shell.hideAllMonitors') : t('shell.showAllMonitors')}>
+              <button
+                type="button"
+                className={`btn btn-icon${showAllMonitors ? ' is-active' : ''}`}
+                aria-label={showAllMonitors ? t('shell.hideAllMonitors') : t('shell.showAllMonitors')}
+                aria-pressed={showAllMonitors}
+                onClick={() =>
+                  setShowAllMonitors((current) => {
+                    writeOverviewPreference(!current);
+                    return !current;
+                  })
+                }
+              >
+                <Mosaic aria-hidden="true" />
               </button>
             </Tip>
           ) : null}
@@ -309,7 +515,14 @@ export function DesktopShell({
         </div>
       </header>
       ) : null}
-      {spanMode ? (
+      {overviewMode ? (
+        <MonitorOverview
+          monitors={monitors}
+          modules={modules}
+          definitions={definitions}
+          editing={isEditing}
+        />
+      ) : spanMode ? (
         <WallpaperSpan
           monitors={monitors}
           modules={modules}
@@ -331,7 +544,7 @@ export function DesktopShell({
       )}
       {overlay}
 
-      {foreground && pickerOpen ? (
+      {foreground && pickerOpen && !overviewMode ? (
         <TemplatePickerDialog
           presentIds={presentIds}
           onClose={() => setPickerOpen(false)}
