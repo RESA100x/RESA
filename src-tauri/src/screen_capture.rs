@@ -1257,7 +1257,7 @@ mod tests {
 mod dispatch_tests {
     #[test]
     fn frame_encoding_is_dispatched_from_an_asynchronous_protocol() {
-        let source = include_str!("main.rs");
+        let source = include_str!("lib.rs");
         let registration = source.find("screen_capture::FRAME_URI_SCHEME").unwrap();
         assert!(
             source[..registration]

@@ -2183,7 +2183,7 @@ mod tests {
 
     #[test]
     fn focus_loss_defers_positioning_work_to_a_worker() {
-        let source = include_str!("main.rs");
+        let source = include_str!("lib.rs");
         let start = source.find("tauri::WindowEvent::Focused(false)").unwrap();
         let end = start + source[start..].find("return;").unwrap();
         assert!(

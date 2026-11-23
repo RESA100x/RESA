@@ -178,7 +178,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (26, migration_26_status_island_reminders),
     (27, migration_27_drop_calendar_task_view),
     (28, migration_28_categories),
-    (29, crate::screen_capture::history::migrate),
+    (29, migration_29_screenshot_history),
     (30, migration_30_bar_menu),
     (31, migration_31_time_module),
     (32, migration_32_unified_time),
@@ -738,6 +738,15 @@ fn migration_30_bar_menu(transaction: &Transaction<'_>) -> Result<()> {
     )?;
     transaction.execute("DELETE FROM settings WHERE key = 'bar_buttons'", [])?;
     Ok(())
+}
+
+/// Screenshot history. The table lives in the shared schema so an Android
+/// profile and a desktop profile stay byte-compatible even though only the
+/// desktop build can actually capture a screen.
+pub(crate) fn migration_29_screenshot_history(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE screenshot_history(id TEXT PRIMARY KEY, capture_session_id INTEGER NOT NULL, document_version INTEGER NOT NULL, export_fingerprint TEXT NOT NULL, file_name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, width INTEGER NOT NULL, height INTEGER NOT NULL, byte_size INTEGER NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','ready','deleting'))); CREATE INDEX screenshot_history_page ON screenshot_history(state,created_at DESC,id DESC);",
+    )
 }
 
 // Calendar categories become first-class, user-defined records. A category owns

@@ -1,0 +1,29 @@
+// Google's Maven host (dl.google.com) is unreachable from this network, so
+// every Gradle build in this workspace resolves Android artifacts from the
+// Aliyun mirrors first. google() stays as a last-resort fallback.
+
+def aliyunMirrors = [
+  'https://maven.aliyun.com/repository/google/',
+  'https://maven.aliyun.com/repository/public/',
+  'https://maven.aliyun.com/repository/gradle-plugin/',
+]
+
+def addMirrors = { repositories ->
+  aliyunMirrors.each { mirrorUrl ->
+    repositories.maven { url = mirrorUrl }
+  }
+}
+
+settingsEvaluated { settings ->
+  settings.pluginManagement.repositories {
+    addMirrors(delegate)
+    gradlePluginPortal()
+    google()
+    mavenCentral()
+  }
+}
+
+allprojects { project ->
+  project.buildscript.repositories { addMirrors(delegate) }
+  project.repositories { addMirrors(delegate) }
+}

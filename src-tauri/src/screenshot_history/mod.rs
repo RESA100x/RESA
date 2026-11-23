@@ -60,5 +60,5 @@ pub(crate) fn archive<R: tauri::Runtime>(
 }
 
 pub fn migrate(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
-    tx.execute_batch("CREATE TABLE screenshot_history(id TEXT PRIMARY KEY, capture_session_id INTEGER NOT NULL, document_version INTEGER NOT NULL, export_fingerprint TEXT NOT NULL, file_name TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, width INTEGER NOT NULL, height INTEGER NOT NULL, byte_size INTEGER NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','ready','deleting'))); CREATE INDEX screenshot_history_page ON screenshot_history(state,created_at DESC,id DESC);")
+    crate::db::migration_29_screenshot_history(tx)
 }

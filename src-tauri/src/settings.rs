@@ -101,6 +101,7 @@ pub fn record_last_backup(connection: &Connection, at: &str) -> Result<(), rusql
 
 pub(crate) fn validate(settings: &AppSettings) -> Result<(), rusqlite::Error> {
     settings.sound_settings.validate()?;
+    #[cfg(not(target_os = "android"))]
     crate::screenshot_shortcuts::validate_keys(&crate::screenshot_shortcuts::configured_keys(settings))
         .map_err(|error| rusqlite::Error::InvalidParameterName(
             error.field.unwrap_or_else(|| "screenshotShortcut".into()),

@@ -6,15 +6,23 @@ use rusqlite::Connection;
 use tauri::{Manager, State};
 
 #[derive(Debug, PartialEq, Eq)]
+#[cfg(not(target_os = "android"))]
 enum StatusIslandVisibilityChange {
     Show,
 }
 
+#[cfg(not(target_os = "android"))]
 fn normalize_status_island_settings(mut settings: AppSettings) -> AppSettings {
     settings.quick_panel_enabled = true;
     settings
 }
 
+#[cfg(target_os = "android")]
+fn normalize_status_island_settings(settings: AppSettings) -> AppSettings {
+    settings
+}
+
+#[cfg(not(target_os = "android"))]
 fn status_island_visibility_change(
     previous_mode: &str,
     next_mode: &str,
@@ -43,9 +51,19 @@ fn with_connection<T>(
 
 #[tauri::command]
 pub fn get_app_settings(app: tauri::AppHandle, db: State<'_, AppDb>) -> Result<AppSettings, CommandError> {
-    let mut settings = with_connection(db, read_app_settings).map(normalize_status_island_settings)?;
-    settings.launch_at_login = crate::autostart::enabled(&app).map_err(CommandError::system)?;
-    Ok(settings)
+    let settings = with_connection(db, read_app_settings).map(normalize_status_island_settings)?;
+    #[cfg(not(target_os = "android"))]
+    {
+        let mut settings = settings;
+        settings.launch_at_login =
+            crate::autostart::enabled(&app).map_err(CommandError::system)?;
+        return Ok(settings);
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = &app;
+        Ok(settings)
+    }
 }
 
 #[tauri::command]
@@ -57,7 +75,41 @@ pub async fn update_app_settings(
         .await.map_err(CommandError::system)?
 }
 
-fn update_settings_blocking(app: tauri::AppHandle, settings: AppSettings) -> Result<AppSettings, CommandError> {
+fn update_settings_blocking(
+    app: tauri::AppHandle,
+    settings: AppSettings,
+) -> Result<AppSettings, CommandError> {
+    #[cfg(not(target_os = "android"))]
+    {
+        update_settings_desktop(app, settings)
+    }
+    #[cfg(target_os = "android")]
+    {
+        update_settings_mobile(app, settings)
+    }
+}
+
+/// Android has no shortcuts, tray, autostart or status island, so saving
+/// settings is just validation plus the write.
+#[cfg(target_os = "android")]
+fn update_settings_mobile(
+    app: tauri::AppHandle,
+    settings: AppSettings,
+) -> Result<AppSettings, CommandError> {
+    let db = app.state::<AppDb>();
+    let settings = normalize_status_island_settings(settings);
+    crate::settings::validate(&settings).map_err(|error| match error {
+        rusqlite::Error::InvalidParameterName(field) => {
+            CommandError::validation(&field, "设置值无效。")
+        }
+        other => CommandError::database(other),
+    })?;
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    write_app_settings(&mut connection, &settings).map_err(CommandError::database)
+}
+
+#[cfg(not(target_os = "android"))]
+fn update_settings_desktop(app: tauri::AppHandle, settings: AppSettings) -> Result<AppSettings, CommandError> {
     let db = app.state::<AppDb>();
     let mut settings = normalize_status_island_settings(settings);
     let shortcuts = crate::screenshot_shortcuts::validate_keys(

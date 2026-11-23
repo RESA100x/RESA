@@ -38,6 +38,11 @@ import.meta.hot?.dispose(stopNativeLanguageSync);
 // to the main app is the right answer either way: the status surfaces are the
 // special case, so anything we cannot identify should be the app.
 function currentWindowLabel(): string {
+  // Android ships one window and no status surfaces, so the label the native
+  // side reports must never route it to a desktop-only shell.
+  if (/Android/i.test(navigator.userAgent)) {
+    return 'main';
+  }
   if (browserOnly) {
     const surface = new URLSearchParams(window.location.search).get('surface');
     return surface === 'screenshot-history' || surface === 'quick-panel-handle' || surface === 'quick-create' ? surface : 'main';

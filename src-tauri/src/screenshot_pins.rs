@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn screenshot_pins_does_not_enter_main_window_hide_to_tray_lifecycle() {
-        let source = include_str!("main.rs");
+        let source = include_str!("lib.rs");
         let body = source.split(".on_window_event(").nth(1).unwrap();
         let pin = body.find("window.label().starts_with(\"screenshot-pin-\")").expect("pins must bypass main lifecycle");
         let history = body.find("window.label() == screenshot_windows::HISTORY_LABEL").unwrap();
