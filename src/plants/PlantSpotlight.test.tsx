@@ -104,6 +104,17 @@ describe('PlantSpotlight', () => {
     expect(screen.getByRole('button', { name: t('plantsWidget.playSlides') })).toBeInTheDocument();
   });
 
+  // The desktop surface has no pointer: offering arrows and a play switch there
+  // would be chrome that can never be used.
+  it('drops the controls when the module is read-only', () => {
+    const plants = [thirsty('a', 'Dry one')];
+    render(<PlantSpotlight plants={plants} schedules={schedulesFor(plants)} readOnly />);
+    expect(screen.queryByRole('button', { name: t('plantsWidget.previousPlant') })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t('plantsWidget.nextPlant') })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t('plantsWidget.pauseSlides') })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab')).toBeDisabled();
+  });
+
   it('walks the slides with the dots, the arrows and the keyboard', async () => {
     const plants = [thirsty('a', 'Dry one'), healthy('b', 'Happy'), plant({ id: 'c', name: 'Third' })];
     const { container } = renderSpotlight(plants);

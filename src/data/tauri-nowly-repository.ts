@@ -19,6 +19,16 @@ function invalidating<T>(operation: Promise<T>): Promise<T> {
   });
 }
 
+// The desktop surface shows the plants module with no pointer at all, so it can
+// never be refreshed by hand. Every plant write therefore announces itself and
+// each window reloads its own copy.
+function plantWrite<T>(operation: Promise<T>): Promise<T> {
+  return invalidating(operation).then(result => {
+    void emit('plants-changed').catch(() => undefined);
+    return result;
+  });
+}
+
 // A contact row that predates the current schema (or arrives from a hand-edited
 // backup) can be missing fields the directory reads, and one short row would
 // otherwise take the whole module down. Fill the gaps at the boundary, so the
@@ -107,10 +117,10 @@ export const tauriNowlyRepository: NowlyRepository = {
   getTaskReport: (days) => invoke('get_task_report', { days }),
   exportTaskReport: (path, days) => invoke('export_task_report', { path, days }),
   listPlants: () => invoke('list_plants'),
-  createPlant: (draft) => invalidating(invoke('create_plant', { draft })),
-  updatePlant: (id, draft) => invalidating(invoke('update_plant', { id, draft })),
-  deletePlant: (id) => invalidating(invoke('delete_plant', { id })),
-  waterPlant: (id, wateredAt) => invalidating(invoke('water_plant', { id, wateredAt })),
+  createPlant: (draft) => plantWrite(invoke('create_plant', { draft })),
+  updatePlant: (id, draft) => plantWrite(invoke('update_plant', { id, draft })),
+  deletePlant: (id) => plantWrite(invoke('delete_plant', { id })),
+  waterPlant: (id, wateredAt) => plantWrite(invoke('water_plant', { id, wateredAt })),
   listBooks: () => invoke('list_books'),
   createBook: (draft) => invalidating(invoke('create_book', { draft })),
   updateBook: (id, draft) => invalidating(invoke('update_book', { id, draft })),

@@ -33,6 +33,7 @@ function schedule(overrides: Partial<PlantSchedule> = {}): PlantSchedule {
     wiltProgress: 0,
     daysSinceWatering: 0,
     daysUntilDue: 5,
+    calendarDaysUntilDue: 5,
     overdueDays: 0,
     dueAt: new Date('2026-01-11T00:00:00.000Z'),
     ...overrides
@@ -180,10 +181,29 @@ describe('sortPlantsByThirst', () => {
 
 describe('wateringGap', () => {
   it('phrases the gap in days, today, or overdue', () => {
-    expect(wateringGap(schedule({ daysUntilDue: 3 }))).toEqual({ key: 'plantSchedule.inDays', days: 3 });
-    expect(wateringGap(schedule({ daysUntilDue: 0.2 }))).toEqual({ key: 'plantSchedule.inDays', days: 1 });
-    expect(wateringGap(schedule({ daysUntilDue: 0 }))).toEqual({ key: 'plantSchedule.dueToday', days: 0 });
-    expect(wateringGap(schedule({ daysUntilDue: -0.4, overdueDays: 0.4 }))).toEqual({ key: 'plantSchedule.dueToday', days: 0 });
-    expect(wateringGap(schedule({ daysUntilDue: -2.3, overdueDays: 2.3 }))).toEqual({ key: 'plantSchedule.overdue', days: 2 });
+    expect(wateringGap(schedule({ calendarDaysUntilDue: 3 }))).toEqual({ key: 'plantSchedule.inDays', days: 3 });
+    expect(wateringGap(schedule({ calendarDaysUntilDue: 1 }))).toEqual({ key: 'plantSchedule.inDays', days: 1 });
+    expect(wateringGap(schedule({ calendarDaysUntilDue: 0 }))).toEqual({ key: 'plantSchedule.dueToday', days: 0 });
+    expect(wateringGap(schedule({ calendarDaysUntilDue: -1 }))).toEqual({ key: 'plantSchedule.overdue', days: 1 });
+    expect(wateringGap(schedule({ calendarDaysUntilDue: -2 }))).toEqual({ key: 'plantSchedule.overdue', days: 2 });
+  });
+
+  // The reported bug: watered on the 1st with a 6-day cadence, the plant is due
+  // on the 7th, so two days later the module owes the user "4 days".
+  it('counts calendar days instead of 24-hour spans', () => {
+    const watered = new Date(2026, 10, 22, 9, 56);
+    const now = new Date(2026, 10, 24, 8, 0);
+    const gap = wateringGap(plantSchedule({ lastWateredAt: watered.toISOString(), wateringIntervalDays: 6 }, now));
+    expect(gap).toEqual({ key: 'plantSchedule.inDays', days: 4 });
+  });
+
+  it('reports the due day as today and the day after as one day overdue', () => {
+    const watered = new Date(2026, 10, 22, 9, 56);
+    const dueDay = new Date(2026, 10, 28, 1, 0);
+    const dayAfter = new Date(2026, 10, 29, 1, 0);
+    expect(wateringGap(plantSchedule({ lastWateredAt: watered.toISOString(), wateringIntervalDays: 6 }, dueDay)))
+      .toEqual({ key: 'plantSchedule.dueToday', days: 0 });
+    expect(wateringGap(plantSchedule({ lastWateredAt: watered.toISOString(), wateringIntervalDays: 6 }, dayAfter)))
+      .toEqual({ key: 'plantSchedule.overdue', days: 1 });
   });
 });

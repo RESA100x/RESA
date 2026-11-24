@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { useNowlyRepository } from '../data/RepositoryContext';
 import { t } from '../i18n';
 import type { Plant, PlantDraft } from './plant-model';
@@ -44,8 +45,29 @@ export function usePlants() {
     }
   }, [repository]);
   const loadPlants = useCallback(() => readPlants(false), [readPlants]);
+  // A silent read: the desktop surface keeps showing the previous rows while the
+  // new ones arrive, so a background refresh never flashes an empty module.
+  const refreshPlants = useCallback(() => readPlants(true), [readPlants]);
 
   useEffect(() => { void loadPlants(); }, [loadPlants]);
+
+  // Every window renders its own copy of the module, and the wallpaper surface
+  // has no pointer at all: a plant watered in the foreground window would
+  // otherwise stay stale there until the app restarts.
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void listen('plants-changed', () => void refreshPlants())
+      .then((remove) => {
+        if (cancelled) remove();
+        else stop = remove;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [refreshPlants]);
 
   const createPlant = useCallback(async (draft: PlantDraft) => {
     const write = repository.createPlant;
@@ -78,5 +100,5 @@ export function usePlants() {
     return updated;
   }, [loadPlants, repository]);
 
-  return { plants, reload: loadPlants, createPlant, updatePlant, deletePlant, waterPlant };
+  return { plants, reload: loadPlants, refresh: refreshPlants, createPlant, updatePlant, deletePlant, waterPlant };
 }

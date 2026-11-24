@@ -99,6 +99,7 @@ export function PlantsWidget({ readOnly = false }: { readOnly?: boolean }) {
             plants={ordered}
             schedules={schedules}
             canWater={!readOnly}
+            readOnly={readOnly}
             onWater={(plant) => void water(plant)}
           />
         ) : null}

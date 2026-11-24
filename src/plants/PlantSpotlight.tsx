@@ -19,10 +19,14 @@ type PlantSpotlightProps = {
   // Watering is offered here too, but only where the module is interactive.
   onWater?(plant: Plant): void;
   canWater?: boolean;
+  // The desktop surface has no pointer at all, so the arrows, the play switch
+  // and the dots would be chrome that can never be used. The slider still walks
+  // itself; only the controls disappear.
+  readOnly?: boolean;
   className?: string;
 };
 
-export function PlantSpotlight({ plants, schedules, onWater, canWater = false, className }: PlantSpotlightProps) {
+export function PlantSpotlight({ plants, schedules, onWater, canWater = false, readOnly = false, className }: PlantSpotlightProps) {
   const [index, setIndex] = useState(0);
   // Two different reasons to stand still: the user asked for it, or the pointer
   // is on the slide. Only the first one is what the play button toggles.
@@ -181,31 +185,36 @@ export function PlantSpotlight({ plants, schedules, onWater, canWater = false, c
 
         {/* The chrome lives on the slider itself: arrows on the edges, the
             play switch in a corner, and the plant's own card at the foot. No
-            separate strip is spent on navigation. */}
-        <button
-          type="button"
-          className="plants-spotlight__arrow plants-spotlight__arrow--prev"
-          aria-label={t('plantsWidget.previousPlant')}
-          onClick={() => go(-1)}
-        >
-          {rtl ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          className="plants-spotlight__arrow plants-spotlight__arrow--next"
-          aria-label={t('plantsWidget.nextPlant')}
-          onClick={() => go(1)}
-        >
-          {rtl ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          className="plants-spotlight__play"
-          aria-label={autoPaused ? t('plantsWidget.playSlides') : t('plantsWidget.pauseSlides')}
-          onClick={() => setAutoPaused((current) => !current)}
-        >
-          {autoPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-        </button>
+            separate strip is spent on navigation. On the desktop surface there
+            is nothing to point at, so the chrome is left out entirely. */}
+        {readOnly ? null : (
+          <>
+            <button
+              type="button"
+              className="plants-spotlight__arrow plants-spotlight__arrow--prev"
+              aria-label={t('plantsWidget.previousPlant')}
+              onClick={() => go(-1)}
+            >
+              {rtl ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              className="plants-spotlight__arrow plants-spotlight__arrow--next"
+              aria-label={t('plantsWidget.nextPlant')}
+              onClick={() => go(1)}
+            >
+              {rtl ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              className="plants-spotlight__play"
+              aria-label={autoPaused ? t('plantsWidget.playSlides') : t('plantsWidget.pauseSlides')}
+              onClick={() => setAutoPaused((current) => !current)}
+            >
+              {autoPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+            </button>
+          </>
+        )}
 
         <div className="plants-spotlight__foot">
           <div className="plants-spotlight__dots" role="tablist" aria-label={t('plantsWidget.spotlightLabel')}>
@@ -220,6 +229,7 @@ export function PlantSpotlight({ plants, schedules, onWater, canWater = false, c
                   data-status={schedule?.status ?? 'healthy'}
                   aria-selected={position === index}
                   aria-label={t('plantsWidget.showPlant', { name: plant.name })}
+                  disabled={readOnly}
                   onClick={() => setIndex(position)}
                 />
               );

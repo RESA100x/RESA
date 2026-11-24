@@ -153,30 +153,37 @@ export function BookSpotlight({ books, onOpen, readOnly = false, className }: Pr
           );
         })}
 
-        <button
-          type="button"
-          className="book-spotlight__arrow book-spotlight__arrow--prev"
-          aria-label={t('library.previousBook')}
-          onClick={() => go(-1)}
-        >
-          {rtl ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          className="book-spotlight__arrow book-spotlight__arrow--next"
-          aria-label={t('library.nextBook')}
-          onClick={() => go(1)}
-        >
-          {rtl ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          className="book-spotlight__play"
-          aria-label={autoPaused ? t('library.playSlides') : t('library.pauseSlides')}
-          onClick={() => setAutoPaused((value) => !value)}
-        >
-          {autoPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-        </button>
+        {/* The desktop surface has no pointer, so the arrows and the play switch
+            would be controls nobody can reach. The shelf still rotates on its
+            own; only the chrome is dropped. */}
+        {readOnly ? null : (
+          <>
+            <button
+              type="button"
+              className="book-spotlight__arrow book-spotlight__arrow--prev"
+              aria-label={t('library.previousBook')}
+              onClick={() => go(-1)}
+            >
+              {rtl ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              className="book-spotlight__arrow book-spotlight__arrow--next"
+              aria-label={t('library.nextBook')}
+              onClick={() => go(1)}
+            >
+              {rtl ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              className="book-spotlight__play"
+              aria-label={autoPaused ? t('library.playSlides') : t('library.pauseSlides')}
+              onClick={() => setAutoPaused((value) => !value)}
+            >
+              {autoPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+            </button>
+          </>
+        )}
 
         <div className="book-spotlight__foot">
           <div className="book-spotlight__dots" role="tablist" aria-label={t('library.spotlightLabel')}>
@@ -188,6 +195,7 @@ export function BookSpotlight({ books, onOpen, readOnly = false, className }: Pr
                 className="book-spotlight__dot"
                 aria-selected={position === index}
                 aria-label={t('library.showBook', { title: book.title })}
+                disabled={readOnly}
                 onClick={() => setIndex(position)}
               />
             ))}
