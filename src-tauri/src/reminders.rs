@@ -3,7 +3,7 @@ use crate::events::list_in_range;
 use crate::events::MAX_REMINDER_MINUTES;
 use crate::models::{Event, EventRange};
 use crate::timezone;
-use chrono::{Duration, NaiveDateTime};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use chrono_tz::Tz;
 use rusqlite::{params, Connection};
 
@@ -41,6 +41,40 @@ pub struct ReminderNotification {
     /// Device-wall start time of the occurrence, so a host that renders its own
     /// localized text (the Android notification) does not have to re-read it.
     pub start_at: String,
+}
+
+/// A reminder that has not fired yet, ready to be handed to the OS scheduler.
+///
+/// The phone arms an `AlarmManager` alarm per entry so a reminder still rings
+/// when Android has killed the app; the desktop has no such surface and never
+/// builds these.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpcomingReminder {
+    /// Stable identity of this reminder instance, also used as the alarm id.
+    pub key: String,
+    pub title: String,
+    /// Persian one-liner shown under the title ("امروز ۰۹:۳۶").
+    pub body: String,
+    pub fire_at: DateTime<Utc>,
+}
+
+/// The identity shared by the poller, the dedup table and the OS alarm.
+pub fn reminder_key(event_id: &str, occurrence_start_at: &str, offset_minutes: i64) -> String {
+    format!("{event_id}:{occurrence_start_at}:{offset_minutes}")
+}
+
+/// Persian one-liner for the phone notification ("امروز ۰۹:۳۶").
+/// The desktop surfaces build their own localized text, so this stays mobile.
+pub fn mobile_body(now: NaiveDateTime, start_at: &str) -> String {
+    let Ok(start) = NaiveDateTime::parse_from_str(start_at, LOCAL_MINUTE_FORMAT) else {
+        return "یادآوری".to_owned();
+    };
+    let time = start.format("%H:%M");
+    match (start.date() - now.date()).num_days() {
+        0 => format!("امروز {time}"),
+        1 => format!("فردا {time}"),
+        _ => format!("{time}"),
+    }
 }
 
 /// 该实例在去重表里的身份键：`event_id` 与 `occurrence_start_at`。
@@ -274,6 +308,63 @@ pub fn poll_due(
     Ok(notifications)
 }
 
+/// Every reminder that will fire between now and `horizon`, in fire order.
+///
+/// The phone build arms one OS alarm per entry, so a reminder still rings after
+/// Android has killed the app. Reminders that are already due are deliberately
+/// left out: the poller owns those, and re-arming them would ring twice.
+pub fn upcoming_reminders(
+    connection: &Connection,
+    now: NaiveDateTime,
+    horizon: Duration,
+) -> Result<Vec<UpcomingReminder>, CommandError> {
+    let window_start = (now - Duration::days(1))
+        .format(LOCAL_MINUTE_FORMAT)
+        .to_string();
+    let window_end = (now + horizon + Duration::days(1))
+        .format(LOCAL_MINUTE_FORMAT)
+        .to_string();
+    let mut events = list_in_range(
+        connection,
+        &EventRange {
+            start_at: window_start,
+            end_at_exclusive: window_end,
+        },
+    )?;
+    events.extend(external_reminder_events(connection)?);
+
+    let device = timezone::device_tz();
+    let now_utc = timezone::wall_to_utc(now, device);
+    let horizon_end = now_utc + horizon;
+    let mut upcoming = Vec::new();
+    for event in &events {
+        if event.reminders.is_empty() {
+            continue;
+        }
+        let Some(start) = instant_of(&event.start_at, device) else {
+            continue;
+        };
+        for &offset in &event.reminders {
+            if offset < 0 {
+                continue;
+            }
+            let fire_at = start - Duration::minutes(offset);
+            if fire_at <= now_utc || fire_at > horizon_end {
+                continue;
+            }
+            let (event_id, occurrence_start_at) = dispatch_identity(event);
+            upcoming.push(UpcomingReminder {
+                key: reminder_key(&event_id, &occurrence_start_at, offset),
+                title: event.title.clone(),
+                body: mobile_body(now, &event.start_at),
+                fire_at,
+            });
+        }
+    }
+    upcoming.sort_by_key(|reminder| reminder.fire_at);
+    Ok(upcoming)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,6 +542,58 @@ mod tests {
         // 再次轮询同一时刻：已派发，不再返回。
         let second = poll_due(&connection, dt("2026-08-10T09:51")).unwrap();
         assert!(second.is_empty());
+    }
+
+    #[test]
+    fn upcoming_reminders_lists_future_fires_only() {
+        let connection = database();
+        connection
+            .execute(
+                "INSERT INTO events(id,title,start_at,end_at,all_day,category,color,note,created_at,updated_at,reminders)
+                 VALUES ('e1','جلسه','2026-08-10T10:00','2026-08-10T11:00',0,'work','#4FC9DA','','t','t','[30,5]')",
+                [],
+            )
+            .unwrap();
+
+        // 09:00: both reminders are still ahead, the closer one first.
+        let upcoming = upcoming_reminders(&connection, dt("2026-08-10T09:00"), Duration::hours(24)).unwrap();
+        assert_eq!(upcoming.len(), 2);
+        assert_eq!(upcoming[0].key, "e1:2026-08-10T10:00:30");
+        assert_eq!(upcoming[1].key, "e1:2026-08-10T10:00:5");
+        assert_eq!(upcoming[0].title, "جلسه");
+        assert_eq!(upcoming[0].body, "امروز 10:00");
+
+        // 09:40: the 30-minute reminder already fired, only the 5-minute one is left.
+        let later = upcoming_reminders(&connection, dt("2026-08-10T09:40"), Duration::hours(24)).unwrap();
+        assert_eq!(later.len(), 1);
+        assert_eq!(later[0].key, "e1:2026-08-10T10:00:5");
+
+        // Past the event: nothing left to arm.
+        assert!(upcoming_reminders(&connection, dt("2026-08-10T10:30"), Duration::hours(24))
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn upcoming_reminders_respects_the_horizon() {
+        let connection = database();
+        connection
+            .execute(
+                "INSERT INTO events(id,title,start_at,end_at,all_day,category,color,note,created_at,updated_at,reminders)
+                 VALUES ('e1','جلسه','2026-08-20T10:00','2026-08-20T11:00',0,'work','#4FC9DA','','t','t','[10]')",
+                [],
+            )
+            .unwrap();
+
+        assert!(upcoming_reminders(&connection, dt("2026-08-10T09:00"), Duration::hours(48))
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            upcoming_reminders(&connection, dt("2026-08-10T09:00"), Duration::days(30))
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]

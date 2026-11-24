@@ -47,6 +47,9 @@ percent-encoding = "=2.3.2"
 # calendar reminders through the native notification channel instead.
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-notification = "2"
+# Calendar reminders are armed with AlarmManager so they still ring after
+# Android kills the process; the call crosses into Kotlin through JNI.
+jni = "0.21"
 
 # Desktop-only stack. The Android build has no tray, no global shortcuts, no
 # Win32 surface capture and no native audio playback, so none of this is

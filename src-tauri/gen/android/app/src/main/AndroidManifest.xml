@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Calendar reminders are armed with AlarmManager so they still ring
+         after Android has killed the app. USE_EXACT_ALARM is the calendar-app
+         privilege granted at install time; SCHEDULE_EXACT_ALARM covers
+         Android 12, where the user grants it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -33,5 +40,9 @@
             android:name="android.support.FILE_PROVIDER_PATHS"
             android:resource="@xml/file_paths" />
         </provider>
+
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
     </application>
 </manifest>

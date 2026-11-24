@@ -1017,18 +1017,126 @@ fn run_desktop() {
         .expect("failed to run RESA");
 }
 
-/// Persian one-liner for the Android reminder notification ("امروز ۰۹:۳۶").
-/// The desktop surfaces build their own localized text, so this stays mobile.
+/// The phone's reminder alarms.
+///
+/// A background thread only runs while the process lives, and Android is free
+/// to kill it at any moment. Arming an `AlarmManager` alarm per reminder is
+/// what makes a calendar reminder ring while the app is closed; the Kotlin
+/// side (`ReminderAlarms` / `ReminderReceiver`) posts the notification.
 #[cfg(target_os = "android")]
-fn mobile_reminder_body(now: chrono::NaiveDateTime, start_at: &str) -> String {
-    let Ok(start) = chrono::NaiveDateTime::parse_from_str(start_at, "%Y-%m-%dT%H:%M") else {
-        return "یادآوری".to_owned();
-    };
-    let time = start.format("%H:%M");
-    match (start.date() - now.date()).num_days() {
-        0 => format!("امروز {time}"),
-        1 => format!("فردا {time}"),
-        _ => format!("{time}"),
+mod android_alarms {
+    use jni::objects::{JObject, JValue};
+    use tauri::{AppHandle, Manager};
+
+    const CLASS: &str = "com.resa.app.ReminderAlarms";
+
+    /// Runs `call` on the webview thread with this process's `JNIEnv` and the
+    /// Android activity, which doubles as the `Context` the alarm helpers need.
+    ///
+    /// Tauri owns the Java VM. `ndk_context` is never initialised by wry and
+    /// panics when consulted from a background thread, so the webview handle is
+    /// the supported way in.
+    fn with_activity(
+        app: &AppHandle,
+        call: impl FnOnce(&mut jni::JNIEnv<'_>, &JObject<'_>) + Send + 'static,
+    ) {
+        let window = app
+            .get_webview_window("main")
+            .or_else(|| app.webview_windows().into_values().next());
+        let Some(window) = window else {
+            eprintln!("android_alarms: no webview window");
+            return;
+        };
+        let sent = window.with_webview(move |webview| {
+            webview
+                .jni_handle()
+                .exec(move |env, activity, _| call(env, activity));
+        });
+        if let Err(error) = sent {
+            eprintln!("android_alarms: with_webview failed: {error}");
+        }
+    }
+
+    /// Resolves a class through the application's own class loader.
+    ///
+    /// `FindClass` from a thread that Rust attached to the JVM uses the boot
+    /// class loader and fails with `NoClassDefFoundError` for app classes, so
+    /// the loader is taken from the activity instead.
+    fn app_class<'local>(
+        env: &mut jni::JNIEnv<'local>,
+        activity: &JObject<'_>,
+        name: &str,
+    ) -> Option<jni::objects::JClass<'local>> {
+        let loader = env
+            .call_method(activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])
+            .ok()?
+            .l()
+            .ok()?;
+        let name = env.new_string(name).ok()?;
+        env.call_method(
+            &loader,
+            "loadClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            &[(&name).into()],
+        )
+        .ok()?
+        .l()
+        .ok()
+        .map(jni::objects::JClass::from)
+    }
+
+    pub fn schedule(app: &AppHandle, id: &str, title: &str, body: &str, fire_at_millis: i64) {
+        let (id, title, body) = (id.to_owned(), title.to_owned(), body.to_owned());
+        with_activity(app, move |env, context| {
+            let Some(class) = app_class(env, context, CLASS) else {
+                eprintln!("android_alarms: class not found");
+                return;
+            };
+            let (Ok(id), Ok(title), Ok(body)) = (
+                env.new_string(id),
+                env.new_string(title),
+                env.new_string(body),
+            ) else {
+                return;
+            };
+            let result = env.call_static_method(
+                class,
+                "schedule",
+                "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V",
+                &[
+                    JValue::Object(context),
+                    JValue::Object(&JObject::from(id)),
+                    JValue::Object(&JObject::from(title)),
+                    JValue::Object(&JObject::from(body)),
+                    JValue::Long(fire_at_millis),
+                ],
+            );
+            if result.is_err() {
+                let _ = env.exception_describe();
+                env.exception_clear();
+            }
+        });
+    }
+
+    pub fn cancel(app: &AppHandle, id: &str) {
+        let id = id.to_owned();
+        with_activity(app, move |env, context| {
+            let Some(class) = app_class(env, context, CLASS) else {
+                eprintln!("android_alarms: class not found");
+                return;
+            };
+            let Ok(id) = env.new_string(id) else { return };
+            let result = env.call_static_method(
+                class,
+                "cancel",
+                "(Landroid/content/Context;Ljava/lang/String;)V",
+                &[JValue::Object(context), JValue::Object(&JObject::from(id))],
+            );
+            if result.is_err() {
+                let _ = env.exception_describe();
+                env.exception_clear();
+            }
+        });
     }
 }
 
@@ -1118,9 +1226,83 @@ fn run_mobile() {
                 std::thread::spawn(move || {
                     let _ = permission_handle.notification().request_permission();
                 });
+                // Reminders handed to AlarmManager, keyed by reminder identity,
+                // with the fire time each was armed for and the moment it was
+                // last seen among the upcoming ones.
+                let mut armed: std::collections::HashMap<String, (i64, std::time::Instant)> =
+                    std::collections::HashMap::new();
+                let mut first_pass = true;
                 loop {
                     std::thread::sleep(std::time::Duration::from_secs(20));
-                    let now = chrono::Local::now().naive_local();
+                    // `chrono::Local` cannot be trusted on Android (no TZ in the
+                    // environment), so the wall clock is derived from the device
+                    // zone, which is the same zone the events are stored in.
+                    let now = timezone::utc_to_wall(chrono::Utc::now(), timezone::device_tz());
+
+                    // The very first pass silently consumes anything already
+                    // due: it was armed on a previous run and the OS rang it,
+                    // so repeating it here would be a second notification.
+                    if first_pass {
+                        first_pass = false;
+                        if let Ok(connection) = reminder_handle.state::<AppDb>().0.lock() {
+                            let _ = reminders::poll_due(&connection, now);
+                        }
+                    }
+
+                    // Arm one OS alarm per upcoming reminder. This is what
+                    // keeps a reminder ringing after Android has killed the
+                    // app: the poller below only runs while the process lives.
+                    // A month ahead covers the usual "set it and forget it"
+                    // case; the list is sorted by fire time and capped so a
+                    // huge calendar cannot flood AlarmManager.
+                    let upcoming = match reminder_handle.state::<AppDb>().0.lock() {
+                        Ok(connection) => reminders::upcoming_reminders(
+                            &connection,
+                            now,
+                            chrono::Duration::days(30),
+                        )
+                        .unwrap_or_default(),
+                        Err(error) => {
+                            eprintln!("failed to lock calendar database for alarms: {error:?}");
+                            Vec::new()
+                        }
+                    };
+                    let mut next_armed = std::collections::HashMap::new();
+                    for reminder in upcoming.iter().take(64) {
+                        let fire_at = reminder.fire_at.timestamp_millis();
+                        // Re-arming the same alarm every 20 seconds is pure
+                        // churn; only touch AlarmManager when it is new or the
+                        // event moved.
+                        let unchanged = armed
+                            .get(&reminder.key)
+                            .is_some_and(|(armed_at, _)| *armed_at == fire_at);
+                        if !unchanged {
+                            android_alarms::schedule(
+                                &reminder_handle,
+                                &reminder.key,
+                                &reminder.title,
+                                &reminder.body,
+                                fire_at,
+                            );
+                        }
+                        next_armed
+                            .insert(reminder.key.clone(), (fire_at, std::time::Instant::now()));
+                    }
+                    for (key, value) in armed.iter() {
+                        if next_armed.contains_key(key) {
+                            continue;
+                        }
+                        if value.1.elapsed() < std::time::Duration::from_secs(60) {
+                            // It just left the upcoming window, i.e. it fired.
+                            // Keep it for one more minute so the poller does
+                            // not ring the same reminder a second time.
+                            next_armed.insert(key.clone(), *value);
+                        } else {
+                            android_alarms::cancel(&reminder_handle, key);
+                        }
+                    }
+                    armed = next_armed;
+
                     let notifications = match reminder_handle.state::<AppDb>().0.lock() {
                         Ok(connection) => match reminders::poll_due(&connection, now) {
                             Ok(notifications) => notifications,
@@ -1134,15 +1316,27 @@ fn run_mobile() {
                             Vec::new()
                         }
                     };
+                    let mut shown = false;
                     for notification in &notifications {
+                        let key = reminders::reminder_key(
+                            &notification.event_id,
+                            &notification.occurrence_start_at,
+                            notification.offset_minutes,
+                        );
+                        // The alarm already announced this one at its exact
+                        // time; the poll is only a catch-up path.
+                        if armed.contains_key(&key) {
+                            continue;
+                        }
                         let _ = reminder_handle
                             .notification()
                             .builder()
                             .title(notification.title.clone())
-                            .body(mobile_reminder_body(now, &notification.start_at))
+                            .body(reminders::mobile_body(now, &notification.start_at))
                             .show();
+                        shown = true;
                     }
-                    if !notifications.is_empty() {
+                    if shown {
                         let _ = reminder_handle.emit("calendar-reminders-due", ());
                     }
                 }
