@@ -10,7 +10,7 @@ import './archive.css';
  * A one-cell launcher like the phone book and the report: the cell is the door,
  * the archive itself lives in the modal where a list and a history panel fit.
  */
-export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function ArchiveWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const {
     archive,
     projects,
@@ -58,6 +58,36 @@ export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
     ? (archive.message ?? t('archive.readError'))
     : t('archive.tileDetail', { count: formatNumber(count) });
 
+  const archivePage = (
+    <ArchiveDialog
+      inline={mobile}
+      archive={archive}
+      projects={projects}
+      contacts={contacts.data}
+      tags={boardTags}
+      restoreFocusRef={tileRef}
+      canAnnotate={canAnnotate}
+      canPurge={canPurge}
+      onRetry={reload}
+      onRestore={async (id, status) => {
+        await restore(id, status);
+        await taskWorkspace?.refresh();
+      }}
+      onRestoreMany={async (ids, status) => {
+        await restoreMany(ids, status);
+        await taskWorkspace?.refresh();
+      }}
+      onSetReason={canAnnotate ? setReason : undefined}
+      onPurge={canPurge ? purge : undefined}
+      onExport={canExport ? exportArchive : undefined}
+      onClose={() => setOpen(false)}
+    />
+  );
+
+  if (mobile) {
+    return <div className="widget-content archive-widget">{archivePage}</div>;
+  }
+
   return (
     <div className="widget-content archive-widget">
       <button
@@ -87,30 +117,7 @@ export function ArchiveWidget({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       </button>
 
-      {open ? (
-        <ArchiveDialog
-          archive={archive}
-          projects={projects}
-          contacts={contacts.data}
-          tags={boardTags}
-          restoreFocusRef={tileRef}
-          canAnnotate={canAnnotate}
-          canPurge={canPurge}
-          onRetry={reload}
-          onRestore={async (id, status) => {
-            await restore(id, status);
-            await taskWorkspace?.refresh();
-          }}
-          onRestoreMany={async (ids, status) => {
-            await restoreMany(ids, status);
-            await taskWorkspace?.refresh();
-          }}
-          onSetReason={canAnnotate ? setReason : undefined}
-          onPurge={canPurge ? purge : undefined}
-          onExport={canExport ? exportArchive : undefined}
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
+      {open ? archivePage : null}
     </div>
   );
 }

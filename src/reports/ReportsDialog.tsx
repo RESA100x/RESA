@@ -28,6 +28,7 @@ import './reports.css';
 type ReportsDialogProps = {
   resource: TaskReportResource;
   days: ReportRange;
+  inline?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   onChangeDays(days: ReportRange): void;
   onRetry(): void;
@@ -234,6 +235,7 @@ function ActivityRow({ event }: { event: ReportActivity }) {
 export function ReportsDialog({
   resource,
   days,
+  inline = false,
   restoreFocusRef,
   onChangeDays,
   onRetry,
@@ -280,6 +282,7 @@ export function ReportsDialog({
     <Dialog
       title={t('reports.title')}
       ariaLabelledBy={titleId}
+      inline={inline}
       restoreFocusRef={restoreFocusRef}
       onRequestClose={onClose}
       className="reports-dialog"

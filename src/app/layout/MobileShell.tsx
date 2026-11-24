@@ -60,6 +60,7 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const available = MORE_MODULES.filter((entry) => modules[entry.id] !== undefined);
+  const inMore = available.some((entry) => entry.id === active);
   const activeLabel =
     [...PRIMARY_TABS, ...MORE_MODULES].find((entry) => entry.id === active)?.label ?? '';
 
@@ -124,7 +125,7 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
         <button
           type="button"
           data-testid="mobile-tab-more"
-          className={`mobile-shell__tab${sheetOpen ? ' is-active' : ''}`}
+          className={`mobile-shell__tab${sheetOpen || inMore ? ' is-active' : ''}`}
           aria-expanded={sheetOpen}
           onClick={() => setSheetOpen(true)}
         >

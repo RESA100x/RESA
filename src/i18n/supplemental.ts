@@ -33,6 +33,9 @@ export const supplemental = {
     'time.zone.America/New_York': '纽约',
     'time.zone.America/Los_Angeles': '洛杉矶',
     'time.zone.Australia/Sydney': '悉尼',
+    'kanbanWidget.layout': '泳道布局',
+    'kanbanWidget.layoutColumns': '并排',
+    'kanbanWidget.layoutStacked': '堆叠',
     'mobile.tabs': '标签页',
     'mobile.more': '更多',
     'mobile.allModules': '所有模块'
@@ -70,6 +73,9 @@ export const supplemental = {
     'time.zone.America/New_York': 'New York',
     'time.zone.America/Los_Angeles': 'Los Angeles',
     'time.zone.Australia/Sydney': 'Sydney',
+    'kanbanWidget.layout': 'Lane layout',
+    'kanbanWidget.layoutColumns': 'Columns',
+    'kanbanWidget.layoutStacked': 'Stacked',
     'mobile.tabs': 'Tabs',
     'mobile.more': 'More',
     'mobile.allModules': 'All modules'

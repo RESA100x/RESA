@@ -14,7 +14,7 @@ import './reports.css';
  * and the badge is the number of open tasks, and the report itself lives in a
  * modal where a chart has room to breathe.
  */
-export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function ReportsWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const [days, setDays] = useState<ReportRange>(30);
   const { report, reload, refresh } = useTaskReport(days);
   const repository = useNowlyRepository();
@@ -61,6 +61,27 @@ export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
         completed: formatNumber(completedCount)
       });
 
+  const reportPage = (
+    <ReportsDialog
+      inline={mobile}
+      resource={report}
+      days={days}
+      restoreFocusRef={tileRef}
+      onChangeDays={setDays}
+      onRetry={reload}
+      onExport={
+        repository.exportTaskReport
+          ? (path) => repository.exportTaskReport!.call(repository, path, days)
+          : undefined
+      }
+      onClose={() => setOpen(false)}
+    />
+  );
+
+  if (mobile) {
+    return <div className="widget-content reports-widget">{reportPage}</div>;
+  }
+
   return (
     <div className="widget-content reports-widget">
       <button
@@ -90,21 +111,7 @@ export function ReportsWidget({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       </button>
 
-      {open ? (
-        <ReportsDialog
-          resource={report}
-          days={days}
-          restoreFocusRef={tileRef}
-          onChangeDays={setDays}
-          onRetry={reload}
-          onExport={
-            repository.exportTaskReport
-              ? (path) => repository.exportTaskReport!.call(repository, path, days)
-              : undefined
-          }
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
+      {open ? reportPage : null}
     </div>
   );
 }

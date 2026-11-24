@@ -1,4 +1,4 @@
-import { Plus, Settings, X } from '../components/icons';
+import { LayoutGrid, List, Plus, Settings, X } from '../components/icons';
 import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { laneCardCount } from './kanban-view';
 import { KanbanLane } from './KanbanLane';
@@ -84,6 +84,9 @@ export function KanbanWidget({
   const [zoneConfirmation, setZoneConfirmation] = useState<{ title: string; solid: boolean } | null>(null);
   const zoneTimerRef = useRef(0);
   const [filterTag, setFilterTag] = useState('');
+  // On a narrow board the lanes either sit side by side in a horizontal
+  // scroller or stack under each other; the toggle in the header picks one.
+  const [laneLayout, setLaneLayout] = useState<'columns' | 'stacked'>('columns');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -282,6 +285,28 @@ export function KanbanWidget({
           <span />
         )}
         <div className="toolbar-actions">
+          <div className="view-switch kanban-layout-toggle" role="group" aria-label={t('kanbanWidget.layout')}>
+            <button
+              type="button"
+              className={`view-switch__btn view-switch__btn--icon${laneLayout === 'columns' ? ' is-active' : ''}`}
+              aria-label={t('kanbanWidget.layoutColumns')}
+              aria-pressed={laneLayout === 'columns'}
+              title={t('kanbanWidget.layoutColumns')}
+              onClick={() => setLaneLayout('columns')}
+            >
+              <LayoutGrid aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={`view-switch__btn view-switch__btn--icon${laneLayout === 'stacked' ? ' is-active' : ''}`}
+              aria-label={t('kanbanWidget.layoutStacked')}
+              aria-pressed={laneLayout === 'stacked'}
+              title={t('kanbanWidget.layoutStacked')}
+              onClick={() => setLaneLayout('stacked')}
+            >
+              <List aria-hidden="true" />
+            </button>
+          </div>
           {hasLanes ? (
             <KanbanDoneButton
               entries={doneEntries}
@@ -289,6 +314,18 @@ export function KanbanWidget({
               pendingTaskIds={workspace.pendingTaskIds}
               onReopen={(taskId) => void workspace.setTaskCompleted(taskId, false).catch(() => undefined)}
             />
+          ) : null}
+          {hasLanes ? (
+            <button
+              type="button"
+              className="btn kanban-add-lane"
+              aria-label={t('kanbanWidget.addLane')}
+              title={t('kanbanWidget.addLane')}
+              onClick={(event) => openDialog({ type: 'lane-create', afterLaneId: null }, event.currentTarget)}
+            >
+              <Plus aria-hidden="true" />
+              <span>{t('kanbanWidget.addLane')}</span>
+            </button>
           ) : null}
           <button
             type="button"
@@ -344,7 +381,7 @@ export function KanbanWidget({
           </div>
         ) : (
           <div className="kanban-scroll" data-testid="kanban-scroll">
-            <div className={`kanban-lanes${draggingTaskId ? ' kanban-lanes--receiving' : ''}`}>
+            <div className={`kanban-lanes kanban-lanes--${laneLayout}${draggingTaskId ? ' kanban-lanes--receiving' : ''}`}>
               {data.lanes.map((lane) => {
                 const target = dropTarget?.kind === 'lane' && dropTarget.laneId === lane.id ? dropTarget : null;
                 return (

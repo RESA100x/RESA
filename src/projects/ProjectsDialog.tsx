@@ -15,6 +15,7 @@ import './projects.css';
 
 type ProjectsDialogProps = {
   resource: ProjectsResource;
+  inline?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   onRetry(): void;
   onClose(): void;
@@ -47,6 +48,7 @@ function messageFrom(error: unknown) {
  */
 export function ProjectsDialog({
   resource,
+  inline = false,
   restoreFocusRef,
   onRetry,
   onClose,
@@ -211,6 +213,7 @@ export function ProjectsDialog({
     <Dialog
       title={t('widget.projects.name')}
       ariaLabelledBy={titleId}
+      inline={inline}
       isTopLayer={!form && !archiving && !detail}
       restoreFocusRef={restoreFocusRef}
       onRequestClose={onClose}

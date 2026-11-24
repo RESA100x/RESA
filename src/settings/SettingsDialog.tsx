@@ -14,6 +14,7 @@ import { Select } from '../components/Select';
 import { TabPanel, Tabs, type TabItem } from '../components/Tabs';
 import type { AppSettings, MonitorInfo } from '../data/nowly-repository';
 import { t, useTranslation, SUPPORTED_LANGUAGES, LOCALES, type Language } from '../i18n';
+import { isMobileShell } from '../app/layout/platform';
 
 type Props={settings:AppSettings;monitors?:MonitorInfo[];onClose():void;onSave(settings:AppSettings):Promise<AppSettings>};
 type SettingsTab='interface'|'desktop'|'notifications'|'sound'|'shortcuts'|'data'|'sync';
@@ -30,6 +31,9 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
  // Language switches in real time via the i18n store, independent of the save
  // button, so the whole UI updates the moment the user picks a language.
  const {language,setLanguage}=useTranslation();
+ // A phone has no wallpaper, no second monitor and no keyboard shortcuts, so
+ // those tabs are not offered there; the rest is a single column.
+ const mobile=isMobileShell();
  const [draft,setDraft]=useState(()=>({...settings, soundSettings: normalizeSoundSettings(settings.soundSettings), barMenu: normalizeBarMenu(settings.barMenu), notificationMode: settings.notificationMode ?? 'notification', quickPanelEnabled: true, quickPanelShortcut: settings.quickPanelShortcut ?? 'Ctrl+Space', screenshotShortcut: settings.screenshotShortcut ?? 'Ctrl+Alt+A', screenshotHistoryShortcut: settings.screenshotHistoryShortcut ?? 'Ctrl+Alt+H', quickCreateEventShortcut: settings.quickCreateEventShortcut ?? '', quickCreateTaskShortcut: settings.quickCreateTaskShortcut ?? '', quickCreateNoteShortcut: settings.quickCreateNoteShortcut ?? ''})); const [saving,setSaving]=useState(false); const [error,setError]=useState<string|null>(null);
  const [tab,setTab]=useState<SettingsTab>('interface');
  // Resolve the monitor that should appear selected: the saved id when it still
@@ -53,7 +57,8 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
   const [screenshotShortcut,screenshotHistoryShortcut,quickCreateEventShortcut,quickCreateTaskShortcut,quickCreateNoteShortcut]=shortcuts as string[];
   setSaving(true);setError(null);try{await onSave({...draft,screenshotShortcut,screenshotHistoryShortcut,quickCreateEventShortcut,quickCreateTaskShortcut,quickCreateNoteShortcut,quickPanelEnabled:true});onClose();}catch(reason){setError(typeof reason==='object'&&reason!==null&&'field'in reason&&(SHORTCUT_FIELDS as readonly string[]).includes(String(reason.field))?t('settings.shortcutConflict'):errorMessage(reason));}finally{setSaving(false)}
  }
- const tabs:TabItem<SettingsTab>[]=[{id:'interface',label:t('settings.interface')},{id:'desktop',label:t('settings.desktopStartup')},{id:'notifications',label:t('settings.notifications')},{id:'sound',label:t('settings.sound')},{id:'shortcuts',label:t('settings.shortcuts')},{id:'data',label:t('settings.data')},{id:'sync',label:t('settings.sync')}];
+ const allTabs:TabItem<SettingsTab>[]=[{id:'interface',label:t('settings.interface')},{id:'desktop',label:t('settings.desktopStartup')},{id:'notifications',label:t('settings.notifications')},{id:'sound',label:t('settings.sound')},{id:'shortcuts',label:t('settings.shortcuts')},{id:'data',label:t('settings.data')},{id:'sync',label:t('settings.sync')}];
+ const tabs=allTabs.filter(item=>!mobile||(item.id!=='desktop'&&item.id!=='shortcuts'));
  return <Dialog title={t('settings.title')} ariaLabelledBy="settings-title" onRequestClose={onClose} className="settings-dialog" headerActions={<button className="good-icon-button" aria-label={t('settings.close')} onClick={onClose}><X aria-hidden="true"/></button>} footer={<><button className="good-button" onClick={onClose}>{t('common.cancel')}</button><button className="good-button good-button--primary" disabled={saving} onClick={()=>void save()}>{saving?t('common.saving'):t('settings.saveSettings')}</button></>}>
   <div className="settings-form">
    <Tabs idPrefix="settings" label={t('settings.title')} items={tabs} value={tab} onChange={setTab}/>
@@ -63,20 +68,20 @@ export function SettingsDialog({settings,monitors=[],onClose,onSave}:Props){
      <Select id="settings-density" label={t('settings.density')} value={draft.density} options={[{value:'compact',label:t('settings.densityCompact')},{value:'balanced',label:t('settings.densityBalanced')},{value:'comfortable',label:t('settings.densityComfortable')}]} onChange={value=>setDraft({...draft,density:value as AppSettings['density']})}/>
      <Select id="settings-icon-style" label={t('settings.iconStyle')} value={draft.iconStyle} options={[{value:'duotone',label:t('settings.iconStyleDuotone')},{value:'solid',label:t('settings.iconStyleSolid')},{value:'outline',label:t('settings.iconStyleOutline')}]} onChange={value=>setDraft({...draft,iconStyle:value as IconStyle})}/>
     </div>
-    <fieldset className="settings-wallpaper">
+    {mobile?null:<fieldset className="settings-wallpaper">
      <legend>{t('settings.wallpaperAppearance')}</legend>
      <p>{t('settings.wallpaperAppearanceHint')}</p>
      <div className="settings-checks">
       <Check label={t('settings.hideTopbarInWallpaper')} checked={draft.hideTopbarInWallpaper} onChange={toggle('hideTopbarInWallpaper')}/>
       <Check label={t('settings.hideModuleBackgroundInWallpaper')} checked={draft.hideModuleBackgroundInWallpaper ?? false} onChange={toggle('hideModuleBackgroundInWallpaper')}/>
      </div>
-    </fieldset>
+    </fieldset>}
    </TabPanel>
    <TabPanel idPrefix="settings" tabId="notifications" active={tab==='notifications'}>
     <div className="settings-grid">
      <Select id="settings-notification-mode" label={t('settings.notificationMode')} value={draft.notificationMode ?? 'notification'} options={[{value:'persistent',label:t('settings.notificationModePersistent')},{value:'notification',label:t('settings.notificationModeNotification')}]} onChange={value=>setDraft({...draft,notificationMode:value as NonNullable<AppSettings['notificationMode']>})}/>
     </div>
-    <BarMenuSettings menu={draft.barMenu} onChange={barMenu=>setDraft(current=>({...current,barMenu}))}/>
+    {mobile?null:<BarMenuSettings menu={draft.barMenu} onChange={barMenu=>setDraft(current=>({...current,barMenu}))}/>}
    </TabPanel>
    <TabPanel idPrefix="settings" tabId="sound" active={tab==='sound'}>
     <SoundSettingsPanel value={draft.soundSettings} onChange={soundSettings=>setDraft(current=>({...current,soundSettings}))}/>

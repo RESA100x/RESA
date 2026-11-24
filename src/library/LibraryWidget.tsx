@@ -17,7 +17,7 @@ const SPOTLIGHT_MIN_WIDTH = 300;
 
 type FormState = { type: 'create' } | { type: 'edit'; book: Book } | null;
 
-export function LibraryWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function LibraryWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const { books, reload, createBook, updateBook, deleteBook } = useBooks();
   const [open, setOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
@@ -47,6 +47,50 @@ export function LibraryWidget({ readOnly = false }: { readOnly?: boolean }) {
 
   const quickUpdate = (book: Book, patch: Partial<BookDraft>) =>
     updateBook(book, { ...bookToDraft(book), ...patch });
+
+  const shelf = (
+    <LibraryDialog
+      inline={mobile}
+      books={ordered}
+      status={books.status}
+      message={books.message}
+      onRetry={reload}
+      onClose={() => setOpen(false)}
+      onAdd={() => setForm({ type: 'create' })}
+      onOpenBook={(book) => setCardId(book.id)}
+    />
+  );
+  const editors = (
+    <>
+      {form ? (
+        <BookDialog
+          mode={form}
+          onClose={() => setForm(null)}
+          onCreate={createBook}
+          onUpdate={updateBook}
+          onDelete={deleteBook}
+        />
+      ) : null}
+      {card ? (
+        <BookCardDialog
+          book={card}
+          onClose={() => setCardId(null)}
+          onEdit={(book) => setForm({ type: 'edit', book })}
+          onQuickUpdate={quickUpdate}
+          onDelete={deleteBook}
+        />
+      ) : null}
+    </>
+  );
+
+  if (mobile) {
+    return (
+      <div className="widget-content library-widget" ref={rootRef}>
+        {shelf}
+        {editors}
+      </div>
+    );
+  }
 
   return (
     <div className="widget-content library-widget" ref={rootRef}>
@@ -98,37 +142,8 @@ export function LibraryWidget({ readOnly = false }: { readOnly?: boolean }) {
         </button>
       )}
 
-      {open ? (
-        <LibraryDialog
-          books={ordered}
-          status={books.status}
-          message={books.message}
-          onRetry={reload}
-          onClose={() => setOpen(false)}
-          onAdd={() => setForm({ type: 'create' })}
-          onOpenBook={(book) => setCardId(book.id)}
-        />
-      ) : null}
-
-      {form ? (
-        <BookDialog
-          mode={form}
-          onClose={() => setForm(null)}
-          onCreate={createBook}
-          onUpdate={updateBook}
-          onDelete={deleteBook}
-        />
-      ) : null}
-
-      {card ? (
-        <BookCardDialog
-          book={card}
-          onClose={() => setCardId(null)}
-          onEdit={(book) => setForm({ type: 'edit', book })}
-          onQuickUpdate={quickUpdate}
-          onDelete={deleteBook}
-        />
-      ) : null}
+      {open ? shelf : null}
+      {editors}
     </div>
   );
 }

@@ -346,6 +346,10 @@ function AppContent() {
 
   // The full set of placeable modules. Every module Nowly offers is built in.
   const definitions = buildDefinitions();
+  // A phone has no wallpaper mode, no multi-monitor layout and no drag grid, so
+  // it renders the same modules through a tabbed shell instead. Launcher
+  // modules open their list as a full page there rather than as a modal.
+  const mobileShell = isMobileShell();
 
   const todayEventCount = calendarEvents.filter((event) => event.startAt.startsWith(todayIso)).length;
   const importantTaskCount = tasks.filter(
@@ -355,12 +359,12 @@ function AppContent() {
   const modules: Partial<Record<WidgetId, ReactNode>> = {};
   modules.stickers = <StickersWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
   modules.plants = <PlantsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-  modules.phonebook = <PhonebookWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-  modules.library = <LibraryWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-    modules.reports = <ReportsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-    modules.archive = <ArchiveWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-    modules.projects = <ProjectsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
-    modules.meetings = <MeetingsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} />;
+  modules.phonebook = <PhonebookWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
+  modules.library = <LibraryWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
+    modules.reports = <ReportsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
+    modules.archive = <ArchiveWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
+    modules.projects = <ProjectsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
+    modules.meetings = <MeetingsWidget readOnly={windowMode === 'wallpaper' || isSwitchingWindowMode} mobile={mobileShell} />;
   {
     modules.calendar = (
       <CalendarWidget
@@ -668,10 +672,6 @@ function AppContent() {
     hour12: false
   }).format(now);
   const dateText = formatDisplayDate(now, 'full');
-  // A phone has no wallpaper mode, no multi-monitor layout and no drag grid, so
-  // it renders the same modules through a tabbed shell instead.
-  const mobileShell = isMobileShell();
-
   return (
     <IconStyleProvider style={settingsFeature.settings.data.iconStyle}>
       {mobileShell ? (

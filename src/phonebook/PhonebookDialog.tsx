@@ -33,6 +33,7 @@ type Tab = 'all' | 'internal' | 'contractors' | 'suppliers' | 'managers' | 'grou
 type PhonebookDialogProps = {
   resource: ContactsResource;
   categories: ContactCategoriesResource;
+  inline?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   onRetry(): void;
   onRetryCategories(): void;
@@ -128,6 +129,7 @@ function roleLabel(role: ContactRole) {
 export function PhonebookDialog({
   resource,
   categories,
+  inline = false,
   restoreFocusRef,
   onRetry,
   onRetryCategories,
@@ -281,6 +283,7 @@ export function PhonebookDialog({
     <Dialog
       title={t('widget.phonebook.name')}
       ariaLabelledBy={titleId}
+      inline={inline}
       isTopLayer={!form && !pendingImport && !cardContactId}
       initialFocusRef={searchRef}
       restoreFocusRef={restoreFocusRef}

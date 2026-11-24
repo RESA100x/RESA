@@ -74,7 +74,11 @@ export function KanbanDoneButton({ entries, now, pendingTaskIds, onReopen }: Kan
     if (!open) return;
     function measure() {
       const box = triggerRef.current?.getBoundingClientRect();
-      if (box) setRect({ top: box.bottom + 8, right: Math.max(16, window.innerWidth - box.right) });
+      if (!box) return;
+      const height = popupRef.current?.offsetHeight ?? 320;
+      const margin = 8;
+      const top = Math.min(box.bottom + margin, Math.max(margin, window.innerHeight - margin - height));
+      setRect({ top, right: Math.max(margin, window.innerWidth - box.right) });
     }
     measure();
     function dismiss(event: PointerEvent) {

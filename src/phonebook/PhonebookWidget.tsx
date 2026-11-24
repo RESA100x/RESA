@@ -13,7 +13,7 @@ import './phonebook.css';
  * the same behaviour only has to copy this file: draw a tile, keep the modal
  * state here, and render a `Dialog` when it is open.
  */
-export function PhonebookWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function PhonebookWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const {
     contacts,
     reload,
@@ -35,6 +35,32 @@ export function PhonebookWidget({ readOnly = false }: { readOnly?: boolean }) {
   const detail = failed
     ? (contacts.message ?? t('phonebook.readError'))
     : t('phonebook.count', { count });
+
+  const directory = (
+    <PhonebookDialog
+      inline={mobile}
+      resource={contacts}
+      categories={categories}
+      restoreFocusRef={tileRef}
+      onRetry={reload}
+      onRetryCategories={reloadCategories}
+      onClose={() => setOpen(false)}
+      onCreate={createContact}
+      onUpdate={updateContact}
+      onDelete={deleteContact}
+      onCreateCategory={createCategory}
+      onUpdateCategory={updateCategory}
+      onDeleteCategory={deleteCategory}
+      onExport={exportContacts}
+      onImport={importContacts}
+      onExportVcard={exportContactsVcard}
+      onImportVcard={importContactsVcard}
+    />
+  );
+
+  if (mobile) {
+    return <div className="widget-content phonebook-widget">{directory}</div>;
+  }
 
   return (
     <div className="widget-content phonebook-widget">
@@ -62,26 +88,7 @@ export function PhonebookWidget({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       </button>
 
-      {open ? (
-        <PhonebookDialog
-          resource={contacts}
-          categories={categories}
-          restoreFocusRef={tileRef}
-          onRetry={reload}
-          onRetryCategories={reloadCategories}
-          onClose={() => setOpen(false)}
-          onCreate={createContact}
-          onUpdate={updateContact}
-          onDelete={deleteContact}
-          onCreateCategory={createCategory}
-          onUpdateCategory={updateCategory}
-          onDeleteCategory={deleteCategory}
-          onExport={exportContacts}
-          onImport={importContacts}
-          onExportVcard={exportContactsVcard}
-          onImportVcard={importContactsVcard}
-        />
-      ) : null}
+      {open ? directory : null}
     </div>
   );
 }

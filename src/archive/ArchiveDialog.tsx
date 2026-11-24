@@ -34,6 +34,7 @@ type ArchiveDialogProps = {
   projects: ProjectsResource;
   contacts: Contact[];
   tags: Pick<TaskTag, 'id' | 'name' | 'color'>[];
+  inline?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   canAnnotate: boolean;
   canPurge: boolean;
@@ -98,6 +99,7 @@ export function ArchiveDialog({
   projects,
   contacts,
   tags,
+  inline = false,
   restoreFocusRef,
   canAnnotate,
   canPurge,
@@ -317,6 +319,7 @@ export function ArchiveDialog({
     <Dialog
       title={t('widget.archive.name')}
       ariaLabelledBy={titleId}
+      inline={inline}
       initialFocusRef={searchRef}
       restoreFocusRef={restoreFocusRef}
       onRequestClose={onClose}

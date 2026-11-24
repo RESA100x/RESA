@@ -7,7 +7,7 @@ import './projects.css';
 
 // The projects launcher: one cell, the folder glyph, the active project count.
 // The list and its history live in the modal.
-export function ProjectsWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function ProjectsWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const { projects, reload, createProject, updateProject, archiveProject, restoreProject } = useProjects();
   const [open, setOpen] = useState(false);
   const tileRef = useRef<HTMLButtonElement>(null);
@@ -18,6 +18,24 @@ export function ProjectsWidget({ readOnly = false }: { readOnly?: boolean }) {
   const detail = failed
     ? (projects.message ?? t('projects.readError'))
     : t('projects.tileDetail', { count: formatNumber(activeCount) });
+
+  const list = (
+    <ProjectsDialog
+      inline={mobile}
+      resource={projects}
+      restoreFocusRef={tileRef}
+      onRetry={reload}
+      onClose={() => setOpen(false)}
+      onCreate={createProject}
+      onUpdate={(project, draft) => updateProject(project.id, draft)}
+      onArchive={archiveProject}
+      onRestore={restoreProject}
+    />
+  );
+
+  if (mobile) {
+    return <div className="widget-content projects-widget">{list}</div>;
+  }
 
   return (
     <div className="widget-content projects-widget">
@@ -46,18 +64,7 @@ export function ProjectsWidget({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       </button>
 
-      {open ? (
-        <ProjectsDialog
-          resource={projects}
-          restoreFocusRef={tileRef}
-          onRetry={reload}
-          onClose={() => setOpen(false)}
-          onCreate={createProject}
-          onUpdate={(project, draft) => updateProject(project.id, draft)}
-          onArchive={archiveProject}
-          onRestore={restoreProject}
-        />
-      ) : null}
+      {open ? list : null}
     </div>
   );
 }

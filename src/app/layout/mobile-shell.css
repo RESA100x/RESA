@@ -220,3 +220,219 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- Launcher modules as pages ------------------------------------------
+   On the desktop a phone book or a report is a one-cell tile that opens a
+   modal. A phone has no grid to put a tile in, so the same dialog renders
+   in place as the page the tab shows. */
+.mobile-shell .good-dialog--inline {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mobile-shell .good-dialog--inline .good-dialog__header {
+  min-height: 52px;
+  padding-inline: 12px;
+}
+
+.mobile-shell .good-dialog--inline .good-dialog__header h2 {
+  font-size: 1.05rem;
+}
+
+.mobile-shell .good-dialog--inline .good-dialog__body {
+  padding: 12px;
+}
+
+.mobile-shell .good-dialog--inline .good-dialog__footer {
+  min-height: 56px;
+  padding-inline: 12px;
+}
+
+/* ---- Module headers on a phone -----------------------------------------
+   The desktop header is a single row: title on one side, every control on
+   the other. At 400px the controls alone are wider than the screen, so they
+   wrap into a second row instead of sliding under the content. */
+.mobile-shell .card-header {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.mobile-shell .card-header > .toolbar-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.mobile-shell .calendar-card-content .card-header {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mobile-shell .calendar-card-content .heading-group {
+  display: none;
+}
+
+.mobile-shell .calendar-card-content .toolbar-actions {
+  flex: 1 1 100%;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.mobile-shell .calendar-card-content .toolbar-actions .btn {
+  min-height: 36px;
+  padding-inline: 8px;
+}
+
+.mobile-shell .calendar-card-content .view-switch {
+  flex: none;
+  padding: 2px;
+  gap: 2px;
+}
+
+.mobile-shell .calendar-card-content .view-switch__btn {
+  min-height: 32px;
+}
+
+.mobile-shell .calendar-body {
+  padding: 6px 6px 8px;
+}
+
+.mobile-shell .matrix-body,
+.mobile-shell .kanban-body {
+  padding: 8px 8px 10px;
+}
+
+/* ---- Date picker on a phone --------------------------------------------
+   The popup is anchored under its field, which on a phone is often the last
+   row of a dialog: the calendar then hangs below the screen. On a narrow
+   viewport it becomes a bottom sheet that always fits. */
+@media (max-width: 640px) {
+  .date-picker__popup {
+    position: fixed;
+    z-index: 130;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+  }
+}
+
+/* ---- Kanban on a phone -------------------------------------------------
+   Lanes used to share the board width, so a fifth lane was a sliver. They
+   now keep a readable width and the board scrolls sideways, with a switch
+   that stacks them instead. */
+.kanban-lanes--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.kanban-lanes--stacked .kanban-lane {
+  flex: none;
+  width: 100%;
+  max-height: none;
+}
+
+.kanban-add-lane {
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* A wide module has room for every lane side by side; the switch would only
+   be noise there. */
+@container module (min-width: 700px) {
+  .kanban-layout-toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .kanban-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .kanban-lanes--columns {
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .kanban-lanes--columns .kanban-lane {
+    flex: 0 0 84%;
+    min-width: 84%;
+    scroll-snap-align: start;
+  }
+
+  .kanban-scroll:has(.kanban-lanes--stacked) {
+    overflow-x: hidden;
+  }
+
+  .kanban-add-lane span {
+    display: none;
+  }
+
+  .kanban-add-lane {
+    padding-inline: 10px;
+  }
+}
+
+/* ---- Settings on a phone -----------------------------------------------
+   Seven tabs and a two-column form do not fit 400px. The dialog becomes a
+   full page, the tab strip scrolls sideways, and the form is one column. */
+@media (max-width: 640px) {
+  .overlay:has(> .settings-dialog) {
+    padding: 0;
+  }
+
+  .good-dialog.settings-dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .settings-dialog .good-dialog__header,
+  .settings-dialog .good-dialog__footer {
+    min-height: 56px;
+    padding-inline: 14px;
+  }
+
+  .settings-dialog .good-dialog__body {
+    padding: 14px;
+  }
+
+  .settings-dialog .good-tabs {
+    gap: 20px;
+  }
+
+  .settings-dialog .good-tabs__tab {
+    font-size: 0.88rem;
+  }
+
+  .settings-dialog .settings-grid,
+  .settings-dialog .settings-checks {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .settings-dialog .settings-checks {
+    padding: 14px;
+  }
+}

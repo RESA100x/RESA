@@ -30,7 +30,20 @@ export function ActionMenu({ label, items }: ActionMenuProps) {
     if (!open) return;
     function measure() {
       const box = triggerRef.current?.getBoundingClientRect();
-      if (box) setRect({ right: window.innerWidth - box.right, top: box.bottom + 8 });
+      if (!box) return;
+      const margin = 8;
+      const width = popupRef.current?.offsetWidth ?? 168;
+      const height = popupRef.current?.offsetHeight ?? items.length * 38 + 16;
+      // Open downward by default, but a "⋯" near the bottom of a phone screen
+      // would push the list off the viewport: flip it above the trigger when
+      // there is more room there.
+      const spaceBelow = window.innerHeight - box.bottom - margin;
+      const spaceAbove = box.top - margin;
+      const top = height > spaceBelow && spaceAbove > spaceBelow
+        ? Math.max(margin, box.top - margin - height)
+        : Math.min(box.bottom + margin, Math.max(margin, window.innerHeight - margin - height));
+      const right = Math.max(margin, Math.min(window.innerWidth - box.right, window.innerWidth - width - margin));
+      setRect({ right, top });
     }
     measure();
     function dismiss(event: PointerEvent) {

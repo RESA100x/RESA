@@ -25,6 +25,7 @@ type Props = {
   books: Book[];
   status: 'loading' | 'ready' | 'error';
   message?: string;
+  inline?: boolean;
   onRetry(): void;
   onClose(): void;
   onAdd(): void;
@@ -54,7 +55,7 @@ function matches(book: Book, query: string): boolean {
 // The library itself: a searchable shelf with filters, a compact statistics
 // strip and the book grid. Adding and opening a book happen in their own
 // dialogs, so this one stays a list.
-export function LibraryDialog({ books, status, message, onRetry, onClose, onAdd, onOpenBook }: Props) {
+export function LibraryDialog({ books, status, message, inline = false, onRetry, onClose, onAdd, onOpenBook }: Props) {
   const titleId = useId();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | BookStatus>('all');
@@ -111,6 +112,7 @@ export function LibraryDialog({ books, status, message, onRetry, onClose, onAdd,
     <Dialog
       title={t('library.title')}
       ariaLabelledBy={titleId}
+      inline={inline}
       onRequestClose={onClose}
       className="library-dialog"
       headerActions={

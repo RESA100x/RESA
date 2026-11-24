@@ -20,7 +20,7 @@ import './meeting.css';
  * glyph, a badge with the number of meetings still ahead. The list lives in the
  * modal, because a single grid cell cannot hold a schedule.
  */
-export function MeetingsWidget({ readOnly = false }: { readOnly?: boolean }) {
+export function MeetingsWidget({ readOnly = false, mobile = false }: { readOnly?: boolean; mobile?: boolean }) {
   const { meetings, reload } = useMeetings();
   const now = useCurrentTime();
   const [open, setOpen] = useState(false);
@@ -63,6 +63,86 @@ export function MeetingsWidget({ readOnly = false }: { readOnly?: boolean }) {
     );
   }
 
+  const listDialog = (
+    <Dialog
+      title={t('meeting.listTitle')}
+      ariaLabelledBy="meetings-list-title"
+      inline={mobile}
+      restoreFocusRef={tileRef}
+      onRequestClose={() => setOpen(false)}
+      className="meetings-dialog"
+      headerActions={
+        <>
+          <button
+            type="button"
+            className="good-icon-button"
+            aria-label={t('meeting.newMeeting')}
+            title={t('meeting.newMeeting')}
+            onClick={() => setEditing({ id: null })}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+          {mobile ? null : (
+            <button
+              type="button"
+              className="good-icon-button"
+              aria-label={t('common.close')}
+              title={t('common.close')}
+              onClick={() => setOpen(false)}
+            >
+              <X aria-hidden="true" />
+            </button>
+          )}
+        </>
+      }
+      footer={
+        <div className="meeting-dialog__footer">
+          <span className="meeting-dialog__notes">
+            {failed ? meetings.message ?? t('meeting.readError') : null}
+          </span>
+          {mobile ? null : (
+            <button type="button" className="btn" onClick={() => setOpen(false)}>{t('common.close')}</button>
+          )}
+        </div>
+      }
+    >
+      <div className="meetings-list">
+        {meetings.status === 'loading' && rows.length === 0 ? <p className="empty-copy">{t('meeting.loading')}</p> : null}
+        {ready && rows.length === 0 ? <p className="empty-copy">{t('meeting.noMeetings')}</p> : null}
+        {upcoming.length > 0 ? (
+          <section className="meeting-group">
+            <h4>{t('meeting.upcoming')}</h4>
+            {upcoming.map(renderRow)}
+          </section>
+        ) : null}
+        {past.length > 0 ? (
+          <section className="meeting-group">
+            <h4>{t('meeting.past')}</h4>
+            {past.map(renderRow)}
+          </section>
+        ) : null}
+      </div>
+    </Dialog>
+  );
+
+  if (mobile) {
+    return (
+      <div className="widget-content meetings-widget">
+        {listDialog}
+        {editing ? (
+          <MeetingDialog
+            meetingId={editing.id}
+            restoreFocusRef={tileRef}
+            onClose={() => {
+              setEditing(null);
+              void reload();
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="widget-content meetings-widget">
       <button
@@ -86,62 +166,7 @@ export function MeetingsWidget({ readOnly = false }: { readOnly?: boolean }) {
         </span>
       </button>
 
-      {open ? (
-        <Dialog
-          title={t('meeting.listTitle')}
-          ariaLabelledBy="meetings-list-title"
-          restoreFocusRef={tileRef}
-          onRequestClose={() => setOpen(false)}
-          className="meetings-dialog"
-          headerActions={
-            <>
-              <button
-                type="button"
-                className="good-icon-button"
-                aria-label={t('meeting.newMeeting')}
-                title={t('meeting.newMeeting')}
-                onClick={() => setEditing({ id: null })}
-              >
-                <Plus aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="good-icon-button"
-                aria-label={t('common.close')}
-                title={t('common.close')}
-                onClick={() => setOpen(false)}
-              >
-                <X aria-hidden="true" />
-              </button>
-            </>
-          }
-          footer={
-            <div className="meeting-dialog__footer">
-              <span className="meeting-dialog__notes">
-                {failed ? meetings.message ?? t('meeting.readError') : null}
-              </span>
-              <button type="button" className="btn" onClick={() => setOpen(false)}>{t('common.close')}</button>
-            </div>
-          }
-        >
-          <div className="meetings-list">
-            {meetings.status === 'loading' && rows.length === 0 ? <p className="empty-copy">{t('meeting.loading')}</p> : null}
-            {ready && rows.length === 0 ? <p className="empty-copy">{t('meeting.noMeetings')}</p> : null}
-            {upcoming.length > 0 ? (
-              <section className="meeting-group">
-                <h4>{t('meeting.upcoming')}</h4>
-                {upcoming.map(renderRow)}
-              </section>
-            ) : null}
-            {past.length > 0 ? (
-              <section className="meeting-group">
-                <h4>{t('meeting.past')}</h4>
-                {past.map(renderRow)}
-              </section>
-            ) : null}
-          </div>
-        </Dialog>
-      ) : null}
+      {open ? listDialog : null}
 
       {editing ? (
         <MeetingDialog
