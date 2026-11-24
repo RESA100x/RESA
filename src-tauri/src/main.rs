@@ -55,6 +55,7 @@ mod status_island;
 mod stickers;
 mod subscription_sync;
 mod subscriptions;
+mod sync;
 mod task_recurrence;
 mod task_workspace;
 mod time;
@@ -461,6 +462,40 @@ fn main() {
             });
 
             // 订阅刷新：启动即全刷一次，之后每 60 秒检查各源是否到期（按各自间隔）。
+            // Optional online sync. Off unless the user turned it on in
+            // Settings → Online sync; the local database stays authoritative.
+            let sync_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(20));
+                loop {
+                    let enabled = sync_handle
+                        .state::<AppDb>()
+                        .0
+                        .lock()
+                        .map(|connection| sync::is_enabled(&connection))
+                        .unwrap_or(false);
+                    if enabled {
+                        let outcome = sync_handle
+                            .state::<AppDb>()
+                            .0
+                            .lock()
+                            .ok()
+                            .and_then(|mut connection| sync::run_engine(&mut connection).ok());
+                        if let Some(outcome) = outcome {
+                            if outcome.pulled > 0 {
+                                for kind in ["task", "event", "note"] {
+                                    let _ = sync_handle.emit(
+                                        "nowly-records-changed",
+                                        serde_json::json!({ "kind": kind }),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(120));
+                }
+            });
+
             // 网络拉取在数据库锁外执行（见 subscription_sync 阶段锁），不会拖垮其它操作。
             let subscription_handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -752,6 +787,13 @@ fn main() {
             backup::read_backup_manifest,
             backup::backups_folder,
             backup::open_backups_folder,
+            sync::sync_get_status,
+            sync::sync_configure,
+            sync::sync_sign_in,
+            sync::sync_sign_up,
+            sync::sync_sign_out,
+            sync::sync_set_enabled,
+            sync::sync_now,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,

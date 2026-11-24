@@ -29,6 +29,13 @@ impl CommandError {
         Self::public("conflict", message, None)
     }
 
+    /// A failure talking to the optional online sync backend. The message is
+    /// composed from the backend's own error payload (or our own fixed text),
+    /// never from a raw transport error, so it is safe to show.
+    pub fn sync(message: impl Into<String>) -> Self {
+        Self::public("sync_error", message, None)
+    }
+
     pub fn database(error: impl std::fmt::Display) -> Self {
         eprintln!("database operation failed: {error}");
         Self::public("database_error", "Unable to read local data. Please try again.", None)

@@ -206,6 +206,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (54, crate::books::migrate),
     (55, crate::books::migrate_planning),
     (56, migration_56_per_monitor_layout),
+    (57, migration_57_sync),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -1121,6 +1122,121 @@ fn migration_56_per_monitor_layout(transaction: &Transaction<'_>) -> Result<()> 
          ALTER TABLE module_layout_by_monitor RENAME TO module_layout;
          INSERT OR IGNORE INTO settings(key, value, updated_at)
             VALUES ('multi_monitor_wallpaper', 'false', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
+    )
+}
+
+/// Local half of the optional online sync: a change log fed by triggers, the
+/// sync cursor/state, and a guard row that keeps remote writes from echoing
+/// back into the change log.
+///
+/// The triggers are attached to the tables the sync engine ships (tasks,
+/// events, notes). If one of those tables is ever rebuilt by a later
+/// migration, that migration must recreate the triggers.
+fn migration_57_sync(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sync_outbox (
+            entity TEXT NOT NULL,
+            record_id TEXT NOT NULL,
+            op TEXT NOT NULL CHECK(op IN ('upsert', 'delete')),
+            changed_at TEXT NOT NULL,
+            PRIMARY KEY (entity, record_id)
+         );
+         CREATE TABLE IF NOT EXISTS sync_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS sync_credentials (
+            key TEXT PRIMARY KEY,
+            cipher BLOB NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS sync_guard (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            reason TEXT NOT NULL
+         );
+
+         CREATE TRIGGER IF NOT EXISTS sync_tasks_insert AFTER INSERT ON tasks
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('tasks', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_tasks_update AFTER UPDATE ON tasks
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('tasks', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_tasks_delete AFTER DELETE ON tasks
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('tasks', OLD.id, 'delete', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'delete', changed_at = excluded.changed_at;
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS sync_events_insert AFTER INSERT ON events
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('events', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_events_update AFTER UPDATE ON events
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('events', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_events_delete AFTER DELETE ON events
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('events', OLD.id, 'delete', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'delete', changed_at = excluded.changed_at;
+         END;
+
+         CREATE TRIGGER IF NOT EXISTS sync_notes_insert AFTER INSERT ON notes
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('notes', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_notes_update AFTER UPDATE ON notes
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('notes', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'upsert', changed_at = excluded.changed_at;
+         END;
+         CREATE TRIGGER IF NOT EXISTS sync_notes_delete AFTER DELETE ON notes
+         WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+         BEGIN
+            INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+            VALUES ('notes', OLD.id, 'delete', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ON CONFLICT(entity, record_id) DO UPDATE
+               SET op = 'delete', changed_at = excluded.changed_at;
+         END;
+
+         -- Rows that existed before this migration have no trigger history, so
+         -- queue them once: the first sync uploads the whole workspace.
+         INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
+            SELECT 'tasks', id, 'upsert', updated_at FROM tasks;
+         INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
+            SELECT 'events', id, 'upsert', updated_at FROM events;
+         INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
+            SELECT 'notes', id, 'upsert', updated_at FROM notes;",
     )
 }
 

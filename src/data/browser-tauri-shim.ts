@@ -2181,7 +2181,25 @@ export function installBrowserTauriBackend() {
       if (typeof window !== 'undefined' && /^(https?:|mailto:)/i.test(target)) {
         window.open(target, '_blank', 'noopener,noreferrer');
       }
-    }
+    },
+
+    // Online sync needs the native HTTP client and the local database.
+    sync_get_status: () => ({
+      configured: false,
+      enabled: false,
+      endpoint: null,
+      email: null,
+      signedIn: false,
+      lastSyncAt: null,
+      pendingChanges: 0,
+      deviceId: 'browser'
+    }),
+    sync_configure: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_sign_in: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_sign_up: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_sign_out: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_set_enabled: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_now: () => { throw new Error('Online sync requires the desktop application.'); }
   };
 
   const invoke = async (command: string, args: Dict = {}) => {
