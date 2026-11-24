@@ -72,6 +72,10 @@ open class RustPlugin : Plugin<Project> {
                         rootDirRel = config.rootDirRel
                         target = targetName
                         release = profile == "release"
+                        // The task shells out to cargo, which does its own
+                        // incremental check; Gradle cannot see Rust sources as
+                        // inputs, so it must never skip this step.
+                        outputs.upToDateWhen { false }
                     }
 
                     buildTask.dependsOn(targetBuildTask)

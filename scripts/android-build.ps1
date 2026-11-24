@@ -68,6 +68,10 @@ Push-Location $repo
 try {
     & npm run build
     if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE" }
+    # The Tauri CLI writes these two files when it drives the build; this script
+    # calls Gradle directly, so refresh them from Cargo.toml here.
+    & node (Join-Path $repo 'scripts\android-gen-gradle.mjs')
+    if ($LASTEXITCODE -ne 0) { throw "Gradle project generation failed with exit code $LASTEXITCODE" }
 } finally {
     Pop-Location
 }

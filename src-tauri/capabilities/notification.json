@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "notification",
+  "description": "Android reminders post through the native notification channel.",
+  "platforms": ["android"],
+  "windows": ["main", "quick-panel-handle"],
+  "permissions": ["notification:default"]
+}

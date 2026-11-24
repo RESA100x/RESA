@@ -1017,6 +1017,21 @@ fn run_desktop() {
         .expect("failed to run RESA");
 }
 
+/// Persian one-liner for the Android reminder notification ("امروز ۰۹:۳۶").
+/// The desktop surfaces build their own localized text, so this stays mobile.
+#[cfg(target_os = "android")]
+fn mobile_reminder_body(now: chrono::NaiveDateTime, start_at: &str) -> String {
+    let Ok(start) = chrono::NaiveDateTime::parse_from_str(start_at, "%Y-%m-%dT%H:%M") else {
+        return "یادآوری".to_owned();
+    };
+    let time = start.format("%H:%M");
+    match (start.date() - now.date()).num_days() {
+        0 => format!("امروز {time}"),
+        1 => format!("فردا {time}"),
+        _ => format!("{time}"),
+    }
+}
+
 /// Android entry point.
 ///
 /// The mobile build keeps the whole data layer (SQLite, calendar, tasks,
@@ -1027,8 +1042,11 @@ fn run_desktop() {
 /// layout on top of it.
 #[cfg(target_os = "android")]
 fn run_mobile() {
+    use tauri_plugin_notification::NotificationExt;
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(assistant::commands::Requests::default())
         .setup(|app| {
             let app_dir = app
@@ -1080,30 +1098,53 @@ fn run_mobile() {
                         previous = current;
                     }
                     if let Some(snapshot) = completed {
+                        let _ = timer_handle
+                            .notification()
+                            .builder()
+                            .title("RESA")
+                            .body("پایان جلسهٔ تمرکز")
+                            .show();
                         let _ = timer_handle.emit("focus-session-completed", snapshot);
                     }
                 }
             });
 
             let reminder_handle = app.handle().clone();
-            std::thread::spawn(move || loop {
-                std::thread::sleep(std::time::Duration::from_secs(20));
-                let now = chrono::Local::now().naive_local();
-                let notifications = match reminder_handle.state::<AppDb>().0.lock() {
-                    Ok(connection) => match reminders::poll_due(&connection, now) {
-                        Ok(notifications) => notifications,
+            std::thread::spawn(move || {
+                // Android 13+ asks once; the answer is remembered by the OS.
+                // The plugin call blocks until the activity answers, so it runs
+                // on its own thread and never stalls the reminder poller.
+                let permission_handle = reminder_handle.clone();
+                std::thread::spawn(move || {
+                    let _ = permission_handle.notification().request_permission();
+                });
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(20));
+                    let now = chrono::Local::now().naive_local();
+                    let notifications = match reminder_handle.state::<AppDb>().0.lock() {
+                        Ok(connection) => match reminders::poll_due(&connection, now) {
+                            Ok(notifications) => notifications,
+                            Err(error) => {
+                                eprintln!("failed to poll calendar reminders: {error:?}");
+                                Vec::new()
+                            }
+                        },
                         Err(error) => {
-                            eprintln!("failed to poll calendar reminders: {error:?}");
+                            eprintln!("failed to lock calendar database for reminders: {error:?}");
                             Vec::new()
                         }
-                    },
-                    Err(error) => {
-                        eprintln!("failed to lock calendar database for reminders: {error:?}");
-                        Vec::new()
+                    };
+                    for notification in &notifications {
+                        let _ = reminder_handle
+                            .notification()
+                            .builder()
+                            .title(notification.title.clone())
+                            .body(mobile_reminder_body(now, &notification.start_at))
+                            .show();
                     }
-                };
-                if !notifications.is_empty() {
-                    let _ = reminder_handle.emit("calendar-reminders-due", ());
+                    if !notifications.is_empty() {
+                        let _ = reminder_handle.emit("calendar-reminders-due", ());
+                    }
                 }
             });
 
@@ -1308,15 +1349,27 @@ mod tests {
 
     #[test]
     fn reminders_use_nowly_bar_without_system_notification_access() {
+        // Desktop reminders stay inside the Nowly Bar; only the Android shell
+        // posts through the OS notification stack, so the desktop half of the
+        // source and every non-Android dependency table must stay clean.
         let source = include_str!("lib.rs").split("#[cfg(test)]").next().unwrap();
-        assert!(!source.contains("send_native_notification"));
-        assert!(!source.contains("ToastNotificationManager"));
-        assert!(!source.contains("tauri_plugin_notification"));
+        let desktop = source.split("/// Android entry point.").next().unwrap();
+        assert!(!desktop.contains("send_native_notification"));
+        assert!(!desktop.contains("ToastNotificationManager"));
+        assert!(!desktop.contains("tauri_plugin_notification"));
 
         let manifest = include_str!("../Cargo.toml");
-        assert!(!manifest.contains("tauri-plugin-notification"));
         assert!(!manifest.contains("tauri-winrt-notification"));
         assert!(!manifest.contains("UI_Notifications"));
+        let android_header = "[target.'cfg(target_os = \"android\")'.dependencies]";
+        let android_start = manifest.find(android_header).expect("android dependency table");
+        let android_end = manifest[android_start..]
+            .find("\n[")
+            .map(|offset| android_start + offset)
+            .unwrap_or(manifest.len());
+        assert!(manifest[android_start..android_end].contains("tauri-plugin-notification"));
+        let outside_android = format!("{}{}", &manifest[..android_start], &manifest[android_end..]);
+        assert!(!outside_android.contains("tauri-plugin-notification"));
 
         let capability: serde_json::Value =
             serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();

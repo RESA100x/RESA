@@ -38,6 +38,9 @@ pub struct ReminderNotification {
     pub offset_minutes: i64,
     pub title: String,
     pub body: String,
+    /// Device-wall start time of the occurrence, so a host that renders its own
+    /// localized text (the Android notification) does not have to re-read it.
+    pub start_at: String,
 }
 
 /// 该实例在去重表里的身份键：`event_id` 与 `occurrence_start_at`。
@@ -265,6 +268,7 @@ pub fn poll_due(
             offset_minutes: reminder.offset_minutes,
             title: reminder.title.clone(),
             body: notification_body(now, &reminder),
+            start_at: reminder.start_at.clone(),
         });
     }
     Ok(notifications)
