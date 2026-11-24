@@ -32,9 +32,12 @@ fn notify_applied(app: &tauri::AppHandle, outcome: &SyncOutcome) {
     if outcome.pulled == 0 {
         return;
     }
-    for kind in ["task", "event", "note"] {
-        let _ = app.emit("nowly-records-changed", serde_json::json!({ "kind": kind }));
-    }
+    // One signal for the whole workspace: a pull can touch any module now, and
+    // the window reloads the ones it keeps in memory.
+    let _ = app.emit(
+        "nowly-records-changed",
+        serde_json::json!({ "kind": "all", "entities": outcome.entities }),
+    );
 }
 
 #[derive(Debug, Serialize)]
@@ -44,6 +47,7 @@ pub struct SyncStatus {
     pub enabled: bool,
     pub endpoint: Option<String>,
     pub email: Option<String>,
+    pub phone: Option<String>,
     pub signed_in: bool,
     pub last_sync_at: Option<String>,
     pub pending_changes: i64,
@@ -66,6 +70,7 @@ fn build_status(connection: &Connection) -> Result<SyncStatus, CommandError> {
         enabled: state::get(connection, state::KEY_ENABLED).as_deref() == Some("true"),
         endpoint,
         email: state::get(connection, state::KEY_EMAIL),
+        phone: state::get(connection, state::KEY_PHONE),
         signed_in,
         last_sync_at: state::get(connection, state::KEY_LAST_SYNC),
         pending_changes: engine::pending_changes(connection),
@@ -98,6 +103,28 @@ fn normalize_email(email: &str) -> Result<String, CommandError> {
     Ok(email.to_owned())
 }
 
+/// A phone number is optional and only stored as profile metadata for now.
+/// Empty means "not provided"; anything else must look like a number.
+fn normalize_phone(phone: Option<String>) -> Result<Option<String>, CommandError> {
+    let Some(phone) = phone else {
+        return Ok(None);
+    };
+    let trimmed = phone.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let digits = trimmed.trim_start_matches('+');
+    if !digits.chars().all(|character| character.is_ascii_digit())
+        || !(10..=15).contains(&digits.len())
+    {
+        return Err(CommandError::validation(
+            "phone",
+            "شمارهٔ موبایل معتبر نیست؛ با کد کشور وارد کنید.",
+        ));
+    }
+    Ok(Some(trimmed.to_owned()))
+}
+
 fn normalize_password(password: &str) -> Result<(), CommandError> {
     if password.len() < 6 {
         return Err(CommandError::validation(
@@ -119,15 +146,27 @@ fn api_for(connection: &Connection) -> Result<http::Api, CommandError> {
 /// Queue every existing row of the synced tables for upload. Used once, when a
 /// workspace is linked to an account for the first time.
 fn requeue_all(connection: &Connection) -> Result<(), CommandError> {
-    for entity in engine::ENTITIES {
+    for spec in engine::ENTITIES {
+        if !engine::table_exists(connection, spec.name) {
+            continue;
+        }
+        // Tables without a clock still need a timestamp for ordering.
+        let clock = if spec.clocked {
+            "updated_at"
+        } else {
+            "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+        };
         connection
             .execute(
                 &format!(
                     "INSERT INTO sync_outbox(entity, record_id, op, changed_at)
-                     SELECT '{entity}', id, 'upsert', updated_at FROM {entity}
+                     SELECT '{name}', {id_expr}, 'upsert', {clock} FROM {name}
                      WHERE true
                      ON CONFLICT(entity, record_id) DO UPDATE
-                        SET op = 'upsert', changed_at = excluded.changed_at"
+                        SET op = 'upsert', changed_at = excluded.changed_at",
+                    name = spec.name,
+                    id_expr = spec.id_expr,
+                    clock = clock
                 ),
                 [],
             )
@@ -183,13 +222,33 @@ pub fn sync_sign_up(
     db: State<'_, AppDb>,
     email: String,
     password: String,
+    phone: Option<String>,
 ) -> Result<SyncStatus, CommandError> {
     let email = normalize_email(&email)?;
     normalize_password(&password)?;
+    let phone = normalize_phone(phone)?;
     with_connection(db, |connection| {
         let api = api_for(connection)?;
-        let session = auth::sign_up(&api, &email, &password)?;
+        let session = auth::sign_up(&api, &email, &password, phone.as_deref())?;
         store_session(connection, &session, &email)?;
+        if let Some(phone) = phone.as_deref() {
+            state::set(connection, state::KEY_PHONE, phone).map_err(CommandError::database)?;
+        }
+        build_status(connection)
+    })
+}
+
+/// Sends the signup confirmation mail again. The account exists but cannot be
+/// used until the address is confirmed, so this is the recovery path.
+#[tauri::command]
+pub fn sync_resend_verification(
+    db: State<'_, AppDb>,
+    email: String,
+) -> Result<SyncStatus, CommandError> {
+    let email = normalize_email(&email)?;
+    with_connection(db, |connection| {
+        let api = api_for(connection)?;
+        auth::resend_confirmation(&api, &email)?;
         build_status(connection)
     })
 }
@@ -224,6 +283,7 @@ pub fn sync_sign_out(db: State<'_, AppDb>) -> Result<SyncStatus, CommandError> {
     with_connection(db, |connection| {
         state::clear_credentials(connection)?;
         state::set(connection, state::KEY_ENABLED, "false").map_err(CommandError::database)?;
+        state::remove(connection, state::KEY_PHONE).map_err(CommandError::database)?;
         build_status(connection)
     })
 }

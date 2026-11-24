@@ -12,6 +12,7 @@ pub const KEY_USER_ID: &str = "sync.user_id";
 pub const KEY_LAST_SYNC: &str = "sync.last_sync_at";
 pub const KEY_CURSOR: &str = "sync.cursor";
 pub const KEY_DEVICE: &str = "sync.device_id";
+pub const KEY_PHONE: &str = "sync.phone";
 
 pub fn get(connection: &Connection, key: &str) -> Option<String> {
     connection

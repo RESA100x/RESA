@@ -477,6 +477,41 @@ fn run_desktop() {
 
             // Time alarms surface through Nowly Bar; the native audio worker
             // reads their persisted acknowledgement and snooze state.
+            // Optional online sync, same contract as the desktop: off unless the
+            // user signed in and switched it on in Settings.
+            let sync_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(20));
+                loop {
+                    let enabled = sync_handle
+                        .state::<AppDb>()
+                        .0
+                        .lock()
+                        .map(|connection| sync::is_enabled(&connection))
+                        .unwrap_or(false);
+                    if enabled {
+                        let outcome = sync_handle
+                            .state::<AppDb>()
+                            .0
+                            .lock()
+                            .ok()
+                            .and_then(|mut connection| sync::run_engine(&mut connection).ok());
+                        if let Some(outcome) = outcome {
+                            if outcome.pulled > 0 {
+                                let _ = sync_handle.emit(
+                                    "nowly-records-changed",
+                                    serde_json::json!({
+                                        "kind": "all",
+                                        "entities": outcome.entities,
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(120));
+                }
+            });
+
             let alarm_handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -521,12 +556,13 @@ fn run_desktop() {
                             .and_then(|mut connection| sync::run_engine(&mut connection).ok());
                         if let Some(outcome) = outcome {
                             if outcome.pulled > 0 {
-                                for kind in ["task", "event", "note"] {
-                                    let _ = sync_handle.emit(
-                                        "nowly-records-changed",
-                                        serde_json::json!({ "kind": kind }),
-                                    );
-                                }
+                                let _ = sync_handle.emit(
+                                    "nowly-records-changed",
+                                    serde_json::json!({
+                                        "kind": "all",
+                                        "entities": outcome.entities,
+                                    }),
+                                );
                             }
                         }
                     }
@@ -828,6 +864,7 @@ fn run_desktop() {
             sync::sync_configure,
             sync::sync_sign_in,
             sync::sync_sign_up,
+            sync::sync_resend_verification,
             sync::sync_sign_out,
             sync::sync_set_enabled,
             sync::sync_now,
@@ -1412,6 +1449,7 @@ fn run_mobile() {
             sync::sync_configure,
             sync::sync_sign_in,
             sync::sync_sign_up,
+            sync::sync_resend_verification,
             sync::sync_sign_out,
             sync::sync_set_enabled,
             sync::sync_now,

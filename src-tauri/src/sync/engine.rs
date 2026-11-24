@@ -14,9 +14,80 @@ use rusqlite::{params_from_iter, Connection, Transaction};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 
-/// The tables the sync engine ships today. Adding one means: a trigger set in
-/// the SQLite migration, an entry here, and nothing else.
-pub const ENTITIES: &[&str] = &["tasks", "events", "notes"];
+/// One synced table.
+///
+/// `name` doubles as the SQLite table name and the entity key on the wire.
+/// Most tables key on `id`; the join tables carry a composite primary key and
+/// no clock, so they describe their own id expression.
+pub struct EntitySpec {
+    pub name: &'static str,
+    /// SQL expression over the table that yields the record id.
+    pub id_expr: &'static str,
+    /// Columns the upsert conflicts on.
+    pub key_columns: &'static [&'static str],
+    /// Whether the table carries an `updated_at` clock for last-write-wins.
+    pub clocked: bool,
+}
+
+/// Every table the engine ships. Parents come first: a pull applies rows in
+/// this order, so a kanban card never arrives before its lane.
+///
+/// Adding a table means a trigger set in the SQLite migration plus an entry
+/// here, and nothing else.
+pub const ENTITIES: &[EntitySpec] = &[
+    EntitySpec { name: "contact_categories", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "contacts", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "projects", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "task_lanes", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "task_tags", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "tasks", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "task_steps", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec {
+        name: "task_tag_links",
+        id_expr: "task_id || '|' || tag_id",
+        key_columns: &["task_id", "tag_id"],
+        clocked: false,
+    },
+    EntitySpec { name: "events", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "event_exceptions", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "notes", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "meetings", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec {
+        name: "meeting_attendees",
+        id_expr: "meeting_id || '|' || contact_id",
+        key_columns: &["meeting_id", "contact_id"],
+        clocked: false,
+    },
+    EntitySpec { name: "meeting_items", id_expr: "id", key_columns: &["id"], clocked: false },
+    EntitySpec { name: "books", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "plants", id_expr: "id", key_columns: &["id"], clocked: true },
+    EntitySpec { name: "focus_sessions", id_expr: "id", key_columns: &["id"], clocked: false },
+    EntitySpec { name: "custom_templates", id_expr: "id", key_columns: &["id"], clocked: true },
+];
+
+/// A workspace may be missing a module's tables entirely (an older build
+/// numbered its migrations differently), so every SQL touch checks first.
+pub(crate) fn table_exists(connection: &Connection, name: &str) -> bool {
+    connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+            [name],
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap_or(false)
+}
+
+pub fn spec(name: &str) -> Option<&'static EntitySpec> {
+    ENTITIES.iter().find(|spec| spec.name == name)
+}
+
+/// Position in `ENTITIES`, used to order a pulled batch.
+fn rank(name: &str) -> usize {
+    ENTITIES
+        .iter()
+        .position(|spec| spec.name == name)
+        .unwrap_or(ENTITIES.len())
+}
 
 const PUSH_BATCH: usize = 200;
 const PULL_PAGE: usize = 500;
@@ -26,6 +97,8 @@ const PULL_PAGE: usize = 500;
 pub struct SyncOutcome {
     pub pushed: usize,
     pub pulled: usize,
+    /// Entities the pull actually touched, so the UI can reload just those.
+    pub entities: Vec<String>,
     pub at: String,
 }
 
@@ -65,10 +138,15 @@ pub fn run(connection: &mut Connection) -> Result<SyncOutcome, CommandError> {
     let api = Api::new(&config.endpoint, &config.anon_key)?;
     let token = access_token(connection, &api)?;
     let pushed = push(connection, &api, &token)?;
-    let pulled = pull(connection, &api, &token)?;
+    let (pulled, entities) = pull(connection, &api, &token)?;
     let at = chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     state::set(connection, state::KEY_LAST_SYNC, &at).map_err(CommandError::database)?;
-    Ok(SyncOutcome { pushed, pulled, at })
+    Ok(SyncOutcome {
+        pushed,
+        pulled,
+        entities,
+        at,
+    })
 }
 
 pub fn pending_changes(connection: &Connection) -> i64 {
@@ -101,7 +179,7 @@ fn push(connection: &Connection, api: &Api, token: &str) -> Result<usize, Comman
 
     let mut items = Vec::with_capacity(queued.len());
     for (entity, record_id, op, changed_at) in &queued {
-        if !ENTITIES.contains(&entity.as_str()) {
+        if spec(entity).is_none() {
             continue;
         }
         if op == "delete" {
@@ -164,8 +242,17 @@ fn push(connection: &Connection, api: &Api, token: &str) -> Result<usize, Comman
 }
 
 fn read_row(connection: &Connection, entity: &str, id: &str) -> Result<Option<Value>, CommandError> {
+    let Some(spec) = spec(entity) else {
+        return Ok(None);
+    };
+    if !table_exists(connection, spec.name) {
+        return Ok(None);
+    }
     let mut statement = connection
-        .prepare(&format!("SELECT * FROM {entity} WHERE id = ?1"))
+        .prepare(&format!(
+            "SELECT * FROM {} WHERE {} = ?1",
+            spec.name, spec.id_expr
+        ))
         .map_err(CommandError::database)?;
     let names: Vec<String> = statement
         .column_names()
@@ -213,9 +300,14 @@ fn json_to_sql(value: &Value) -> SqlValue {
     }
 }
 
-fn pull(connection: &mut Connection, api: &Api, token: &str) -> Result<usize, CommandError> {
+fn pull(
+    connection: &mut Connection,
+    api: &Api,
+    token: &str,
+) -> Result<(usize, Vec<String>), CommandError> {
     let mut cursor = state::get(connection, state::KEY_CURSOR).unwrap_or_default();
     let mut total = 0;
+    let mut touched: Vec<String> = Vec::new();
     loop {
         let mut path = format!(
             "/rest/v1/sync_records?select=entity,record_id,payload,deleted,updated_at,server_updated_at\
@@ -232,6 +324,13 @@ fn pull(connection: &mut Connection, api: &Api, token: &str) -> Result<usize, Co
         }
         let count = rows.len();
         apply_batch(connection, &rows)?;
+        for row in &rows {
+            if let Some(entity) = row.get("entity").and_then(Value::as_str) {
+                if !touched.iter().any(|seen| seen == entity) {
+                    touched.push(entity.to_owned());
+                }
+            }
+        }
         if let Some(last) = rows.last().and_then(|row| row.get("server_updated_at")) {
             if let Some(last) = last.as_str() {
                 cursor = last.to_owned();
@@ -243,7 +342,7 @@ fn pull(connection: &mut Connection, api: &Api, token: &str) -> Result<usize, Co
             break;
         }
     }
-    Ok(total)
+    Ok((total, touched))
 }
 
 fn apply_batch(connection: &mut Connection, rows: &[Value]) -> Result<(), CommandError> {
@@ -256,7 +355,9 @@ fn apply_batch(connection: &mut Connection, rows: &[Value]) -> Result<(), Comman
             [],
         )
         .map_err(CommandError::database)?;
-    for row in rows {
+    let mut ordered: Vec<&Value> = rows.iter().collect();
+    ordered.sort_by_key(|row| rank(row.get("entity").and_then(Value::as_str).unwrap_or_default()));
+    for row in ordered {
         apply_one(&transaction, row)?;
     }
     transaction
@@ -271,9 +372,18 @@ fn local_updated_at(
     entity: &str,
     id: &str,
 ) -> Result<Option<String>, CommandError> {
+    let Some(spec) = spec(entity) else {
+        return Ok(None);
+    };
+    if !spec.clocked || !table_exists(transaction, spec.name) {
+        return Ok(None);
+    }
     transaction
         .query_row(
-            &format!("SELECT updated_at FROM {entity} WHERE id = ?1"),
+            &format!(
+                "SELECT updated_at FROM {} WHERE {} = ?1",
+                spec.name, spec.id_expr
+            ),
             [id],
             |row| row.get::<_, String>(0),
         )
@@ -286,7 +396,10 @@ fn local_updated_at(
 
 fn apply_one(transaction: &Transaction<'_>, row: &Value) -> Result<(), CommandError> {
     let entity = row.get("entity").and_then(Value::as_str).unwrap_or_default();
-    if !ENTITIES.contains(&entity) {
+    let Some(spec) = spec(entity) else {
+        return Ok(());
+    };
+    if !table_exists(transaction, spec.name) {
         return Ok(());
     }
     let record_id = row
@@ -310,7 +423,10 @@ fn apply_one(transaction: &Transaction<'_>, row: &Value) -> Result<(), CommandEr
     }
     if row.get("deleted").and_then(Value::as_bool).unwrap_or(false) {
         transaction
-            .execute(&format!("DELETE FROM {entity} WHERE id = ?1"), [record_id])
+            .execute(
+                &format!("DELETE FROM {} WHERE {} = ?1", spec.name, spec.id_expr),
+                [record_id],
+            )
             .map_err(CommandError::database)?;
         drop_pending(transaction, entity, record_id)?;
         return Ok(());
@@ -343,9 +459,12 @@ fn upsert(
     entity: &str,
     payload: &Map<String, Value>,
 ) -> Result<(), CommandError> {
+    let Some(spec) = spec(entity) else {
+        return Ok(());
+    };
     let columns: Vec<String> = {
         let mut statement = transaction
-            .prepare(&format!("PRAGMA table_info({entity})"))
+            .prepare(&format!("PRAGMA table_info({})", spec.name))
             .map_err(CommandError::database)?;
         let names = statement
             .query_map([], |row| row.get::<_, String>(1))
@@ -363,22 +482,28 @@ fn upsert(
         names.push(key.clone());
         values.push(json_to_sql(value));
     }
-    if !names.iter().any(|name| name == "id") {
+    if !spec
+        .key_columns
+        .iter()
+        .all(|key| names.iter().any(|name| name == key))
+    {
         return Ok(());
     }
     let placeholders: Vec<String> = (1..=names.len()).map(|index| format!("?{index}")).collect();
     let updates: Vec<String> = names
         .iter()
-        .filter(|name| name.as_str() != "id")
+        .filter(|name| !spec.key_columns.contains(&name.as_str()))
         .map(|name| format!("{name} = excluded.{name}"))
         .collect();
+    let target = spec.key_columns.join(", ");
     let conflict = if updates.is_empty() {
-        "ON CONFLICT(id) DO NOTHING".to_owned()
+        format!("ON CONFLICT({target}) DO NOTHING")
     } else {
-        format!("ON CONFLICT(id) DO UPDATE SET {}", updates.join(", "))
+        format!("ON CONFLICT({target}) DO UPDATE SET {}", updates.join(", "))
     };
     let sql = format!(
-        "INSERT INTO {entity} ({}) VALUES ({}) {conflict}",
+        "INSERT INTO {} ({}) VALUES ({}) {conflict}",
+        spec.name,
         names.join(", "),
         placeholders.join(", ")
     );

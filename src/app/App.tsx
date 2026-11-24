@@ -529,6 +529,15 @@ function AppContent() {
   // changed, quietly, so the modules on screen do not flash a loading state.
   const reloadChanged = useRef<(kind: RecordsChangedKind) => void>(() => undefined);
   reloadChanged.current = (kind) => {
+    // A sync pull can touch any module, so reload everything this window keeps
+    // in memory; the rest re-read when they are opened.
+    if (kind === 'all') {
+      categoriesFeature.reloadCategories();
+      void eventsFeature.refreshEvents();
+      void refreshWorkspace();
+      void notesFeature.refreshNotes();
+      return;
+    }
     if (kind === 'event') void eventsFeature.refreshEvents();
     if (kind === 'category') {
       categoriesFeature.reloadCategories();

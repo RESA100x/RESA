@@ -9,6 +9,7 @@ type SyncStatus = {
   enabled: boolean;
   endpoint: string | null;
   email: string | null;
+  phone: string | null;
   signedIn: boolean;
   lastSyncAt: string | null;
   pendingChanges: number;
@@ -36,6 +37,7 @@ export function SyncPanel() {
   const [endpoint, setEndpoint] = useState('');
   const [anonKey, setAnonKey] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -82,6 +84,7 @@ export function SyncPanel() {
   return (
     <div className="sync-panel">
       <p className="sync-panel__hint">{t('sync.intro')}</p>
+      <p className="sync-panel__hint">{t('sync.optional')}</p>
 
       {!status.configured ? (
         <fieldset className="sync-panel__group">
@@ -142,6 +145,18 @@ export function SyncPanel() {
               disabled={busy !== null}
             />
           </label>
+          <label className="sync-panel__field">
+            <span>{t('sync.phone')}</span>
+            <input
+              dir="ltr"
+              type="tel"
+              value={phone}
+              placeholder="+98912…"
+              onChange={(event) => setPhone(event.target.value)}
+              disabled={busy !== null}
+            />
+          </label>
+          <p className="sync-panel__hint">{t('sync.phoneHint')}</p>
           <div className="sync-panel__actions">
             <button
               type="button"
@@ -155,11 +170,24 @@ export function SyncPanel() {
               type="button"
               className="good-button"
               disabled={busy !== null || !email.trim() || !password}
-              onClick={() => void run('signup', () => invoke('sync_sign_up', { email, password }), t('sync.signedIn'))}
+              onClick={() =>
+                void run('signup', () => invoke('sync_sign_up', { email, password, phone }), t('sync.verifyHint'))
+              }
             >
               {busy === 'signup' ? t('sync.working') : t('sync.signUp')}
             </button>
+            <button
+              type="button"
+              className="good-button"
+              disabled={busy !== null || !email.trim()}
+              onClick={() =>
+                void run('resend', () => invoke('sync_resend_verification', { email }), t('sync.resent'))
+              }
+            >
+              {busy === 'resend' ? t('sync.working') : t('sync.resend')}
+            </button>
           </div>
+          <p className="sync-panel__hint">{t('sync.coverage')}</p>
         </fieldset>
       ) : null}
 
@@ -168,6 +196,12 @@ export function SyncPanel() {
           <dl className="sync-panel__facts">
             <dt>{t('sync.account')}</dt>
             <dd dir="ltr">{status.email ?? '—'}</dd>
+            {status.phone ? (
+              <>
+                <dt>{t('sync.phone')}</dt>
+                <dd dir="ltr">{status.phone}</dd>
+              </>
+            ) : null}
             <dt>{t('sync.server')}</dt>
             <dd dir="ltr">{status.endpoint ?? '—'}</dd>
             <dt>{t('sync.lastSync')}</dt>

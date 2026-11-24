@@ -207,6 +207,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (55, crate::books::migrate_planning),
     (56, migration_56_per_monitor_layout),
     (57, migration_57_sync),
+    (58, migration_58_sync_all_modules),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -953,6 +954,14 @@ pub fn migrate(connection: &mut Connection) -> Result<()> {
     Ok(())
 }
 
+fn table_exists(transaction: &Transaction<'_>, name: &str) -> Result<bool> {
+    transaction.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        [name],
+        |row| row.get(0),
+    )
+}
+
 fn column_exists(transaction: &Transaction<'_>, table: &str, column: &str) -> Result<bool> {
     let mut statement = transaction.prepare(&format!("PRAGMA table_info({table})"))?;
     let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
@@ -1247,6 +1256,76 @@ fn migration_57_sync(transaction: &Transaction<'_>) -> Result<()> {
          INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
             SELECT 'notes', id, 'upsert', updated_at FROM notes;",
     )
+}
+
+
+/// Every table the sync engine ships, with the SQL expression that yields a
+/// row's record id. Join tables have a composite key, so their id is the pair.
+const SYNCED_TABLES: &[(&str, &str)] = &[
+    ("contact_categories", "{row}.id"),
+    ("contacts", "{row}.id"),
+    ("projects", "{row}.id"),
+    ("task_lanes", "{row}.id"),
+    ("task_tags", "{row}.id"),
+    ("tasks", "{row}.id"),
+    ("task_steps", "{row}.id"),
+    ("task_tag_links", "{row}.task_id || '|' || {row}.tag_id"),
+    ("events", "{row}.id"),
+    ("event_exceptions", "{row}.id"),
+    ("notes", "{row}.id"),
+    ("meetings", "{row}.id"),
+    ("meeting_attendees", "{row}.meeting_id || '|' || {row}.contact_id"),
+    ("meeting_items", "{row}.id"),
+    ("books", "{row}.id"),
+    ("plants", "{row}.id"),
+    ("focus_sessions", "{row}.id"),
+    ("custom_templates", "{row}.id"),
+];
+
+/// Migration 58: the sync engine used to ship tasks, events and notes only.
+/// Every other module now feeds the same outbox, so a workspace moves between
+/// devices whole.
+///
+/// A workspace can legitimately be missing a table — an older build numbered
+/// its migrations differently, or the module was never opened — so a table is
+/// only wired up when it exists. `requeue_all` and the engine apply the same
+/// rule at runtime.
+fn migration_58_sync_all_modules(transaction: &Transaction<'_>) -> Result<()> {
+    for &(name, id_expr) in SYNCED_TABLES {
+        if !table_exists(transaction, name)? {
+            continue;
+        }
+        for (op, row, kind) in [
+            ("INSERT", "NEW", "upsert"),
+            ("UPDATE", "NEW", "upsert"),
+            ("DELETE", "OLD", "delete"),
+        ] {
+            transaction.execute_batch(&format!(
+                "CREATE TRIGGER IF NOT EXISTS sync_{name}_{trigger} AFTER {op} ON {name}
+                 WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+                 BEGIN
+                    INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+                    VALUES ('{name}', {expr}, '{kind}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                    ON CONFLICT(entity, record_id) DO UPDATE
+                       SET op = '{kind}', changed_at = excluded.changed_at;
+                 END;",
+                trigger = op.to_lowercase(),
+                expr = id_expr.replace("{row}", row),
+            ))?;
+        }
+        // Rows that predate these triggers are queued once.
+        let clock = if column_exists(transaction, name, "updated_at")? {
+            "updated_at"
+        } else {
+            "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+        };
+        transaction.execute_batch(&format!(
+            "INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
+             SELECT '{name}', {expr}, 'upsert', {clock} FROM {name};",
+            expr = id_expr.replace("{row}.", ""),
+        ))?;
+    }
+    Ok(())
 }
 
 fn migration_7_module_state(transaction: &Transaction<'_>) -> Result<()> {

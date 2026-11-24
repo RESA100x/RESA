@@ -2189,6 +2189,7 @@ export function installBrowserTauriBackend() {
       enabled: false,
       endpoint: null,
       email: null,
+      phone: null,
       signedIn: false,
       lastSyncAt: null,
       pendingChanges: 0,
@@ -2197,6 +2198,7 @@ export function installBrowserTauriBackend() {
     sync_configure: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_in: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_up: () => { throw new Error('Online sync requires the desktop application.'); },
+    sync_resend_verification: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_out: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_set_enabled: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_now: () => { throw new Error('Online sync requires the desktop application.'); }

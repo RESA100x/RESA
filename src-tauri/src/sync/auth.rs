@@ -61,10 +61,30 @@ pub fn sign_in(api: &Api, email: &str, password: &str) -> Result<Session, Comman
     parse_session(&value)
 }
 
-pub fn sign_up(api: &Api, email: &str, password: &str) -> Result<Session, CommandError> {
-    let body = json!({ "email": email, "password": password });
+/// `phone` rides along as user metadata. The backend keeps it on the profile;
+/// verifying it needs an SMS gateway, which is wired up separately.
+pub fn sign_up(
+    api: &Api,
+    email: &str,
+    password: &str,
+    phone: Option<&str>,
+) -> Result<Session, CommandError> {
+    let mut body = json!({ "email": email, "password": password });
+    if let Some(phone) = phone.filter(|value| !value.is_empty()) {
+        body["data"] = json!({ "phone": phone });
+    }
     let value = api.post_json("/auth/v1/signup", None, &body)?;
     parse_session(&value)
+}
+
+/// Re-sends the signup confirmation mail. Safe to call repeatedly.
+pub fn resend_confirmation(api: &Api, email: &str) -> Result<(), CommandError> {
+    api.post_json(
+        "/auth/v1/resend",
+        None,
+        &json!({ "type": "signup", "email": email }),
+    )?;
+    Ok(())
 }
 
 pub fn refresh(api: &Api, refresh_token: &str) -> Result<Session, CommandError> {
