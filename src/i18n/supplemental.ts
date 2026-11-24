@@ -32,7 +32,10 @@ export const supplemental = {
     'time.zone.Europe/Paris': '巴黎',
     'time.zone.America/New_York': '纽约',
     'time.zone.America/Los_Angeles': '洛杉矶',
-    'time.zone.Australia/Sydney': '悉尼'
+    'time.zone.Australia/Sydney': '悉尼',
+    'mobile.tabs': '标签页',
+    'mobile.more': '更多',
+    'mobile.allModules': '所有模块'
   },
   en: {
     'time.autosave.saving': 'Saving automatically…',
@@ -66,6 +69,9 @@ export const supplemental = {
     'time.zone.Europe/Paris': 'Paris',
     'time.zone.America/New_York': 'New York',
     'time.zone.America/Los_Angeles': 'Los Angeles',
-    'time.zone.Australia/Sydney': 'Sydney'
+    'time.zone.Australia/Sydney': 'Sydney',
+    'mobile.tabs': 'Tabs',
+    'mobile.more': 'More',
+    'mobile.allModules': 'All modules'
   }
 };

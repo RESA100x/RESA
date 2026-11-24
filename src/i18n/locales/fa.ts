@@ -2151,5 +2151,8 @@ export const fa: Record<string, string> = {
   'taskEvent.project': 'پروژه تغییر کرد',
   'taskEvent.archived': 'از تخته حذف شد',
   'taskEvent.reason': 'یادداشت بایگانی',
-  'kanbanCard.statusMenu': 'وضعیت {title}'
+  'kanbanCard.statusMenu': 'وضعیت {title}',
+  'mobile.tabs': 'برگه‌ها',
+  'mobile.more': 'بیشتر',
+  'mobile.allModules': 'همهٔ ماژول‌ها'
 };

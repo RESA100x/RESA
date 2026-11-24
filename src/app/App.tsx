@@ -26,6 +26,8 @@ import { NotesWidget } from '../notes/NotesWidget';
 import { useNotes } from '../notes/useNotes';
 import { useNotesView } from '../notes/useNotesView';
 import { DesktopShell } from './layout/DesktopShell';
+import { MobileShell } from './layout/MobileShell';
+import { isMobileShell } from './layout/platform';
 import { useSettings } from '../settings/useSettings';
 import { useRecentColors } from '../settings/useRecentColors';
 import { useUpdateCheck } from '../settings/useUpdateCheck';
@@ -660,12 +662,31 @@ function AppContent() {
     { title: t('onboarding.done.title'), body: t('onboarding.done.body') }
   ];
 
+  const clockText = new Intl.DateTimeFormat(localeTag(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(now);
+  const dateText = formatDisplayDate(now, 'full');
+  // A phone has no wallpaper mode, no multi-monitor layout and no drag grid, so
+  // it renders the same modules through a tabbed shell instead.
+  const mobileShell = isMobileShell();
+
   return (
     <IconStyleProvider style={settingsFeature.settings.data.iconStyle}>
+      {mobileShell ? (
+        <MobileShell
+          modules={modules}
+          time={clockText}
+          dateText={dateText}
+          onOpenSettings={() => setModal({ type: 'settings', trigger: null })}
+          onOpenSearch={() => setPaletteOpen(true)}
+        />
+      ) : (
       <DesktopShell
         mode={windowMode}
-        time={new Intl.DateTimeFormat(localeTag(), { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}
-        dateText={formatDisplayDate(now, 'full')}
+        time={clockText}
+        dateText={dateText}
         summary={summary}
         modules={modules}
         definitions={definitions}
@@ -683,6 +704,7 @@ function AppContent() {
         overlay={windowMode === 'wallpaper' ? <FocusWallpaperOverlay /> : null}
         update={update}
       />
+      )}
       {timeDialog ? <TimeSettingsDialog createAlarm={timeDialog.createAlarm} trigger={timeDialog.trigger} onClose={() => setTimeDialog(null)} /> : null}
       {focusStatisticsOpen ? <FocusStatisticsDialog onClose={() => setFocusStatisticsOpen(false)} /> : null}
       <CommandPalette
@@ -693,7 +715,7 @@ function AppContent() {
         onClose={() => setPaletteOpen(false)}
       />
       <OnboardingGuide
-        open={onboarding.shouldShow && windowMode === 'foreground'}
+        open={!mobileShell && onboarding.shouldShow && windowMode === 'foreground'}
         steps={onboardingSteps}
         onClose={onboarding.dismiss}
       />

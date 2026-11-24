@@ -1,0 +1,222 @@
+/* The phone shell: one module at a time, a tab bar, and nothing draggable.
+   The desktop grid's free-form layout has no meaning on a 400px-wide screen,
+   so the same modules are mounted full-bleed and switched from the tab bar. */
+
+.mobile-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-page);
+  /* Edge-to-edge Android draws under the status and navigation bars; the
+     native side pads the webview, and these insets cover any host that does
+     not (a browser tab, an older WebView). */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+}
+
+.mobile-shell__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px 6px;
+}
+
+.mobile-shell__clock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mobile-shell__time {
+  color: var(--text-strong);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-shell__date {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-shell__actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.mobile-shell__icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mobile-shell__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mobile-shell__icon:active {
+  background: var(--bg-subtle);
+}
+
+.mobile-shell__content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0 10px 10px;
+}
+
+.mobile-shell__module {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mobile-shell__module > .module-frame__body {
+  min-height: 0;
+}
+
+.mobile-shell__tabs {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.mobile-shell__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+
+.mobile-shell__tab span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-shell__tab svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mobile-shell__tab.is-active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+  font-weight: 600;
+}
+
+.mobile-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mobile-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: var(--bg-overlay);
+}
+
+.mobile-sheet__panel {
+  position: relative;
+  max-height: 78%;
+  overflow-y: auto;
+  padding: 10px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-default) var(--radius-default) 0 0;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.mobile-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mobile-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.mobile-sheet__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-default);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+.mobile-sheet__tile:active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.mobile-sheet__glyph {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--color-primary-active);
+}
+
+.mobile-sheet__glyph svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-sheet__label {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

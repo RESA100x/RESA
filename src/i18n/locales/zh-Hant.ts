@@ -2138,4 +2138,7 @@ export const zhHant: Record<string, string> = {
   "taskEvent.archived": "已從看板刪除",
   "taskEvent.reason": "封存原因",
   "kanbanCard.statusMenu": "{title} 的狀態",
+  "mobile.tabs": "分頁",
+  "mobile.more": "更多",
+  "mobile.allModules": "所有模組"
 };

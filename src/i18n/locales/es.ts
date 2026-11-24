@@ -2136,5 +2136,8 @@ export const es: Record<string, string> = {
   'taskEvent.project': 'Proyecto cambiado',
   'taskEvent.archived': 'Eliminada del tablero',
   'taskEvent.reason': 'Nota del archivo',
-  'kanbanCard.statusMenu': 'Estado de {title}'
+  'kanbanCard.statusMenu': 'Estado de {title}',
+  'mobile.tabs': 'Pestañas',
+  'mobile.more': 'Más',
+  'mobile.allModules': 'Todos los módulos'
 };

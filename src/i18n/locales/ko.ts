@@ -2137,5 +2137,8 @@ export const ko: Record<string, string> = {
   'taskEvent.project': '프로젝트 변경',
   'taskEvent.archived': '보드에서 삭제됨',
   'taskEvent.reason': '보관 사유',
-  'kanbanCard.statusMenu': '{title} 상태'
+  'kanbanCard.statusMenu': '{title} 상태',
+  'mobile.tabs': '탭',
+  'mobile.more': '더보기',
+  'mobile.allModules': '모든 모듈'
 };

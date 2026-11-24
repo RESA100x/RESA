@@ -2137,5 +2137,8 @@ export const ja: Record<string, string> = {
   'taskEvent.project': 'プロジェクト変更',
   'taskEvent.archived': 'ボードから削除',
   'taskEvent.reason': 'アーカイブの理由',
-  'kanbanCard.statusMenu': '{title} の状態'
+  'kanbanCard.statusMenu': '{title} の状態',
+  'mobile.tabs': 'タブ',
+  'mobile.more': 'その他',
+  'mobile.allModules': 'すべてのモジュール'
 };
