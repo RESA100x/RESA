@@ -62,6 +62,7 @@ mod timezone;
 mod token_store;
 mod update;
 mod wallpaper;
+mod webview_watchdog;
 mod window_lifecycle;
 mod write_scope;
 
@@ -131,7 +132,7 @@ fn startup_log_reset() {
     }
 }
 
-fn startup_log(message: &str) {
+pub(crate) fn startup_log(message: &str) {
     use std::io::Write;
     let Some(path) = startup_log_path() else {
         return;
@@ -375,6 +376,9 @@ fn main() {
             if let Err(error) = sounds::start(app.handle()) {
                 eprintln!("Failed to start reminder audio: {error}");
             }
+            // A dead WebView2 child leaves every window blank forever; the
+            // watchdog relaunches the app instead of waiting for a manual kill.
+            webview_watchdog::start(app.handle().clone());
             let timer_handle = app.handle().clone();
             std::thread::spawn(move || {
                 let mut previous = None;
