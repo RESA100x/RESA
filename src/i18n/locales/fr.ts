@@ -2142,5 +2142,14 @@ export const fr: Record<string, string> = {
   'kanbanCard.statusMenu': 'Statut de {title}',
   'mobile.tabs': 'Onglets',
   'mobile.more': 'Plus',
-  'mobile.allModules': 'Tous les modules'
+  'mobile.allModules': 'Tous les modules',
+  'mobile.shortcuts': 'Barre de raccourcis',
+  'mobile.shortcutsManage': 'Gérer les raccourcis',
+  'mobile.shortcutsHint': 'Choisissez vos actions les plus utilisées et réordonnez-les avec les flèches.',
+  'mobile.shortcutsShow': 'Afficher la barre de raccourcis',
+  'mobile.shortcutsAdd': 'Ajouter un raccourci',
+  'mobile.shortcutsEmpty': 'Aucun raccourci sélectionné.',
+  'mobile.shortcutEarlier': 'Déplacer avant',
+  'mobile.shortcutLater': 'Déplacer après',
+  'mobile.shortcutRemove': 'Supprimer le raccourci'
 };

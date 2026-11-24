@@ -2143,5 +2143,14 @@ export const ja: Record<string, string> = {
   'kanbanCard.statusMenu': '{title} の状態',
   'mobile.tabs': 'タブ',
   'mobile.more': 'その他',
-  'mobile.allModules': 'すべてのモジュール'
+  'mobile.allModules': 'すべてのモジュール',
+  'mobile.shortcuts': 'ショートカットバー',
+  'mobile.shortcutsManage': 'ショートカットを管理',
+  'mobile.shortcutsHint': 'よく使う操作を選び、矢印で並べ替えます。',
+  'mobile.shortcutsShow': 'ショートカットバーを表示',
+  'mobile.shortcutsAdd': 'ショートカットを追加',
+  'mobile.shortcutsEmpty': 'ショートカットがまだありません。',
+  'mobile.shortcutEarlier': '前へ移動',
+  'mobile.shortcutLater': '後ろへ移動',
+  'mobile.shortcutRemove': 'ショートカットを削除'
 };

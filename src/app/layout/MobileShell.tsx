@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   BarChart3,
   Book,
@@ -9,6 +9,7 @@ import {
   History,
   LayoutGrid,
   Mosaic,
+  Pencil,
   Phone,
   Search,
   Settings,
@@ -21,6 +22,14 @@ import {
 } from '../../components/icons';
 import { t } from '../../i18n';
 import type { WidgetId } from '../../widgets/widget-registry';
+import { MobileShortcutsSheet } from './MobileShortcutsSheet';
+import {
+  SHORTCUT_CATALOG,
+  loadShortcutPrefs,
+  saveShortcutPrefs,
+  type MobileShortcutId,
+  type MobileShortcutPrefs
+} from './mobile-shortcuts';
 import './mobile-shell.css';
 
 type Tab = { id: WidgetId; label: string; icon: AppIcon };
@@ -47,27 +56,70 @@ const MORE_MODULES: Tab[] = [
   { id: 'plants', label: t('widget.plants.name'), icon: Droplets }
 ];
 
+// Actions the shell cannot perform on its own; the app opens the matching
+// dialog for them.
+export type MobileQuickAction = 'new-event' | 'new-task' | 'new-note';
+
 type MobileShellProps = {
   modules: Partial<Record<WidgetId, ReactNode>>;
   time: string;
   dateText: string;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
+  onQuickAction?: (action: MobileQuickAction) => void;
 };
 
-export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSearch }: MobileShellProps) {
+type Sheet = 'modules' | 'shortcuts' | null;
+
+const SHORTCUT_BY_ID = new Map(SHORTCUT_CATALOG.map((entry) => [entry.id, entry]));
+
+export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSearch, onQuickAction }: MobileShellProps) {
   const [active, setActive] = useState<WidgetId>('calendar');
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [shortcuts, setShortcuts] = useState<MobileShortcutPrefs>(() => loadShortcutPrefs());
 
   const available = MORE_MODULES.filter((entry) => modules[entry.id] !== undefined);
   const inMore = available.some((entry) => entry.id === active);
   const activeLabel =
     [...PRIMARY_TABS, ...MORE_MODULES].find((entry) => entry.id === active)?.label ?? '';
 
+  // Portaled surfaces (dialogs, popovers) live outside `.mobile-shell`, so the
+  // phone-only rules that must reach them key off this marker instead.
+  useEffect(() => {
+    document.documentElement.classList.add('is-mobile-shell');
+    return () => document.documentElement.classList.remove('is-mobile-shell');
+  }, []);
+
+  useEffect(() => {
+    saveShortcutPrefs(shortcuts);
+  }, [shortcuts]);
+
   function pick(id: WidgetId) {
     setActive(id);
-    setSheetOpen(false);
+    setSheet(null);
   }
+
+  function runShortcut(id: MobileShortcutId) {
+    if (id === 'search') {
+      onOpenSearch();
+      return;
+    }
+    if (id === 'settings') {
+      onOpenSettings();
+      return;
+    }
+    if (id === 'new-event' || id === 'new-task' || id === 'new-note') {
+      onQuickAction?.(id);
+      return;
+    }
+    pick(id as WidgetId);
+  }
+
+  // The bar keeps the order the user chose, so a shortcut stays where they
+  // put it instead of snapping back to the catalogue order.
+  const dockItems = shortcuts.items
+    .map((id) => SHORTCUT_BY_ID.get(id))
+    .filter((entry): entry is (typeof SHORTCUT_CATALOG)[number] => entry !== undefined);
 
   return (
     <div className="mobile-shell" data-testid="mobile-shell">
@@ -104,10 +156,30 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
         </section>
       </main>
 
+      {shortcuts.enabled && dockItems.length > 0 ? (
+        <div className="mobile-dock" role="toolbar" aria-label={t('mobile.shortcuts')}>
+          {dockItems.map((entry) => {
+            const Icon = entry.icon;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                className="mobile-dock__btn"
+                data-testid={`mobile-shortcut-${entry.id}`}
+                onClick={() => runShortcut(entry.id)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{t(entry.labelKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <nav className="mobile-shell__tabs" aria-label={t('mobile.tabs')}>
         {PRIMARY_TABS.map((tab) => {
           const Icon = tab.icon;
-          const selected = active === tab.id && !sheetOpen;
+          const selected = active === tab.id && sheet === null;
           return (
             <button
               key={tab.id}
@@ -125,22 +197,22 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
         <button
           type="button"
           data-testid="mobile-tab-more"
-          className={`mobile-shell__tab${sheetOpen || inMore ? ' is-active' : ''}`}
-          aria-expanded={sheetOpen}
-          onClick={() => setSheetOpen(true)}
+          className={`mobile-shell__tab${sheet === 'modules' || inMore ? ' is-active' : ''}`}
+          aria-expanded={sheet === 'modules'}
+          onClick={() => setSheet('modules')}
         >
           <LayoutGrid aria-hidden="true" />
           <span>{t('mobile.more')}</span>
         </button>
       </nav>
 
-      {sheetOpen ? (
+      {sheet === 'modules' ? (
         <div className="mobile-sheet" role="dialog" aria-modal="true" aria-label={t('mobile.allModules')}>
           <button
             type="button"
             className="mobile-sheet__backdrop"
             aria-label={t('common.close')}
-            onClick={() => setSheetOpen(false)}
+            onClick={() => setSheet(null)}
           />
           <div className="mobile-sheet__panel">
             <div className="mobile-sheet__head">
@@ -149,7 +221,7 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
                 type="button"
                 className="mobile-shell__icon"
                 aria-label={t('common.close')}
-                onClick={() => setSheetOpen(false)}
+                onClick={() => setSheet(null)}
               >
                 <X aria-hidden="true" />
               </button>
@@ -173,8 +245,25 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
                 );
               })}
             </div>
+            <button
+              type="button"
+              className="mobile-sheet__manage"
+              data-testid="mobile-shortcuts-manage"
+              onClick={() => setSheet('shortcuts')}
+            >
+              <Pencil aria-hidden="true" />
+              <span>{t('mobile.shortcutsManage')}</span>
+            </button>
           </div>
         </div>
+      ) : null}
+
+      {sheet === 'shortcuts' ? (
+        <MobileShortcutsSheet
+          prefs={shortcuts}
+          onChange={setShortcuts}
+          onClose={() => setSheet(null)}
+        />
       ) : null}
     </div>
   );

@@ -38,7 +38,16 @@ export const supplemental = {
     'kanbanWidget.layoutStacked': '堆叠',
     'mobile.tabs': '标签页',
     'mobile.more': '更多',
-    'mobile.allModules': '所有模块'
+    'mobile.allModules': '所有模块',
+    'mobile.shortcuts': '快捷栏',
+    'mobile.shortcutsManage': '管理快捷方式',
+    'mobile.shortcutsHint': '选择常用操作，用箭头调整顺序。',
+    'mobile.shortcutsShow': '显示快捷栏',
+    'mobile.shortcutsAdd': '添加快捷方式',
+    'mobile.shortcutsEmpty': '尚未选择快捷方式。',
+    'mobile.shortcutEarlier': '前移',
+    'mobile.shortcutLater': '后移',
+    'mobile.shortcutRemove': '移除快捷方式'
   },
   en: {
     'time.autosave.saving': 'Saving automatically…',
@@ -78,6 +87,15 @@ export const supplemental = {
     'kanbanWidget.layoutStacked': 'Stacked',
     'mobile.tabs': 'Tabs',
     'mobile.more': 'More',
-    'mobile.allModules': 'All modules'
+    'mobile.allModules': 'All modules',
+    'mobile.shortcuts': 'Shortcut bar',
+    'mobile.shortcutsManage': 'Manage shortcuts',
+    'mobile.shortcutsHint': 'Pick the actions you use most and reorder them with the arrows.',
+    'mobile.shortcutsShow': 'Show shortcut bar',
+    'mobile.shortcutsAdd': 'Add shortcut',
+    'mobile.shortcutsEmpty': 'No shortcut selected yet.',
+    'mobile.shortcutEarlier': 'Move earlier',
+    'mobile.shortcutLater': 'Move later',
+    'mobile.shortcutRemove': 'Remove shortcut'
   }
 };

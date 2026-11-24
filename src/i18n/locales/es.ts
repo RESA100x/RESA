@@ -2142,5 +2142,14 @@ export const es: Record<string, string> = {
   'kanbanCard.statusMenu': 'Estado de {title}',
   'mobile.tabs': 'Pestañas',
   'mobile.more': 'Más',
-  'mobile.allModules': 'Todos los módulos'
+  'mobile.allModules': 'Todos los módulos',
+  'mobile.shortcuts': 'Barra de accesos',
+  'mobile.shortcutsManage': 'Gestionar accesos',
+  'mobile.shortcutsHint': 'Elige las acciones que más usas y ordénalas con las flechas.',
+  'mobile.shortcutsShow': 'Mostrar barra de accesos',
+  'mobile.shortcutsAdd': 'Añadir acceso',
+  'mobile.shortcutsEmpty': 'Aún no hay accesos.',
+  'mobile.shortcutEarlier': 'Mover antes',
+  'mobile.shortcutLater': 'Mover después',
+  'mobile.shortcutRemove': 'Quitar acceso'
 };

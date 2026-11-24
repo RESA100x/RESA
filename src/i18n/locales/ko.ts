@@ -2143,5 +2143,14 @@ export const ko: Record<string, string> = {
   'kanbanCard.statusMenu': '{title} 상태',
   'mobile.tabs': '탭',
   'mobile.more': '더보기',
-  'mobile.allModules': '모든 모듈'
+  'mobile.allModules': '모든 모듈',
+  'mobile.shortcuts': '바로가기 표시줄',
+  'mobile.shortcutsManage': '바로가기 관리',
+  'mobile.shortcutsHint': '자주 쓰는 작업을 고르고 화살표로 순서를 바꾸세요.',
+  'mobile.shortcutsShow': '바로가기 표시줄 표시',
+  'mobile.shortcutsAdd': '바로가기 추가',
+  'mobile.shortcutsEmpty': '아직 선택한 바로가기가 없습니다.',
+  'mobile.shortcutEarlier': '앞으로 이동',
+  'mobile.shortcutLater': '뒤로 이동',
+  'mobile.shortcutRemove': '바로가기 삭제'
 };

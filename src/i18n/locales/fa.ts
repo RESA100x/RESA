@@ -2157,5 +2157,14 @@ export const fa: Record<string, string> = {
   'kanbanCard.statusMenu': 'وضعیت {title}',
   'mobile.tabs': 'برگه‌ها',
   'mobile.more': 'بیشتر',
-  'mobile.allModules': 'همهٔ ماژول‌ها'
+  'mobile.allModules': 'همهٔ ماژول‌ها',
+  'mobile.shortcuts': 'میانبرهای پایین صفحه',
+  'mobile.shortcutsManage': 'تنظیم میانبرها',
+  'mobile.shortcutsHint': 'میانبرهای پرکاربرد را انتخاب و با فلش‌ها مرتب کنید.',
+  'mobile.shortcutsShow': 'نمایش نوار میانبر',
+  'mobile.shortcutsAdd': 'افزودن میانبر',
+  'mobile.shortcutsEmpty': 'هنوز میانبری انتخاب نشده است.',
+  'mobile.shortcutEarlier': 'جای قبلی',
+  'mobile.shortcutLater': 'جای بعدی',
+  'mobile.shortcutRemove': 'حذف میانبر'
 };

@@ -221,6 +221,193 @@
   white-space: nowrap;
 }
 
+
+/* ---- Shortcut bar -------------------------------------------------------
+   A phone user's most-used actions sit right above the tabs, in the order
+   they chose. The bar scrolls sideways when more shortcuts are pinned than
+   fit, so nothing is ever cut off. */
+.mobile-dock {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  scrollbar-width: none;
+}
+
+.mobile-dock::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-dock__btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mobile-dock__btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.mobile-dock__btn:active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary-active);
+}
+
+.mobile-sheet__manage {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mobile-sheet__manage svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-shortcuts__hint {
+  margin: 4px 0 10px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.mobile-shortcuts__toggle {
+  margin-bottom: 6px;
+}
+
+.mobile-shortcuts__title {
+  margin: 14px 0 8px;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mobile-shortcuts__empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.mobile-shortcuts__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.mobile-shortcuts__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-default);
+  background: var(--bg-subtle);
+}
+
+.mobile-shortcuts__glyph {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--color-primary-active);
+}
+
+.mobile-shortcuts__glyph svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-shortcuts__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-shortcuts__action {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.mobile-shortcuts__action svg {
+  width: 16px;
+  height: 16px;
+}
+
+.mobile-shortcuts__action:disabled {
+  opacity: 0.35;
+}
+
+.mobile-shortcuts__action--danger {
+  color: var(--color-danger);
+}
+
+.mobile-shortcuts__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mobile-shortcuts__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mobile-shortcuts__chip svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* ---- Launcher modules as pages ------------------------------------------
    On the desktop a phone book or a report is a one-cell tile that opens a
    modal. A phone has no grid to put a tile in, so the same dialog renders
@@ -313,126 +500,119 @@
   padding: 8px 8px 10px;
 }
 
-/* ---- Date picker on a phone --------------------------------------------
-   The popup is anchored under its field, which on a phone is often the last
-   row of a dialog: the calendar then hangs below the screen. On a narrow
-   viewport it becomes a bottom sheet that always fits. */
-@media (max-width: 640px) {
-  .date-picker__popup {
-    position: fixed;
-    z-index: 130;
-    top: auto;
-    left: 8px;
-    right: 8px;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    width: auto;
-    max-width: none;
-    max-height: calc(100vh - 16px);
-    overflow-y: auto;
-  }
-}
-
 /* ---- Kanban on a phone -------------------------------------------------
    Lanes used to share the board width, so a fifth lane was a sliver. They
    now keep a readable width and the board scrolls sideways, with a switch
-   that stacks them instead. */
-.kanban-lanes--stacked {
+   that stacks them instead. Both the switch and the stacked layout only
+   exist on the phone. */
+/* The lane-layout switch belongs to the phone board only. */
+.kanban-layout-toggle {
+  display: none;
+}
+
+.mobile-shell .kanban-layout-toggle {
+  display: flex;
+}
+
+.mobile-shell .kanban-lanes--stacked {
   flex-direction: column;
   align-items: stretch;
   gap: 12px;
 }
 
-.kanban-lanes--stacked .kanban-lane {
+.mobile-shell .kanban-lanes--stacked .kanban-lane {
   flex: none;
   width: 100%;
   max-height: none;
 }
 
-.kanban-add-lane {
+.mobile-shell .kanban-add-lane {
   gap: 6px;
   white-space: nowrap;
 }
 
-/* A wide module has room for every lane side by side; the switch would only
-   be noise there. */
-@container module (min-width: 700px) {
-  .kanban-layout-toggle {
-    display: none;
-  }
+.mobile-shell .kanban-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
-@media (max-width: 640px) {
-  .kanban-scroll {
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-  }
-
-  .kanban-lanes--columns {
-    flex-wrap: nowrap;
-    padding-bottom: 4px;
-    scroll-snap-type: x proximity;
-  }
-
-  .kanban-lanes--columns .kanban-lane {
-    flex: 0 0 84%;
-    min-width: 84%;
-    scroll-snap-align: start;
-  }
-
-  .kanban-scroll:has(.kanban-lanes--stacked) {
-    overflow-x: hidden;
-  }
-
-  .kanban-add-lane span {
-    display: none;
-  }
-
-  .kanban-add-lane {
-    padding-inline: 10px;
-  }
+.mobile-shell .kanban-lanes--columns {
+  flex-wrap: nowrap;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
 }
 
-/* ---- Settings on a phone -----------------------------------------------
-   Seven tabs and a two-column form do not fit 400px. The dialog becomes a
-   full page, the tab strip scrolls sideways, and the form is one column. */
-@media (max-width: 640px) {
-  .overlay:has(> .settings-dialog) {
-    padding: 0;
-  }
+.mobile-shell .kanban-lanes--columns .kanban-lane {
+  flex: 0 0 84%;
+  min-width: 84%;
+  scroll-snap-align: start;
+}
 
-  .good-dialog.settings-dialog {
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    border: 0;
-    border-radius: 0;
-  }
+.mobile-shell .kanban-scroll:has(.kanban-lanes--stacked) {
+  overflow-x: hidden;
+}
 
-  .settings-dialog .good-dialog__header,
-  .settings-dialog .good-dialog__footer {
-    min-height: 56px;
-    padding-inline: 14px;
-  }
+.mobile-shell .kanban-add-lane span {
+  display: none;
+}
 
-  .settings-dialog .good-dialog__body {
-    padding: 14px;
-  }
+.mobile-shell .kanban-add-lane {
+  padding-inline: 10px;
+}
 
-  .settings-dialog .good-tabs {
-    gap: 20px;
-  }
+/* ---- Phone-only surfaces that render in a portal -----------------------
+   Dialogs and popovers are portaled to <body>, outside `.mobile-shell`, so
+   these rules hang off the marker class the shell puts on <html>. Desktop
+   windows never carry it. */
+html.is-mobile-shell .date-picker__popup {
+  position: fixed;
+  z-index: 130;
+  top: auto;
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  width: auto;
+  max-width: none;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
 
-  .settings-dialog .good-tabs__tab {
-    font-size: 0.88rem;
-  }
+html.is-mobile-shell .overlay:has(> .settings-dialog) {
+  padding: 0;
+}
 
-  .settings-dialog .settings-grid,
-  .settings-dialog .settings-checks {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
+html.is-mobile-shell .good-dialog.settings-dialog {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
 
-  .settings-dialog .settings-checks {
-    padding: 14px;
-  }
+html.is-mobile-shell .settings-dialog .good-dialog__header,
+html.is-mobile-shell .settings-dialog .good-dialog__footer {
+  min-height: 56px;
+  padding-inline: 14px;
+}
+
+html.is-mobile-shell .settings-dialog .good-dialog__body {
+  padding: 14px;
+}
+
+html.is-mobile-shell .settings-dialog .good-tabs {
+  gap: 20px;
+}
+
+html.is-mobile-shell .settings-dialog .good-tabs__tab {
+  font-size: 0.88rem;
+}
+
+html.is-mobile-shell .settings-dialog .settings-grid,
+html.is-mobile-shell .settings-dialog .settings-checks {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+html.is-mobile-shell .settings-dialog .settings-checks {
+  padding: 14px;
 }

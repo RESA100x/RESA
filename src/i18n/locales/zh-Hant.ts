@@ -2143,5 +2143,14 @@ export const zhHant: Record<string, string> = {
   "kanbanCard.statusMenu": "{title} 的狀態",
   "mobile.tabs": "分頁",
   "mobile.more": "更多",
-  "mobile.allModules": "所有模組"
+  "mobile.allModules": "所有模組",
+  "mobile.shortcuts": "快捷列",
+  "mobile.shortcutsManage": "管理捷徑",
+  "mobile.shortcutsHint": "選擇常用操作，並用箭頭調整順序。",
+  "mobile.shortcutsShow": "顯示快捷列",
+  "mobile.shortcutsAdd": "新增捷徑",
+  "mobile.shortcutsEmpty": "尚未選擇捷徑。",
+  "mobile.shortcutEarlier": "往前移動",
+  "mobile.shortcutLater": "往後移動",
+  "mobile.shortcutRemove": "移除捷徑"
 };

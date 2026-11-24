@@ -681,6 +681,15 @@ function AppContent() {
           dateText={dateText}
           onOpenSettings={() => setModal({ type: 'settings', trigger: null })}
           onOpenSearch={() => setPaletteOpen(true)}
+          onQuickAction={(action) => {
+            if (action === 'new-event') {
+              openModalInForeground({ type: 'event-create', dateIso: todayIso, trigger: null });
+            } else if (action === 'new-task') {
+              openModalInForeground({ type: 'task-create', dueDate: todayIso, trigger: null });
+            } else {
+              openModalInForeground({ type: 'note-create', trigger: null });
+            }
+          }}
         />
       ) : (
       <DesktopShell
