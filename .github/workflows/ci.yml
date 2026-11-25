@@ -1,0 +1,44 @@
+name: CI
+
+# Fast feedback for every change: the version manifests must agree, the
+# TypeScript must compile, and the test suite must pass. The Release workflow
+# only runs on main, so this is what a pull request can require.
+
+on:
+  push:
+    branches:
+      - main
+      - mobile
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify version sync
+        run: npm run version:check
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
