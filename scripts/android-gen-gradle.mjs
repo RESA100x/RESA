@@ -6,7 +6,7 @@
 // added to Cargo.toml. Every crate that ships an `android/` project is included
 // from the Cargo registry path, exactly like the CLI does.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,6 +74,63 @@ const build = [
 writeFileSync(join(androidProject, 'tauri.settings.gradle'), settings);
 writeFileSync(join(androidProject, 'app', 'tauri.build.gradle.kts'), build);
 
+// The Tauri CLI also copies the wry and tauri Kotlin sources into the app
+// before Gradle runs. This script drives Gradle directly, so it has to do the
+// same: without them a clean checkout cannot compile MainActivity, because
+// TauriActivity, WryActivity, Ipc and friends only exist in that generated
+// folder (which is git-ignored).
+const packageName = /namespace\s*=\s*"([^"]+)"/.exec(
+  readFileSync(join(androidProject, 'app', 'build.gradle.kts'), 'utf8'),
+)?.[1];
+if (!packageName) throw new Error('could not read the app namespace from build.gradle.kts');
+
+const libSection = readFileSync(join(srcTauri, 'Cargo.toml'), 'utf8').split('[lib]')[1] ?? '';
+const libName = /^name\s*=\s*"([^"]+)"/m.exec(libSection)?.[1];
+if (!libName) throw new Error('could not read the cargo lib name from Cargo.toml');
+
+function crateDir(name) {
+  const pkg = metadata.packages.find((entry) => entry.name === name);
+  if (!pkg) throw new Error(`cargo metadata did not expose ${name}`);
+  return dirname(pkg.manifest_path);
+}
+
+function render(file, source) {
+  const header = file.endsWith('.pro')
+    ? '# THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!!'
+    : '/* THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!! */';
+  return [
+    header,
+    '',
+    source
+      .replaceAll('{{package}}', packageName)
+      .replaceAll('{{package-unescaped}}', packageName)
+      .replaceAll('{{library}}', libName)
+      .replaceAll('{{class-extension}}', '')
+      .replaceAll('{{class-init}}', ''),
+  ].join('\n');
+}
+
+const generatedDir = join(androidProject, 'app', 'src', 'main', 'java', ...packageName.split('.'), 'generated');
+mkdirSync(generatedDir, { recursive: true });
+
+const wryKotlin = join(crateDir('wry'), 'src', 'android', 'kotlin');
+const tauriCodegen = join(crateDir('tauri'), 'mobile', 'android-codegen');
+let copied = 0;
+for (const [dir, pattern] of [[wryKotlin, /\.(kt|pro)$/], [tauriCodegen, /\.kt$/]]) {
+  for (const file of readdirSync(dir)) {
+    if (!pattern.test(file)) continue;
+    writeFileSync(join(generatedDir, file), render(file, readFileSync(join(dir, file), 'utf8')));
+    copied += 1;
+  }
+}
+
+// R8 keeps the JNI entry points through this rule file.
+writeFileSync(
+  join(androidProject, 'app', 'proguard-tauri.pro'),
+  render('proguard-tauri.pro', readFileSync(join(crateDir('tauri'), 'mobile', 'proguard-tauri.pro'), 'utf8'))
+    .replaceAll('$PACKAGE', packageName),
+);
+
 // The Tauri CLI normally writes app/tauri.properties; this script drives Gradle
 // directly, so the APK would otherwise keep a stale version (or none at all on
 // a fresh checkout). versionCode follows Tauri's own scheme.
@@ -91,3 +148,4 @@ writeFileSync(
 );
 
 console.log(`wrote ${crates.length} android projects: ${crates.map((crate) => crate.name).join(', ')} (version ${version})`);
+console.log(`copied ${copied} codegen files for ${packageName}`);
