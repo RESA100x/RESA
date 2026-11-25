@@ -52,6 +52,9 @@ pub struct SyncStatus {
     pub last_sync_at: Option<String>,
     pub pending_changes: i64,
     pub device_id: String,
+    /// True when this build carries a server address and public key, so the
+    /// user never has to paste them.
+    pub has_defaults: bool,
 }
 
 fn with_connection<T>(
@@ -75,6 +78,41 @@ fn build_status(connection: &Connection) -> Result<SyncStatus, CommandError> {
         last_sync_at: state::get(connection, state::KEY_LAST_SYNC),
         pending_changes: engine::pending_changes(connection),
         device_id: state::device_id(connection).map_err(CommandError::database)?,
+        has_defaults: built_in_defaults().is_some(),
+    })
+}
+
+/// Server address and public key baked into the build.
+///
+/// The people using RESA are not supposed to know what an endpoint or an anon
+/// key is: the build is pointed at our own backend once, at compile time, and
+/// the account screen only ever asks for an email and a password. Leaving the
+/// variables unset keeps the feature visibly "not configured yet" instead of
+/// pretending to work.
+fn built_in_defaults() -> Option<(String, String)> {
+    let endpoint = option_env!("RESA_SYNC_ENDPOINT")?.trim();
+    let anon_key = option_env!("RESA_SYNC_ANON_KEY")?.trim();
+    if endpoint.is_empty() || anon_key.is_empty() {
+        return None;
+    }
+    Some((endpoint.to_owned(), anon_key.to_owned()))
+}
+
+/// Applies the build's own server settings once, so the account screen can show
+/// a login form instead of a configuration form.
+#[tauri::command]
+pub fn sync_apply_defaults(db: State<'_, AppDb>) -> Result<SyncStatus, CommandError> {
+    let (endpoint, anon_key) =
+        built_in_defaults().ok_or_else(|| CommandError::sync("This build has no sync server."))?;
+    let endpoint = normalize_endpoint(&endpoint)?;
+    with_connection(db, |connection| {
+        if state::get(connection, state::KEY_ENDPOINT).is_none()
+            || state::get(connection, state::KEY_ANON).is_none()
+        {
+            state::set(connection, state::KEY_ENDPOINT, &endpoint).map_err(CommandError::database)?;
+            state::set(connection, state::KEY_ANON, &anon_key).map_err(CommandError::database)?;
+        }
+        build_status(connection)
     })
 }
 

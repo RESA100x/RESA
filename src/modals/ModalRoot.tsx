@@ -8,6 +8,7 @@ import { NotesManagerDialog } from '../notes/NotesManagerDialog';
 import type { Note, NoteDraft } from '../notes/notes-model';
 import type { AppSettings, MonitorInfo } from '../data/nowly-repository';
 import { SettingsDialog } from '../settings/SettingsDialog';
+import { AccountDialog } from '../account/AccountDialog';
 import { CalendarSettingsDialog } from '../calendar/CalendarSettingsDialog';
 import type { CalendarSubscription, SubscriptionDraft } from '../calendar/subscription-model';
 import { useTaskWorkspace } from '../tasks/TaskWorkspaceContext';
@@ -155,6 +156,7 @@ export function ModalRoot({
     {modal.type === 'notes-manager' ? <NotesManagerDialog notes={notes} restoreFocusRef={{current:modal.trigger}} onClose={onClose} onCreate={(trigger)=>onChangeModal({type:'note-create',trigger,parentManager:true})} onEdit={(note,trigger)=>onChangeModal({type:'note-edit',note,trigger,parentManager:true})} /> : null}
     {modal.type === 'note-create' || modal.type === 'note-edit' ? <NoteModal mode={modal.type === 'note-create' ? {type:'create'} : {type:'edit',note:modal.note}} restoreFocusRef={{current:modal.trigger}} onClose={()=>modal.parentManager?onChangeModal({type:'notes-manager',trigger:modal.trigger}):onClose()} onSaved={()=>undefined} onDeleted={()=>undefined} createNote={createNote} updateNote={updateNote} deleteNote={deleteNote} recentColors={recentColors} onRememberCustomColor={onRememberCustomColor} /> : null}
     {modal.type === 'settings' ? <SettingsDialog settings={settings} monitors={monitors} onClose={onClose} onSave={saveSettings} /> : null}
+    {modal.type === 'account' ? <AccountDialog onClose={onClose} /> : null}
     {modal.type === 'external-detail' ? (
       <ExternalEventDialog
         event={modal.event}

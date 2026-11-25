@@ -1,4 +1,4 @@
-import { Check, LayoutGrid, MonitorDown, Mosaic, Plus, Search, Settings } from '../../components/icons';
+import { Check, LayoutGrid, MonitorDown, Mosaic, Plus, Search, Settings, UserCircle } from '../../components/icons';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   builtinDefinitions,
@@ -29,6 +29,8 @@ type DesktopShellProps = {
   onSetWallpaper?: () => void;
   onWallpaperDoubleClick?: () => void;
   onOpenSettings?: () => void;
+  // Opens the account screen (profile, document vault, online account).
+  onOpenAccount?: () => void;
   // Opens the command palette (Ctrl+K); the topbar button keeps it discoverable.
   onOpenSearch?: () => void;
   configurations?: Partial<Record<WidgetId, () => void>>;
@@ -335,6 +337,7 @@ export function DesktopShell({
   onSetWallpaper,
   onWallpaperDoubleClick,
   onOpenSettings,
+  onOpenAccount,
   onOpenSearch,
   configurations,
   hideTopbarInWallpaper = true,
@@ -495,6 +498,13 @@ export function DesktopShell({
             <Tip content={isEditing ? t('shell.finishEditing') : t('shell.editLayout')}>
               <button type="button" data-guide="edit-layout" className={`btn btn-icon${isEditing ? ' is-active' : ''}`} disabled={!loaded} aria-label={isEditing ? t('shell.finishEditing') : t('shell.editLayout')} aria-pressed={isEditing} onClick={() => setIsEditing((current) => !current)}>
                 {isEditing ? <Check aria-hidden="true" /> : <LayoutGrid aria-hidden="true" />}
+              </button>
+            </Tip>
+          ) : null}
+          {foreground && onOpenAccount ? (
+            <Tip content={t('account.open')}>
+              <button type="button" data-guide="account" className="btn btn-icon" aria-label={t('account.open')} onClick={onOpenAccount}>
+                <UserCircle aria-hidden="true" />
               </button>
             </Tip>
           ) : null}

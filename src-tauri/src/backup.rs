@@ -28,7 +28,12 @@ const ATTACHMENTS_DIR: &str = "attachments";
 // backup.
 const STICKERS_DIR: &str = "stickers";
 const COVERS_DIR: &str = "covers";
-const ASSET_DIRS: [&str; 3] = [ATTACHMENTS_DIR, STICKERS_DIR, COVERS_DIR];
+// The vault holds AES-GCM sealed documents and the account screen holds the
+// avatar. Both are opaque bytes on disk, so they travel with a backup and are
+// still only readable with the vault PIN.
+const VAULT_DIR: &str = crate::vault::VAULT_DIR;
+const AVATARS_DIR: &str = crate::profile::AVATARS_DIR;
+const ASSET_DIRS: [&str; 5] = [ATTACHMENTS_DIR, STICKERS_DIR, COVERS_DIR, VAULT_DIR, AVATARS_DIR];
 const FORMAT: &str = "resa-backup";
 const FORMAT_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");

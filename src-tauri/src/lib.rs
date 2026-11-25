@@ -32,6 +32,7 @@ mod notes;
 mod oauth;
 mod oauth_config;
 mod plants;
+mod profile;
 mod projects;
 mod meetings;
 #[cfg(not(target_os = "android"))]
@@ -69,6 +70,7 @@ mod subscriptions;
 mod sync;
 mod task_recurrence;
 mod task_workspace;
+mod vault;
 mod time;
 mod timezone;
 mod token_store;
@@ -269,6 +271,7 @@ fn run_desktop() {
         .manage(screenshot_windows::ScreenshotWindows::default())
         .manage(screenshot_pins::ScreenshotPins::default())
         .manage(quick_create::QuickCreateState::default())
+        .manage(vault::VaultSession::default())
         .register_asynchronous_uri_scheme_protocol(
             screen_capture::FRAME_URI_SCHEME,
             |context, request, responder| {
@@ -862,12 +865,31 @@ fn run_desktop() {
             backup::open_backups_folder,
             sync::sync_get_status,
             sync::sync_configure,
+            sync::sync_apply_defaults,
             sync::sync_sign_in,
             sync::sync_sign_up,
             sync::sync_resend_verification,
             sync::sync_sign_out,
             sync::sync_set_enabled,
             sync::sync_now,
+            vault::vault_status,
+            vault::vault_setup,
+            vault::vault_unlock,
+            vault::vault_lock,
+            vault::vault_change_pin,
+            vault::vault_list_documents,
+            vault::vault_pick_files,
+            vault::vault_import_document,
+            vault::vault_import_document_bytes,
+            vault::vault_update_document,
+            vault::vault_delete_documents,
+            vault::vault_read_document,
+            vault::vault_save_copy,
+            vault::vault_export_zip,
+            vault::vault_open_document,
+            profile::profile_get,
+            profile::profile_save,
+            profile::profile_export_vcard,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,
@@ -1193,6 +1215,9 @@ fn run_mobile() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .manage(assistant::commands::Requests::default())
+        // The vault key lives in memory, exactly like the desktop build; the
+        // phone just has no wallpaper/tray state to register alongside it.
+        .manage(vault::VaultSession::default())
         .setup(|app| {
             let app_dir = app
                 .path()
@@ -1447,12 +1472,31 @@ fn run_mobile() {
             backup::open_backups_folder,
             sync::sync_get_status,
             sync::sync_configure,
+            sync::sync_apply_defaults,
             sync::sync_sign_in,
             sync::sync_sign_up,
             sync::sync_resend_verification,
             sync::sync_sign_out,
             sync::sync_set_enabled,
             sync::sync_now,
+            vault::vault_status,
+            vault::vault_setup,
+            vault::vault_unlock,
+            vault::vault_lock,
+            vault::vault_change_pin,
+            vault::vault_list_documents,
+            vault::vault_pick_files,
+            vault::vault_import_document,
+            vault::vault_import_document_bytes,
+            vault::vault_update_document,
+            vault::vault_delete_documents,
+            vault::vault_read_document,
+            vault::vault_save_copy,
+            vault::vault_export_zip,
+            vault::vault_open_document,
+            profile::profile_get,
+            profile::profile_save,
+            profile::profile_export_vcard,
             task_workspace::move_task_to_lane,
             task_workspace::move_task_to_priority,
             task_workspace::move_task_to_date,

@@ -2193,15 +2193,44 @@ export function installBrowserTauriBackend() {
       signedIn: false,
       lastSyncAt: null,
       pendingChanges: 0,
-      deviceId: 'browser'
+      deviceId: 'browser',
+      hasDefaults: false
     }),
+    sync_apply_defaults: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_configure: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_in: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_up: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_resend_verification: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_sign_out: () => { throw new Error('Online sync requires the desktop application.'); },
     sync_set_enabled: () => { throw new Error('Online sync requires the desktop application.'); },
-    sync_now: () => { throw new Error('Online sync requires the desktop application.'); }
+    sync_now: () => { throw new Error('Online sync requires the desktop application.'); },
+
+    // The account screen and the encrypted vault need the native file system
+    // and the real database, so the browser fallback only reports "not set up".
+    profile_get: () => ({
+      fullName: '', birthDate: null, nationalId: '', phone: '', email: '',
+      jobTitle: '', organization: '', address: '', bio: '', avatar: '', updatedAt: null
+    }),
+    profile_save: (a) => {
+      const draft = a.draft as Dict;
+      return { ...draft, updatedAt: new Date().toISOString() };
+    },
+    profile_export_vcard: () => { throw new Error('Sharing a contact card requires the desktop application.'); },
+    vault_status: () => ({ initialized: false, unlocked: false, documentCount: 0, totalBytes: 0 }),
+    vault_setup: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_unlock: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_lock: () => undefined,
+    vault_change_pin: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_list_documents: () => [],
+    vault_pick_files: () => [],
+    vault_import_document: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_import_document_bytes: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_update_document: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_delete_documents: () => 0,
+    vault_read_document: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_save_copy: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_export_zip: () => { throw new Error('The document vault requires the desktop application.'); },
+    vault_open_document: () => { throw new Error('The document vault requires the desktop application.'); }
   };
 
   const invoke = async (command: string, args: Dict = {}) => {

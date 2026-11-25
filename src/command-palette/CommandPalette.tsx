@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CalendarDays, FileText, ListCheck, Phone, Plus, Search, Settings, SquareKanban } from '../components/icons';
+import { CalendarDays, FileText, ListCheck, Phone, Plus, Search, Settings, SquareKanban, UserCircle } from '../components/icons';
 import { t } from '../i18n';
 import type { SearchHit } from '../lib/search';
 import './command-palette.css';
@@ -7,7 +7,7 @@ import './command-palette.css';
 export type PaletteAction = {
   id: string;
   label: string;
-  icon?: 'event' | 'task' | 'note' | 'settings' | 'notes';
+  icon?: 'event' | 'task' | 'note' | 'settings' | 'notes' | 'user';
   run(): void;
 };
 
@@ -28,6 +28,7 @@ function ActionIcon({ icon }: { icon?: PaletteAction['icon'] }) {
   if (icon === 'task') return <ListCheck aria-hidden="true" />;
   if (icon === 'note' || icon === 'notes') return <FileText aria-hidden="true" />;
   if (icon === 'settings') return <Settings aria-hidden="true" />;
+  if (icon === 'user') return <UserCircle aria-hidden="true" />;
   return <Plus aria-hidden="true" />;
 }
 

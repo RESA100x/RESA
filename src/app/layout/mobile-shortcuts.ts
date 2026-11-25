@@ -31,7 +31,8 @@ export type MobileShortcutId =
   | 'archive'
   | 'time'
   | 'plants'
-  | 'stickers';
+  | 'stickers'
+  | 'account';
 
 export type MobileShortcutEntry = {
   id: MobileShortcutId;
@@ -56,7 +57,8 @@ export const SHORTCUT_CATALOG: MobileShortcutEntry[] = [
   { id: 'archive', labelKey: 'widget.archive.name', icon: History },
   { id: 'time', labelKey: 'widget.time.name', icon: Clock3 },
   { id: 'plants', labelKey: 'widget.plants.name', icon: Droplets },
-  { id: 'stickers', labelKey: 'widget.stickers.name', icon: SmileCircle }
+  { id: 'stickers', labelKey: 'widget.stickers.name', icon: SmileCircle },
+  { id: 'account', labelKey: 'account.open', icon: UserCircle }
 ];
 
 export type MobileShortcutPrefs = {

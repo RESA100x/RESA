@@ -65,6 +65,7 @@ type MobileShellProps = {
   time: string;
   dateText: string;
   onOpenSettings: () => void;
+  onOpenAccount?: () => void;
   onOpenSearch: () => void;
   onQuickAction?: (action: MobileQuickAction) => void;
 };
@@ -73,7 +74,7 @@ type Sheet = 'modules' | 'shortcuts' | null;
 
 const SHORTCUT_BY_ID = new Map(SHORTCUT_CATALOG.map((entry) => [entry.id, entry]));
 
-export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSearch, onQuickAction }: MobileShellProps) {
+export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSearch, onQuickAction, onOpenAccount }: MobileShellProps) {
   const [active, setActive] = useState<WidgetId>('calendar');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [shortcuts, setShortcuts] = useState<MobileShortcutPrefs>(() => loadShortcutPrefs());
@@ -106,6 +107,10 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
     }
     if (id === 'settings') {
       onOpenSettings();
+      return;
+    }
+    if (id === 'account') {
+      onOpenAccount?.();
       return;
     }
     if (id === 'new-event' || id === 'new-task' || id === 'new-note') {
@@ -226,6 +231,20 @@ export function MobileShell({ modules, time, dateText, onOpenSettings, onOpenSea
                 <X aria-hidden="true" />
               </button>
             </div>
+            {onOpenAccount ? (
+              <button
+                type="button"
+                className="mobile-sheet__manage"
+                data-testid="mobile-sheet-account"
+                onClick={() => {
+                  setSheet(null);
+                  onOpenAccount();
+                }}
+              >
+                <UserCircle aria-hidden="true" />
+                <span>{t('account.open')}</span>
+              </button>
+            ) : null}
             <div className="mobile-sheet__grid">
               {available.map((entry) => {
                 const Icon = entry.icon;

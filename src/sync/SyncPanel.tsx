@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Lock, RefreshCw } from '../components/icons';
 import { t } from '../i18n';
 import { formatDisplayDate } from '../lib/calendar-system';
 import './sync-panel.css';
@@ -14,7 +15,10 @@ type SyncStatus = {
   lastSyncAt: string | null;
   pendingChanges: number;
   deviceId: string;
+  hasDefaults: boolean;
 };
+
+type Mode = 'signin' | 'signup';
 
 function message(error: unknown) {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
@@ -29,13 +33,17 @@ function formatMoment(iso: string) {
   return `${formatDisplayDate(date, 'short')} · ${time}`;
 }
 
-// Optional online sync. Everything here is opt-in: the app keeps working from
-// SQLite with no account, and this panel only appears as its own settings tab.
+// Optional online sync.
+//
+// The screen is built around the person, not the infrastructure: they see a
+// sign-in form, never an endpoint or a key. The build carries the server
+// address (`RESA_SYNC_ENDPOINT` / `RESA_SYNC_ANON_KEY` at compile time) and the
+// panel applies it silently; the raw fields survive only inside a collapsed
+// "administrator" section for the rare case of pointing a test build elsewhere.
 export function SyncPanel() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loadError, setLoadError] = useState('');
-  const [endpoint, setEndpoint] = useState('');
-  const [anonKey, setAnonKey] = useState('');
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -43,17 +51,25 @@ export function SyncPanel() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  const apply = useCallback((next: SyncStatus) => {
+    setStatus(next);
+    if (next.email) setEmail((current) => current || next.email || '');
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
-      const next = await invoke<SyncStatus>('sync_get_status');
-      setStatus(next);
+      let next = await invoke<SyncStatus>('sync_get_status');
+      // A build that knows its server configures itself on first open, so the
+      // user is never asked for something they cannot know.
+      if (!next.configured && next.hasDefaults) {
+        next = await invoke<SyncStatus>('sync_apply_defaults');
+      }
+      apply(next);
       setLoadError('');
-      if (next.endpoint) setEndpoint((current) => current || next.endpoint || '');
-      if (next.email) setEmail((current) => current || next.email || '');
     } catch (reason) {
       setLoadError(message(reason));
     }
-  }, []);
+  }, [apply]);
 
   useEffect(() => {
     void refresh();
@@ -81,119 +97,131 @@ export function SyncPanel() {
     return <p className="sync-panel__hint">{t('sync.loading')}</p>;
   }
 
+  const canSubmit = status.configured && email.trim().length > 0 && password.length > 0;
+
   return (
     <div className="sync-panel">
-      <p className="sync-panel__hint">{t('sync.intro')}</p>
-      <p className="sync-panel__hint">{t('sync.optional')}</p>
+      <header className="sync-hero">
+        <span className="sync-hero__icon" aria-hidden="true">
+          {status.signedIn ? <RefreshCw /> : <Lock />}
+        </span>
+        <div>
+          <h3>{status.signedIn ? t('sync.accountLegend') : t('sync.loginTitle')}</h3>
+          <p>{t('sync.loginSubtitle')}</p>
+        </div>
+      </header>
 
       {!status.configured ? (
-        <fieldset className="sync-panel__group">
-          <legend>{t('sync.serverLegend')}</legend>
-          <p className="sync-panel__hint">{t('sync.serverHint')}</p>
-          <label className="sync-panel__field">
-            <span>{t('sync.endpoint')}</span>
-            <input
-              dir="ltr"
-              value={endpoint}
-              placeholder="https://xxxxx.baas.arianet.app"
-              onChange={(event) => setEndpoint(event.target.value)}
-              disabled={busy !== null}
-            />
-          </label>
-          <label className="sync-panel__field">
-            <span>{t('sync.anonKey')}</span>
-            <input
-              dir="ltr"
-              value={anonKey}
-              placeholder="eyJ…"
-              onChange={(event) => setAnonKey(event.target.value)}
-              disabled={busy !== null}
-            />
-          </label>
-          <button
-            type="button"
-            className="good-button good-button--primary"
-            disabled={busy !== null || !endpoint.trim() || !anonKey.trim()}
-            onClick={() => void run('configure', () => invoke('sync_configure', { endpoint, anonKey }), t('sync.serverSaved'))}
-          >
-            {busy === 'configure' ? t('sync.saving') : t('sync.saveServer')}
-          </button>
-        </fieldset>
+        <p className="sync-note" role="status">{t('sync.needServer')}</p>
       ) : null}
 
-      {status.configured && !status.signedIn ? (
-        <fieldset className="sync-panel__group">
-          <legend>{t('sync.accountLegend')}</legend>
-          <p className="sync-panel__hint">{t('sync.accountHint')}</p>
-          <label className="sync-panel__field">
+      {!status.signedIn ? (
+        <div className="sync-card">
+          <div className="sync-switch" role="tablist" aria-label={t('sync.accountLegend')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'signin'}
+              className={mode === 'signin' ? 'is-active' : undefined}
+              onClick={() => {
+                setMode('signin');
+                setError('');
+                setNotice('');
+              }}
+            >
+              {t('sync.signIn')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'signup'}
+              className={mode === 'signup' ? 'is-active' : undefined}
+              onClick={() => {
+                setMode('signup');
+                setError('');
+                setNotice('');
+              }}
+            >
+              {t('sync.signUp')}
+            </button>
+          </div>
+
+          <label className="sync-field">
             <span>{t('sync.email')}</span>
             <input
               dir="ltr"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={busy !== null}
             />
           </label>
-          <label className="sync-panel__field">
+          <label className="sync-field">
             <span>{t('sync.password')}</span>
             <input
               dir="ltr"
               type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={busy !== null}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || !canSubmit) return;
+                if (mode === 'signin') void run('signin', () => invoke('sync_sign_in', { email, password }), t('sync.signedIn'));
+                else void run('signup', () => invoke('sync_sign_up', { email, password, phone }), t('sync.verifyHint'));
+              }}
             />
           </label>
-          <label className="sync-panel__field">
-            <span>{t('sync.phone')}</span>
-            <input
-              dir="ltr"
-              type="tel"
-              value={phone}
-              placeholder="+98912…"
-              onChange={(event) => setPhone(event.target.value)}
-              disabled={busy !== null}
-            />
-          </label>
-          <p className="sync-panel__hint">{t('sync.phoneHint')}</p>
-          <div className="sync-panel__actions">
-            <button
-              type="button"
-              className="good-button good-button--primary"
-              disabled={busy !== null || !email.trim() || !password}
-              onClick={() => void run('signin', () => invoke('sync_sign_in', { email, password }), t('sync.signedIn'))}
-            >
-              {busy === 'signin' ? t('sync.working') : t('sync.signIn')}
-            </button>
-            <button
-              type="button"
-              className="good-button"
-              disabled={busy !== null || !email.trim() || !password}
-              onClick={() =>
-                void run('signup', () => invoke('sync_sign_up', { email, password, phone }), t('sync.verifyHint'))
-              }
-            >
-              {busy === 'signup' ? t('sync.working') : t('sync.signUp')}
-            </button>
-            <button
-              type="button"
-              className="good-button"
-              disabled={busy !== null || !email.trim()}
-              onClick={() =>
-                void run('resend', () => invoke('sync_resend_verification', { email }), t('sync.resent'))
-              }
-            >
-              {busy === 'resend' ? t('sync.working') : t('sync.resend')}
-            </button>
-          </div>
-          <p className="sync-panel__hint">{t('sync.coverage')}</p>
-        </fieldset>
-      ) : null}
+          {mode === 'signup' ? (
+            <>
+              <label className="sync-field">
+                <span>{t('sync.phone')}</span>
+                <input
+                  dir="ltr"
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="+98912…"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  disabled={busy !== null}
+                />
+              </label>
+              <p className="sync-panel__hint">{t('sync.phoneHint')}</p>
+            </>
+          ) : null}
 
-      {status.signedIn ? (
-        <>
-          <dl className="sync-panel__facts">
+          <button
+            type="button"
+            className="good-button good-button--primary sync-submit"
+            disabled={busy !== null || !canSubmit}
+            onClick={() =>
+              mode === 'signin'
+                ? void run('signin', () => invoke('sync_sign_in', { email, password }), t('sync.signedIn'))
+                : void run('signup', () => invoke('sync_sign_up', { email, password, phone }), t('sync.verifyHint'))
+            }
+          >
+            {busy === 'signin' || busy === 'signup'
+              ? t('sync.working')
+              : mode === 'signin'
+                ? t('sync.signIn')
+                : t('sync.signUp')}
+          </button>
+
+          {mode === 'signup' ? <p className="sync-panel__hint">{t('sync.verifyHint')}</p> : null}
+
+          <button
+            type="button"
+            className="sync-link"
+            disabled={busy !== null || !status.configured || !email.trim()}
+            onClick={() => void run('resend', () => invoke('sync_resend_verification', { email }), t('sync.resent'))}
+          >
+            {busy === 'resend' ? t('sync.working') : t('sync.resend')}
+          </button>
+        </div>
+      ) : (
+        <div className="sync-card">
+          <dl className="sync-facts">
             <dt>{t('sync.account')}</dt>
             <dd dir="ltr">{status.email ?? '—'}</dd>
             {status.phone ? (
@@ -202,27 +230,24 @@ export function SyncPanel() {
                 <dd dir="ltr">{status.phone}</dd>
               </>
             ) : null}
-            <dt>{t('sync.server')}</dt>
-            <dd dir="ltr">{status.endpoint ?? '—'}</dd>
             <dt>{t('sync.lastSync')}</dt>
             <dd>{status.lastSyncAt ? formatMoment(status.lastSyncAt) : t('sync.never')}</dd>
             <dt>{t('sync.pending')}</dt>
             <dd>{status.pendingChanges}</dd>
           </dl>
 
-          <label className="form-check form-check-custom form-check-solid">
+          <label className="sync-check">
             <input
-              className="form-check-input"
               type="checkbox"
               checked={status.enabled}
               disabled={busy !== null}
               onChange={(event) => void run('toggle', () => invoke('sync_set_enabled', { enabled: event.target.checked }))}
             />
-            <span className="form-check-label">{t('sync.autoSync')}</span>
+            <span>{t('sync.autoSync')}</span>
           </label>
           <p className="sync-panel__hint">{t('sync.autoSyncHint')}</p>
 
-          <div className="sync-panel__actions">
+          <div className="sync-actions">
             <button
               type="button"
               className="good-button good-button--primary"
@@ -240,11 +265,13 @@ export function SyncPanel() {
               {t('sync.signOut')}
             </button>
           </div>
-        </>
-      ) : null}
+        </div>
+      )}
 
       {notice ? <p className="sync-panel__status" role="status">{notice}</p> : null}
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}
+
+
     </div>
   );
 }

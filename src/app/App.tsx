@@ -626,6 +626,8 @@ function AppContent() {
       run: () => openModalInForeground({ type: 'note-create', trigger: null }) },
     { id: 'open-notes', label: t('commandPalette.openNotes'), icon: 'notes',
       run: () => openModalInForeground({ type: 'notes-manager', trigger: null }) },
+    { id: 'open-account', label: t('account.open'), icon: 'user',
+      run: () => openModalInForeground({ type: 'account', trigger: null }) },
     { id: 'open-settings', label: t('commandPalette.openSettings'), icon: 'settings',
       run: () => openModalInForeground({ type: 'settings', trigger: null }) }
     // `openModalInForeground` reads the current window mode, so the list is
@@ -689,6 +691,7 @@ function AppContent() {
           time={clockText}
           dateText={dateText}
           onOpenSettings={() => setModal({ type: 'settings', trigger: null })}
+          onOpenAccount={() => setModal({ type: 'account', trigger: null })}
           onOpenSearch={() => setPaletteOpen(true)}
           onQuickAction={(action) => {
             if (action === 'new-event') {
@@ -712,6 +715,7 @@ function AppContent() {
         onSetWallpaper={() => void runWindowModeSwitch(switchToWallpaper)}
         onWallpaperDoubleClick={() => void runWindowModeSwitch(switchToForeground)}
         onOpenSettings={() => setModal({type:'settings',trigger:null})}
+        onOpenAccount={() => setModal({type:'account',trigger:null})}
         onOpenSearch={() => setPaletteOpen(true)}
         hideTopbarInWallpaper={settingsFeature.settings.data.hideTopbarInWallpaper}
         hideModuleBackgroundInWallpaper={settingsFeature.settings.data.hideModuleBackgroundInWallpaper}

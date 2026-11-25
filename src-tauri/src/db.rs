@@ -208,6 +208,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (56, migration_56_per_monitor_layout),
     (57, migration_57_sync),
     (58, migration_58_sync_all_modules),
+    (59, migration_59_profile_and_vault),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -1290,6 +1291,55 @@ const SYNCED_TABLES: &[(&str, &str)] = &[
 /// its migrations differently, or the module was never opened — so a table is
 /// only wired up when it exists. `requeue_all` and the engine apply the same
 /// rule at runtime.
+/// The user's own record plus the encrypted document vault.
+///
+/// Vault file bytes never live in SQLite: the row keeps metadata and the file
+/// name, and `vault.rs` writes an AES-GCM sealed blob under `<app-data>/vault`.
+/// Keeping the schema here means a backup restores the list and the blobs
+/// together, and the PIN is still required to read them.
+fn migration_59_profile_and_vault(transaction: &Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        "CREATE TABLE IF NOT EXISTS user_profile (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            full_name TEXT NOT NULL DEFAULT '',
+            birth_date TEXT,
+            national_id TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
+            job_title TEXT NOT NULL DEFAULT '',
+            organization TEXT NOT NULL DEFAULT '',
+            address TEXT NOT NULL DEFAULT '',
+            bio TEXT NOT NULL DEFAULT '',
+            avatar TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS vault_meta (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            salt BLOB NOT NULL,
+            check_blob BLOB NOT NULL,
+            hint TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS vault_documents (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'other',
+            doc_number TEXT NOT NULL DEFAULT '',
+            issued_at TEXT,
+            expires_at TEXT,
+            tags TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            file_name TEXT NOT NULL,
+            mime TEXT NOT NULL DEFAULT 'application/octet-stream',
+            byte_size INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS vault_documents_category ON vault_documents(category);",
+    )
+}
+
 fn migration_58_sync_all_modules(transaction: &Transaction<'_>) -> Result<()> {
     for &(name, id_expr) in SYNCED_TABLES {
         if !table_exists(transaction, name)? {
