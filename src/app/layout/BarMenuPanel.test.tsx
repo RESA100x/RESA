@@ -67,12 +67,17 @@ describe('Bar function menu', () => {
 
   it('opens the quick-create window for the chosen kind', async () => {
     render(<BarMenuPanel active items={DEFAULT_BAR_MENU} />);
-    fireEvent.click(screen.getByRole('menuitem', { name: /四象限任务/ }));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('open_quick_create', { kind: 'task' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /便签/ }));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('open_quick_create', { kind: 'note' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /日程/ }));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('open_quick_create', { kind: 'event' }));
+    // The entries are disabled while an action is in flight, so a click that
+    // lands before the previous one settles is dropped. Wait for the entry to
+    // be enabled again before clicking it.
+    async function activate(name: RegExp, kind: string) {
+      await waitFor(() => expect(screen.getByRole('menuitem', { name })).toBeEnabled());
+      fireEvent.click(screen.getByRole('menuitem', { name }));
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('open_quick_create', { kind }));
+    }
+    await activate(/四象限任务/, 'task');
+    await activate(/便签/, 'note');
+    await activate(/日程/, 'event');
   });
 
   it('renders only icons and names without querying shortcut status', async () => {
