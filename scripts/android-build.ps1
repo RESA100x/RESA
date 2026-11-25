@@ -26,9 +26,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$sdk = 'D:\Android\Sdk'
-$ndk = "$sdk\ndk\27.0.12077973"
-$jdk = 'D:\Android\jdk21'
+# The local machine keeps the SDK in D:\Android; CI points these at its own
+# install through the standard environment variables.
+$sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { 'D:\Android\Sdk' }
+$ndk = if ($env:ANDROID_NDK_HOME) { $env:ANDROID_NDK_HOME } else { "$sdk\ndk\27.0.12077973" }
+$jdk = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { 'D:\Android\jdk21' }
 $toolchain = "$ndk\toolchains\llvm\prebuilt\windows-x86_64\bin"
 $repo = Split-Path -Parent $PSScriptRoot
 
@@ -79,8 +81,14 @@ try {
 Push-Location (Join-Path $repo 'src-tauri\gen\android')
 try {
     & .\gradlew.bat --stop | Out-Null
-    & .\gradlew.bat $task --console=plain --no-daemon `
-        --init-script (Join-Path $repo 'scripts\gradle-mirror.init.gradle')
+    # The Aliyun mirrors exist for this network, where Google's Maven host is
+    # unreachable. A CI runner reaches Google directly, so it opts out.
+    $mirror = Join-Path $repo 'scripts\gradle-mirror.init.gradle'
+    $gradleArgs = @($task, '--console=plain', '--no-daemon')
+    if ($env:RESA_GRADLE_MIRROR -ne '0' -and (Test-Path $mirror)) {
+        $gradleArgs += @('--init-script', $mirror)
+    }
+    & .\gradlew.bat @gradleArgs
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed with exit code $LASTEXITCODE" }
 } finally {
     Pop-Location

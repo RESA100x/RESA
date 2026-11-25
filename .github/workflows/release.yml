@@ -1,7 +1,7 @@
 name: Release
 
-# Builds the Windows installers and publishes a GitHub Release when code lands
-# on main, or on demand from the Actions tab.
+# Builds the Windows installers and the Android APK, then publishes a GitHub
+# Release when code lands on main, or on demand from the Actions tab.
 #
 # - The release version is derived from the existing git tags (with
 #   package.json's version as the floor) and injected into the manifests for
@@ -9,6 +9,14 @@ name: Release
 # - Release notes list the commits since the previous tag. Set the repository
 #   secret LLM_API_KEY to have a model rewrite them; without it the commit list
 #   is used as-is.
+# - The Android APK is arm64 (real phones) and signed with the release
+#   keystore. Add these repository secrets once:
+#     ANDROID_KEYSTORE_BASE64    base64 of android-signing/resa-release.jks
+#     ANDROID_KEYSTORE_PASSWORD  keystore password
+#     ANDROID_KEY_ALIAS          key alias (resa)
+#     ANDROID_KEY_PASSWORD       key password
+#   Keep the keystore file itself safe: every future APK must be signed with
+#   the same key or Android refuses to install the update.
 # - Microsoft Store MSIX packaging is deliberately not part of this workflow.
 #   Build it locally when needed; see docs/msix-store.md.
 #
@@ -99,6 +107,82 @@ jobs:
           done
           cat SHA256SUMS.txt
 
+      # --- Android -------------------------------------------------------
+      # scripts/android-build.ps1 drives Gradle directly (see its own comments)
+      # and signs the release APK when app/keystore.properties exists.
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android NDK
+        shell: pwsh
+        run: |
+          $sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { $env:ANDROID_HOME }
+          if (-not $sdk) { throw 'No Android SDK on this runner' }
+          $ndk = Join-Path $sdk 'ndk\27.0.12077973'
+          if (-not (Test-Path $ndk)) {
+            & (Join-Path $sdk 'cmdline-tools\latest\bin\sdkmanager.bat') 'ndk;27.0.12077973'
+            if ($LASTEXITCODE -ne 0) { throw 'sdkmanager could not install the NDK' }
+          }
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_NDK_HOME=$ndk" >> $env:GITHUB_ENV
+
+      - name: Install Rust Android target
+        run: rustup target add aarch64-linux-android
+
+      - name: Write Android signing config
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if (-not $env:ANDROID_KEYSTORE_BASE64) {
+            throw 'ANDROID_KEYSTORE_BASE64 is not set; add the Android signing secrets first'
+          }
+          $keystore = Join-Path $env:RUNNER_TEMP 'resa-release.jks'
+          $base64 = $env:ANDROID_KEYSTORE_BASE64 -replace '\s', ''
+          [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($base64))
+          $alias = if ($env:ANDROID_KEY_ALIAS) { $env:ANDROID_KEY_ALIAS } else { 'resa' }
+          $lines = @(
+            "storeFile=$($keystore -replace '\\', '/')"
+            "storePassword=$env:ANDROID_KEYSTORE_PASSWORD"
+            "keyAlias=$alias"
+            "keyPassword=$env:ANDROID_KEY_PASSWORD"
+          )
+          Set-Content -Path 'src-tauri/gen/android/app/keystore.properties' -Value $lines -Encoding utf8
+
+      - name: Build Android APK
+        shell: pwsh
+        env:
+          # The Aliyun Gradle mirrors are only needed on networks that cannot
+          # reach Google's Maven host.
+          RESA_GRADLE_MIRROR: '0'
+        run: |
+          pwsh -NoProfile -File scripts/android-build.ps1 -Abi arm64 -Release
+          if ($LASTEXITCODE -ne 0) { throw "Android build failed with exit code $LASTEXITCODE" }
+
+      - name: Collect Android APK
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $apk = 'src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk'
+          if (-not (Test-Path $apk)) { throw "Signed APK not found at $apk" }
+          $buildTools = Get-ChildItem (Join-Path $env:ANDROID_SDK_ROOT 'build-tools') -Directory |
+            Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          & (Join-Path $buildTools.FullName 'apksigner.bat') verify --print-certs $apk
+          if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed' }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          $target = "artifacts/RESA-$env:VERSION-arm64.apk"
+          Copy-Item $apk $target
+          $hash = (Get-FileHash $target -Algorithm SHA256).Hash.ToLower()
+          Add-Content 'src-tauri/target/release/bundle/SHA256SUMS.txt' "$hash  RESA-$env:VERSION-arm64.apk"
+          Get-Content 'src-tauri/target/release/bundle/SHA256SUMS.txt'
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -110,5 +194,6 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/SHA256SUMS.txt
+            artifacts/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
