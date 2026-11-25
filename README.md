@@ -64,6 +64,7 @@ AI is optional. Connect your chosen endpoint/model and allow calendar, task or e
 - [User guide](docs/user-guide.en.md) · [Privacy and data](docs/privacy-and-data.en.md)
 - [Product definition and source audit](docs/product-definition.md) · [Documentation index](docs/00-index.md)
 - [Design system](design.md) · [Repository conventions](CLAUDE.md)
+- Developer handover (فارسی): [development guide](docs/resa-dev-guide.fa.md) · [build and release](docs/resa-build-release.fa.md) · [status and roadmap](docs/resa-status-roadmap.fa.md)
 
 ## For contributors
 

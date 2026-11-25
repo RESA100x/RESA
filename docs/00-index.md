@@ -23,6 +23,14 @@
 - 贴纸模块：`src/stickers/`；使用说明见 [中文指南](user-guide.zh.md#贴纸画布) / [English guide](user-guide.en.md#sticker-canvas)
 - 贴纸浏览器存储：`src/data/browser-sticker-store.ts`（IndexedDB，与笔记附件隔离）
 
+## 开发与维护（فارسی）
+
+برای ادامهٔ کار روی همین مخزن، این سه سند را بخوانید:
+
+- [راهنمای توسعه](resa-dev-guide.fa.md) — معماری، پوشه‌ها، جریان داده، i18n/RTL/شمسی، تست‌ها، افزودن ماژول
+- [ساخت و انتشار](resa-build-release.fa.md) — بیلد ویندوز و اندروید، امضای APK، نسخه‌گذاری، CI و Release
+- [وضعیت و نقشهٔ راه](resa-status-roadmap.fa.md) — چه چیزی آماده است، چه کاری مانده، تصمیم‌ها و ریسک‌ها
+
 ## 当前功能计划
 
 - 提醒音效总计划（历史路径，当前检出缺失）：`docs/superpowers/specs/2026-10-14-reminder-sounds/00-master-plan.md`

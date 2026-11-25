@@ -89,6 +89,9 @@ dev-modules/*
 !docs/resa-phonebook.fa.md
 !docs/resa-reports.fa.md
 !docs/resa-archive.fa.md
+!docs/resa-dev-guide.fa.md
+!docs/resa-build-release.fa.md
+!docs/resa-status-roadmap.fa.md
 !docs/website.md
 /website/dist/
 /website/test-results/
