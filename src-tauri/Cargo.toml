@@ -1,6 +1,6 @@
 [package]
 name = "nowly"
-version = "0.2.32"
+version = "0.2.33"
 description = "Desktop wallpaper calendar"
 authors = ["RESA"]
 edition = "2021"
