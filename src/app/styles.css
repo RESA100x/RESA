@@ -757,16 +757,18 @@ body:has(.screen-status-island-root),
 .quadrant-done svg { width: 13px; height: 13px; }
 .matrix-done-toggle { position: relative; }
 .matrix-done-toggle__badge { position: absolute; inset-block-start: -4px; inset-inline-end: -4px; min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-pill); color: #fff; background: var(--color-primary); font-size: 0.7rem; font-weight: 700; line-height: 1; }
-.task-row__archive { flex: none; color: var(--text-tertiary); }
+/* The archive affordance is a row action, not a toolbar button: at the shared
+   40px icon size it alone decided the height of every completed row. */
+.task-row__archive { width: 24px; min-width: 24px; height: 24px; min-height: 24px; flex: none; color: var(--text-tertiary); }
 .task-row__archive:hover { color: var(--color-primary-active); }
 .quadrant-tasks { min-width: 0; min-height: 0; flex: 1; overflow: auto; }
-.task-row { min-width: 0; padding: 8px; display: flex; align-items: center; gap: 12px; border-radius: var(--radius-sm); background: var(--bg-surface); cursor: grab; }
+.task-row { min-width: 0; padding: 6px 8px; display: flex; align-items: center; gap: 12px; border-radius: var(--radius-sm); background: var(--bg-surface); cursor: grab; }
 .task-row[draggable="true"]:active { cursor: grabbing; }
 .task-row--dragging { opacity: .5; }
 .task-row__check, .task-row__title { cursor: auto; }
 .task-row + .task-row,
 .task-row + .inline-add,
-.task-row + .inline-add__trigger { margin-top: 8px; }
+.task-row + .inline-add__trigger { margin-top: 6px; }
 .task-row__check { flex: none; }
 .task-row__copy { position: relative; min-width: 0; flex: 1; display: grid; gap: 0; }
 .task-row__headline { min-width: 0; display: flex; align-items: center; gap: 8px; }
@@ -781,7 +783,7 @@ body:has(.screen-status-island-root),
 .task-lane-chip { max-width: 128px; padding: 3px 8px; flex: none; display: inline-flex; align-items: center; gap: 4px; overflow: hidden; border-radius: var(--radius-pill); color: var(--selected-color-fg); background: var(--selected-color-bg); font-size: 0.85rem; font-weight: 600; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .task-lane-chip > span[aria-hidden="true"]:not(.task-lane-chip__dot) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-lane-chip__dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--selected-color); }
-.task-row__meta { min-width: 0; overflow: hidden; color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.task-row__meta { min-width: 0; overflow: hidden; color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .task-row__meta-line { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .task-row--completed .task-row__title { color: var(--text-muted); text-decoration: line-through; }
 .task-row--completed .task-tag { opacity: .6; }
@@ -1992,7 +1994,7 @@ body:has(.screen-status-island-root),
 .kanban-lane__actions { flex: none; margin-inline-start: auto; display: flex; align-items: center; gap: 4px; }
 .kanban-lane__actions .good-icon-button { width: 40px; height: 40px; background: transparent; }
 .kanban-lane__actions .good-icon-button:hover { color: var(--color-primary); background: var(--bg-secondary); }
-.kanban-lane__cards { min-height: 0; flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow: visible; }
+.kanban-lane__cards { min-height: 0; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow: visible; }
 .kanban-card-slot { display: block; }
 /* Drop feedback while a card or matrix task is dragged onto the board. The
    insertion line takes no layout space. */
@@ -2038,18 +2040,18 @@ body:has(.screen-status-island-root),
 .task-done-fx__stamp { width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background-color: var(--color-success); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 12 10 16 18 8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: center; background-size: 22px 22px; box-shadow: var(--shadow-dropdown); }
 .task-done-fx__dot { width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; }
 
-.kanban-card { padding: 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-default); border-radius: var(--radius-default); background: var(--bg-surface); cursor: grab; }
+.kanban-card { padding: 10px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-default); border-radius: var(--radius-default); background: var(--bg-surface); cursor: grab; }
 .kanban-card:active { cursor: grabbing; }
-.kanban-card__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
-/* Quadrant dot: 8px, nudged down to sit on the first line of the 1.4 title. */
-.kanban-card__quadrant { width: 8px; height: 8px; margin-top: 7px; flex: none; border-radius: 50%; }
+.kanban-card__head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Quadrant dot: 8px, centred on the title line by the head's alignment. */
+.kanban-card__quadrant { width: 8px; height: 8px; flex: none; border-radius: 50%; }
 .kanban-card__title { min-width: 0; padding: 0; overflow: hidden; border: 0; color: var(--text-primary); background: transparent; font-size: 1rem; font-weight: 600; line-height: 1.4; text-align: start; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .kanban-card__title:hover { color: var(--color-primary-active); }
 /* The status menu sits at the end of the title row and never grows the card. */
 .kanban-card__menu { margin-inline-start: auto; flex: none; }
-.kanban-card__menu .action-menu__trigger { width: 24px; height: 24px; padding: 0; }
+.kanban-card__menu .action-menu__trigger { width: 24px; height: 24px; min-height: 24px; padding: 0; }
 /* A card that is not plain "open" says so, so "delayed" is visible at a glance. */
-.kanban-card__status { align-self: flex-start; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 600; line-height: 1.6; }
+.kanban-card__status { align-self: flex-start; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 600; line-height: 1.4; }
 .kanban-card__status--in_progress { color: var(--color-info-active); background: var(--color-info-light); }
 .kanban-card__status--delayed { color: #8a6d0f; background: var(--color-warning-light); }
 .kanban-card__status--done { color: #6f8617; background: var(--color-success-light); }
@@ -2060,7 +2062,7 @@ body:has(.screen-status-island-root),
    line and make the whole card taller than its title needs. The shrinkable
    items truncate instead (their text lives in a span, because `text-overflow`
    does nothing on a flex container's anonymous text). */
-.kanban-card__meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px 12px; min-width: 0; padding-inline-start: 16px; overflow: hidden; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; line-height: 1.5; }
+.kanban-card__meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px 12px; min-width: 0; padding-inline-start: 16px; overflow: hidden; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; line-height: 1.4; }
 .kanban-card__date { display: inline-flex; flex: none; align-items: center; gap: 4px; min-width: 0; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
 .kanban-card__date svg { width: 16px; height: 16px; flex: none; color: var(--text-tertiary); }
 .kanban-card__date--overdue,
