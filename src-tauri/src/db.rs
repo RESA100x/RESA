@@ -209,6 +209,7 @@ const MIGRATIONS: &[(i64, Migration)] = &[
     (57, migration_57_sync),
     (58, migration_58_sync_all_modules),
     (59, migration_59_profile_and_vault),
+    (60, migration_60_task_delegation),
 ];
 
 // Rebuilding `tasks` drops the old table; with foreign keys on, that would
@@ -1270,6 +1271,7 @@ const SYNCED_TABLES: &[(&str, &str)] = &[
     ("task_tags", "{row}.id"),
     ("tasks", "{row}.id"),
     ("task_steps", "{row}.id"),
+    ("task_events", "{row}.id"),
     ("task_tag_links", "{row}.task_id || '|' || {row}.tag_id"),
     ("events", "{row}.id"),
     ("event_exceptions", "{row}.id"),
@@ -1372,6 +1374,62 @@ fn migration_58_sync_all_modules(transaction: &Transaction<'_>) -> Result<()> {
         transaction.execute_batch(&format!(
             "INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
              SELECT '{name}', {expr}, 'upsert', {clock} FROM {name};",
+            expr = id_expr.replace("{row}.", ""),
+        ))?;
+    }
+    Ok(())
+}
+
+/// Handing a task to a teammate.
+///
+/// `assignee_contact_id` already points at a phone-book row, which is enough
+/// for a solo workspace. In a shared workspace the assignee has to be an
+/// account, so a task can land in someone's own inbox: `assignee_user_id` is
+/// that account, and `delegated_by`/`delegated_at` record who handed it over
+/// and when, so the delegator can follow up.
+///
+/// `task_events` joins the synced tables here so the timeline (who moved what,
+/// when) travels with the task instead of staying on one device.
+fn migration_60_task_delegation(transaction: &Transaction<'_>) -> Result<()> {
+    for (column, ddl) in [
+        ("assignee_user_id", "ALTER TABLE tasks ADD COLUMN assignee_user_id TEXT;"),
+        ("delegated_by", "ALTER TABLE tasks ADD COLUMN delegated_by TEXT;"),
+        ("delegated_at", "ALTER TABLE tasks ADD COLUMN delegated_at TEXT;"),
+    ] {
+        if !column_exists(transaction, "tasks", column)? {
+            transaction.execute_batch(ddl)?;
+        }
+    }
+    transaction.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_assignee_user ON tasks(assignee_user_id);",
+    )?;
+    // Re-run the generic wiring for tables added to SYNCED_TABLES after
+    // migration 58 already ran.
+    for &(name, id_expr) in SYNCED_TABLES {
+        if name != "task_events" || !table_exists(transaction, name)? {
+            continue;
+        }
+        for (op, row, kind) in [
+            ("INSERT", "NEW", "upsert"),
+            ("UPDATE", "NEW", "upsert"),
+            ("DELETE", "OLD", "delete"),
+        ] {
+            transaction.execute_batch(&format!(
+                "CREATE TRIGGER IF NOT EXISTS sync_{name}_{trigger} AFTER {op} ON {name}
+                 WHEN NOT EXISTS (SELECT 1 FROM sync_guard)
+                 BEGIN
+                    INSERT INTO sync_outbox(entity, record_id, op, changed_at)
+                    VALUES ('{name}', {expr}, '{kind}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                    ON CONFLICT(entity, record_id) DO UPDATE
+                       SET op = '{kind}', changed_at = excluded.changed_at;
+                 END;",
+                trigger = op.to_lowercase(),
+                expr = id_expr.replace("{row}", row),
+            ))?;
+        }
+        transaction.execute_batch(&format!(
+            "INSERT OR IGNORE INTO sync_outbox(entity, record_id, op, changed_at)
+             SELECT '{name}', {expr}, 'upsert', at FROM {name};",
             expr = id_expr.replace("{row}.", ""),
         ))?;
     }

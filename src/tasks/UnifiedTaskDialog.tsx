@@ -20,6 +20,7 @@ import type { Recurrence, RecurrenceFreq, Weekday } from '../calendar/calendar-m
 import { quadrantLabel } from '../matrix/matrix-model';
 import { useProjects } from '../projects/useProjects';
 import { useContacts } from '../phonebook/useContacts';
+import { useTeamMembers } from '../sync/useTeamMembers';
 import { priorityColors } from './task-projections';
 import { useTaskWorkspace } from './TaskWorkspaceContext';
 import { TaskStepsField, type TaskStepItem } from './TaskStepsField';
@@ -54,6 +55,7 @@ type Form = {
   laneId: string | null;
   projectId: string | null;
   assigneeContactId: string | null;
+  assigneeUserId: string | null;
   tagIds: string[];
   steps: TaskStepItem[];
   stepInput: string;
@@ -80,6 +82,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
   const workspace = useTaskWorkspace();
   const { projects } = useProjects();
   const { contacts } = useContacts();
+  const team = useTeamMembers();
   const snapshot = workspace.workspace.data;
   const initial = useMemo<Form>(() => {
     if (mode.type === 'edit') {
@@ -91,6 +94,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
         laneId: mode.task.laneId,
         projectId: mode.task.projectId ?? null,
         assigneeContactId: mode.task.assigneeContactId ?? null,
+        assigneeUserId: mode.task.assigneeUserId ?? null,
         tagIds: mode.task.tagIds,
         steps: (mode.task.steps ?? []).map((step) => ({
           key: step.id, id: step.id, title: step.title, completed: step.completed
@@ -107,6 +111,7 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       laneId: mode.laneId !== undefined ? mode.laneId : showLane ? snapshot.defaultLaneId : null,
       projectId: null,
       assigneeContactId: null,
+      assigneeUserId: null,
       tagIds: [],
       steps: [],
       stepInput: '',
@@ -145,6 +150,18 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
     { value: '', label: t('taskModal.noAssignee') },
     ...contacts.data.map((contact) => ({ value: contact.id, label: contact.name }))
   ];
+  // Only a shared workspace has a second person to hand work to; a solo
+  // account keeps the phone-book assignee alone.
+  const delegateOptions = [
+    { value: '', label: t('sync.noDelegate') },
+    ...team.members
+      .filter((member) => member.userId !== team.userId)
+      .map((member) => ({
+        value: member.userId,
+        label: member.displayName ?? member.userId.slice(0, 8)
+      }))
+  ];
+  const canDelegate = team.signedIn && delegateOptions.length > 1;
 
   const update = <K extends keyof Form>(key: K, value: Form[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -243,6 +260,15 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
       if ((saved.assigneeContactId ?? null) !== form.assigneeContactId) {
         saved = await workspace.setTaskAssignee(saved.id, form.assigneeContactId);
       }
+      // Delegation to a teammate account is its own command too, so the
+      // delegator and the assignee stay recorded together.
+      if ((saved.assigneeUserId ?? null) !== form.assigneeUserId) {
+        saved = await workspace.setTaskDelegate(
+          saved.id,
+          form.assigneeUserId,
+          form.assigneeUserId ? team.userId : null
+        );
+      }
       await onSaved?.(saved);
       onClose();
     } catch (error) {
@@ -335,6 +361,11 @@ export function UnifiedTaskDialog({ mode, showLane = true, restoreFocusRef, onCl
           <Select id="unified-task-assignee" label={t('taskModal.assignee')} options={assigneeOptions}
             searchable value={form.assigneeContactId ?? ''} disabled={busy}
             onChange={(value) => update('assigneeContactId', value || null)} />
+          {canDelegate ? (
+            <Select id="unified-task-delegate" label={t('sync.delegate')} options={delegateOptions}
+              value={form.assigneeUserId ?? ''} disabled={busy}
+              onChange={(value) => update('assigneeUserId', value || null)} />
+          ) : null}
           <DatePicker id="unified-task-due-date" label={t('taskModal.dueDate')} value={form.dueDate}
             disabled={busy} open={dateOpen} onOpenChange={setDateOpen} onChange={changeDueDate} />
         </div>

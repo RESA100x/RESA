@@ -104,6 +104,8 @@ export const tauriNowlyRepository: NowlyRepository = {
   setTaskStatus: (id, status) => invalidating(invoke('set_task_status', { id, status })),
   setTaskProject: (id, projectId) => invalidating(invoke('set_task_project', { id, projectId })),
   setTaskAssignee: (id, contactId) => invalidating(invoke('set_task_assignee', { id, contactId })),
+  setTaskDelegate: (id, assigneeUserId, delegatedBy) =>
+    invalidating(invoke('set_task_delegate', { id, assigneeUserId, delegatedBy })),
   listTaskEvents: (taskId) => invoke('list_task_events', { taskId }),
   listTaskArchive: () => invoke('list_task_archive'),
   setTaskArchiveReason: (id, reason) => invalidating(invoke('set_task_archive_reason', { id, reason })),

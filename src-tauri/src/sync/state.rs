@@ -13,6 +13,10 @@ pub const KEY_LAST_SYNC: &str = "sync.last_sync_at";
 pub const KEY_CURSOR: &str = "sync.cursor";
 pub const KEY_DEVICE: &str = "sync.device_id";
 pub const KEY_PHONE: &str = "sync.phone";
+/// Workspace the account is currently syncing into. Empty means "personal".
+pub const KEY_WORKSPACE: &str = "sync.workspace_id";
+pub const KEY_WORKSPACE_NAME: &str = "sync.workspace_name";
+pub const KEY_USER_NAME: &str = "sync.user_name";
 
 pub fn get(connection: &Connection, key: &str) -> Option<String> {
     connection
@@ -115,7 +119,15 @@ pub fn clear_credentials(connection: &Connection) -> Result<(), CommandError> {
     connection
         .execute("DELETE FROM sync_credentials", [])
         .map_err(CommandError::database)?;
-    for key in [KEY_EMAIL, KEY_USER_ID, KEY_CURSOR, KEY_LAST_SYNC] {
+    for key in [
+        KEY_EMAIL,
+        KEY_USER_ID,
+        KEY_CURSOR,
+        KEY_LAST_SYNC,
+        KEY_WORKSPACE,
+        KEY_WORKSPACE_NAME,
+        KEY_USER_NAME,
+    ] {
         remove(connection, key).map_err(CommandError::database)?;
     }
     Ok(())

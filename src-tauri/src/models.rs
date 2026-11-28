@@ -107,6 +107,15 @@ pub struct Task {
     // Why the task was closed or dropped, written from the archive.
     #[serde(default)]
     pub archive_reason: Option<String>,
+    // The account this task was handed to inside a shared workspace, and who
+    // handed it over. Empty for a solo workspace, where the phone-book
+    // `assignee_contact_id` is the only assignee.
+    #[serde(default)]
+    pub assignee_user_id: Option<String>,
+    #[serde(default)]
+    pub delegated_by: Option<String>,
+    #[serde(default)]
+    pub delegated_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

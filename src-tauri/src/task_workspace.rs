@@ -174,6 +174,9 @@ fn read_task_base(row: &Row<'_>) -> rusqlite::Result<Task> {
         archived_at: row.get(16)?,
         assignee_contact_id: row.get(17)?,
         archive_reason: row.get(18)?,
+        assignee_user_id: row.get(19)?,
+        delegated_by: row.get(20)?,
+        delegated_at: row.get(21)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
     })
@@ -211,7 +214,8 @@ fn task_by_id(connection: &Connection, id: &str) -> Result<Option<Task>, Command
         .query_row(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason,
+                    assignee_user_id,delegated_by,delegated_at
              FROM tasks WHERE id=?1",
             [id],
             read_task_base,
@@ -229,7 +233,8 @@ fn list_tasks(connection: &Connection) -> Result<Vec<Task>, CommandError> {
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason,
+                    assignee_user_id,delegated_by,delegated_at
              FROM tasks WHERE archived_at IS NULL
              ORDER BY lane_id,board_position,id",
         )
@@ -940,6 +945,101 @@ pub fn set_assignee(
     Ok(task)
 }
 
+/// Hand a task to a teammate inside a shared workspace.
+///
+/// `assignee_user_id` is the account the task lands in; `delegated_by` is the
+/// account handing it over, so the delegator can later ask "what did I send to
+/// whom". Passing `None` takes the task back and clears both fields.
+pub fn set_delegate(
+    connection: &Connection,
+    id: &str,
+    assignee_user_id: Option<&str>,
+    delegated_by: Option<&str>,
+) -> Result<Task, CommandError> {
+    let transaction = connection.domain_write().map_err(CommandError::database)?;
+    task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    let now = timestamp();
+    let delegated_at = assignee_user_id.map(|_| now.as_str());
+    transaction
+        .execute(
+            "UPDATE tasks SET assignee_user_id=?2,delegated_by=?3,delegated_at=?4,updated_at=?5
+             WHERE id=?1",
+            params![id, assignee_user_id, delegated_by, delegated_at, now],
+        )
+        .map_err(sql_write_error)?;
+    let detail = match assignee_user_id {
+        Some(user) => Some(format!("{user}|{}", delegated_by.unwrap_or(""))),
+        None => None,
+    };
+    record_event(&transaction, id, "delegate", detail.as_deref())?;
+    let task =
+        task_by_id(&transaction, id)?.ok_or_else(|| CommandError::not_found("未找到该任务。"))?;
+    transaction.commit().map_err(sql_write_error)?;
+    Ok(task)
+}
+
+/// Tasks currently sitting in one person's inbox, newest delegation first.
+pub fn list_assigned_to(
+    connection: &Connection,
+    user_id: &str,
+    archived: bool,
+) -> Result<Vec<Task>, CommandError> {
+    let filter = if archived {
+        "archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')"
+    } else {
+        "archived_at IS NULL AND status NOT IN ('done','cancelled')"
+    };
+    let mut tasks = connection
+        .prepare(&format!(
+            "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
+                    linked_event_id,created_at,updated_at,completed_at,
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason,
+                    assignee_user_id,delegated_by,delegated_at
+             FROM tasks WHERE assignee_user_id=?1 AND ({filter})
+             ORDER BY COALESCE(delegated_at,updated_at) DESC, id"
+        ))
+        .map_err(CommandError::database)?
+        .query_map([user_id], read_task_base)
+        .map_err(CommandError::database)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(CommandError::database)?;
+    for task in &mut tasks {
+        task_links(connection, task)?;
+    }
+    Ok(tasks)
+}
+
+/// Tasks this person handed to someone else, so they can follow up.
+pub fn list_delegated_by(
+    connection: &Connection,
+    user_id: &str,
+    archived: bool,
+) -> Result<Vec<Task>, CommandError> {
+    let filter = if archived {
+        "archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')"
+    } else {
+        "archived_at IS NULL AND status NOT IN ('done','cancelled')"
+    };
+    let mut tasks = connection
+        .prepare(&format!(
+            "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
+                    linked_event_id,created_at,updated_at,completed_at,
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason,
+                    assignee_user_id,delegated_by,delegated_at
+             FROM tasks WHERE delegated_by=?1 AND ({filter})
+             ORDER BY COALESCE(delegated_at,updated_at) DESC, id"
+        ))
+        .map_err(CommandError::database)?
+        .query_map([user_id], read_task_base)
+        .map_err(CommandError::database)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(CommandError::database)?;
+    for task in &mut tasks {
+        task_links(connection, task)?;
+    }
+    Ok(tasks)
+}
+
 /// The action history of one task, oldest first.
 pub fn list_events(connection: &Connection, task_id: &str) -> Result<Vec<TaskEvent>, CommandError> {
     connection
@@ -969,7 +1069,8 @@ pub fn list_archive(connection: &Connection) -> Result<Vec<Task>, CommandError> 
         .prepare(
             "SELECT id,title,description,priority,due_date,completed,lane_id,board_position,
                     linked_event_id,created_at,updated_at,completed_at,
-                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason
+                    recurrence,recurrence_parent_id,status,project_id,archived_at,assignee_contact_id,archive_reason,
+                    assignee_user_id,delegated_by,delegated_at
              FROM tasks
              WHERE archived_at IS NOT NULL OR status IN ('done','suspended','cancelled')
              ORDER BY COALESCE(completed_at,updated_at) DESC, id",
@@ -1605,6 +1706,48 @@ pub fn list_task_events(
 ) -> Result<Vec<TaskEvent>, CommandError> {
     let connection = db.0.lock().map_err(CommandError::database)?;
     list_events(&connection, &task_id)
+}
+
+/// Hand a task to a teammate (or take it back with `assignee_user_id: null`).
+#[tauri::command]
+pub fn set_task_delegate(
+    db: State<'_, AppDb>,
+    id: String,
+    assignee_user_id: Option<String>,
+    delegated_by: Option<String>,
+) -> Result<Task, CommandError> {
+    let mut connection = db.0.lock().map_err(CommandError::database)?;
+    let task = set_delegate(
+        &mut connection,
+        &id,
+        assignee_user_id.as_deref(),
+        delegated_by.as_deref(),
+    )?;
+    drop(connection);
+    crate::status_island::invalidate_registered()?;
+    Ok(task)
+}
+
+/// The signed-in account's own inbox: tasks handed to them.
+#[tauri::command]
+pub fn list_tasks_assigned_to(
+    db: State<'_, AppDb>,
+    user_id: String,
+    archived: Option<bool>,
+) -> Result<Vec<Task>, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    list_assigned_to(&connection, &user_id, archived.unwrap_or(false))
+}
+
+/// Tasks this account handed to someone else, for follow-up.
+#[tauri::command]
+pub fn list_tasks_delegated_by(
+    db: State<'_, AppDb>,
+    user_id: String,
+    archived: Option<bool>,
+) -> Result<Vec<Task>, CommandError> {
+    let connection = db.0.lock().map_err(CommandError::database)?;
+    list_delegated_by(&connection, &user_id, archived.unwrap_or(false))
 }
 
 #[tauri::command]

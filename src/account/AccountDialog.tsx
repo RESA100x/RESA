@@ -4,11 +4,12 @@ import { TabPanel, Tabs, type TabItem } from '../components/Tabs';
 import { X } from '../components/icons';
 import { t } from '../i18n';
 import { SyncPanel } from '../sync/SyncPanel';
+import { InboxPanel } from '../sync/InboxPanel';
 import { ProfilePanel } from './ProfilePanel';
 import { VaultPanel } from './VaultPanel';
 import './account.css';
 
-type AccountTab = 'profile' | 'vault' | 'sync';
+type AccountTab = 'profile' | 'inbox' | 'vault' | 'sync';
 
 /// One screen for "me": who I am, what paperwork I keep, and the optional
 /// online account. It is reachable from the top bar on every platform, because
@@ -17,6 +18,7 @@ export function AccountDialog({ onClose }: { onClose(): void }) {
   const [tab, setTab] = useState<AccountTab>('profile');
   const tabs: TabItem<AccountTab>[] = [
     { id: 'profile', label: t('account.tabProfile') },
+    { id: 'inbox', label: t('account.tabInbox') },
     { id: 'vault', label: t('account.tabVault') },
     { id: 'sync', label: t('account.tabSync') }
   ];
@@ -37,6 +39,9 @@ export function AccountDialog({ onClose }: { onClose(): void }) {
         <Tabs idPrefix="account" label={t('account.title')} items={tabs} value={tab} onChange={setTab} />
         <TabPanel idPrefix="account" tabId="profile" active={tab === 'profile'}>
           <ProfilePanel />
+        </TabPanel>
+        <TabPanel idPrefix="account" tabId="inbox" active={tab === 'inbox'}>
+          <InboxPanel />
         </TabPanel>
         <TabPanel idPrefix="account" tabId="vault" active={tab === 'vault'}>
           <VaultPanel />

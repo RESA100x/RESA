@@ -267,6 +267,8 @@ export type NowlyRepository = {
   setTaskStatus?(id: string, status: TaskStatus): Promise<WorkspaceTask>;
   setTaskProject?(id: string, projectId: string | null): Promise<WorkspaceTask>;
   setTaskAssignee?(id: string, contactId: string | null): Promise<WorkspaceTask>;
+  // Hands a task to a teammate account inside a shared workspace.
+  setTaskDelegate?(id: string, assigneeUserId: string | null, delegatedBy: string | null): Promise<WorkspaceTask>;
   // The action history of one task, oldest first.
   listTaskEvents?(taskId: string): Promise<TaskEvent[]>;
   // Everything that left the board: done, suspended, cancelled and deleted.

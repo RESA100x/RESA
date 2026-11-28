@@ -52,6 +52,9 @@ impl Api {
                 .map_err(|_| CommandError::sync("درخواست سینک ساخته نشد.".to_owned()))?;
             request = request
                 .header("Content-Type", "application/json")
+                // PostgREST returns the written row only when asked; the
+                // workspace screens need the id/token it generated.
+                .header("Prefer", "return=representation")
                 .body(encoded);
         }
         let response = request.send().map_err(|error| {
@@ -85,6 +88,19 @@ impl Api {
 
     pub fn get_json(&self, path: &str, token: Option<&str>) -> Result<Value, CommandError> {
         self.request(reqwest::Method::GET, path, token, None)
+    }
+
+    pub fn patch_json(
+        &self,
+        path: &str,
+        token: Option<&str>,
+        body: &Value,
+    ) -> Result<Value, CommandError> {
+        self.request(reqwest::Method::PATCH, path, token, Some(body))
+    }
+
+    pub fn delete_json(&self, path: &str, token: Option<&str>) -> Result<Value, CommandError> {
+        self.request(reqwest::Method::DELETE, path, token, None)
     }
 }
 

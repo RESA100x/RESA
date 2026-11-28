@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Lock, RefreshCw } from '../components/icons';
 import { t } from '../i18n';
 import { formatDisplayDate } from '../lib/calendar-system';
+import { TeamPanel } from './TeamPanel';
 import './sync-panel.css';
 
 type SyncStatus = {
@@ -11,10 +12,14 @@ type SyncStatus = {
   endpoint: string | null;
   email: string | null;
   phone: string | null;
+  userId: string | null;
+  userName: string | null;
   signedIn: boolean;
   lastSyncAt: string | null;
   pendingChanges: number;
   deviceId: string;
+  workspaceId: string | null;
+  workspaceName: string | null;
   hasDefaults: boolean;
 };
 
@@ -47,6 +52,7 @@ export function SyncPanel() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -54,6 +60,7 @@ export function SyncPanel() {
   const apply = useCallback((next: SyncStatus) => {
     setStatus(next);
     if (next.email) setEmail((current) => current || next.email || '');
+    if (next.userName) setDisplayName((current) => current || next.userName || '');
   }, []);
 
   const refresh = useCallback(async () => {
@@ -224,6 +231,8 @@ export function SyncPanel() {
           <dl className="sync-facts">
             <dt>{t('sync.account')}</dt>
             <dd dir="ltr">{status.email ?? '—'}</dd>
+            <dt>{t('sync.workspace')}</dt>
+            <dd>{status.workspaceName ?? '—'}</dd>
             {status.phone ? (
               <>
                 <dt>{t('sync.phone')}</dt>
@@ -265,13 +274,33 @@ export function SyncPanel() {
               {t('sync.signOut')}
             </button>
           </div>
+
+          <label className="sync-field">
+            <span>{t('sync.myName')}</span>
+            <input
+              value={displayName}
+              placeholder={t('sync.myNameHint')}
+              disabled={busy !== null}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="sync-link"
+            disabled={busy !== null}
+            onClick={() =>
+              void run('name', () => invoke('sync_set_display_name', { name: displayName }), t('sync.nameSaved'))
+            }
+          >
+            {busy === 'name' ? t('sync.working') : t('sync.saveName')}
+          </button>
         </div>
       )}
 
       {notice ? <p className="sync-panel__status" role="status">{notice}</p> : null}
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}
 
-
+      <TeamPanel signedIn={status.signedIn} />
     </div>
   );
 }

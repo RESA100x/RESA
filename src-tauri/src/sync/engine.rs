@@ -42,6 +42,8 @@ pub const ENTITIES: &[EntitySpec] = &[
     EntitySpec { name: "task_tags", id_expr: "id", key_columns: &["id"], clocked: true },
     EntitySpec { name: "tasks", id_expr: "id", key_columns: &["id"], clocked: true },
     EntitySpec { name: "task_steps", id_expr: "id", key_columns: &["id"], clocked: true },
+    // The task timeline has no `updated_at` clock; `at` is the event time.
+    EntitySpec { name: "task_events", id_expr: "id", key_columns: &["id"], clocked: false },
     EntitySpec {
         name: "task_tag_links",
         id_expr: "task_id || '|' || tag_id",
@@ -117,7 +119,7 @@ fn config(connection: &Connection) -> Result<Config, CommandError> {
     Ok(Config { endpoint, anon_key })
 }
 
-fn access_token(connection: &Connection, api: &Api) -> Result<String, CommandError> {
+pub(crate) fn access_token(connection: &Connection, api: &Api) -> Result<String, CommandError> {
     let credentials = state::load_credentials(connection)?
         .ok_or_else(|| CommandError::sync("برای سینک ابتدا وارد حساب خود شوید.".to_owned()))?;
     if credentials.expires_at > chrono::Utc::now().timestamp() + 120 {
@@ -137,8 +139,10 @@ pub fn run(connection: &mut Connection) -> Result<SyncOutcome, CommandError> {
     let config = config(connection)?;
     let api = Api::new(&config.endpoint, &config.anon_key)?;
     let token = access_token(connection, &api)?;
-    let pushed = push(connection, &api, &token)?;
-    let (pulled, entities) = pull(connection, &api, &token)?;
+    let workspace = state::get(connection, state::KEY_WORKSPACE)
+        .filter(|value| !value.trim().is_empty());
+    let pushed = push(connection, &api, &token, workspace.as_deref())?;
+    let (pulled, entities) = pull(connection, &api, &token, workspace.as_deref())?;
     let at = chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     state::set(connection, state::KEY_LAST_SYNC, &at).map_err(CommandError::database)?;
     Ok(SyncOutcome {
@@ -155,7 +159,12 @@ pub fn pending_changes(connection: &Connection) -> i64 {
         .unwrap_or(0)
 }
 
-fn push(connection: &Connection, api: &Api, token: &str) -> Result<usize, CommandError> {
+fn push(
+    connection: &Connection,
+    api: &Api,
+    token: &str,
+    workspace: Option<&str>,
+) -> Result<usize, CommandError> {
     let device = state::device_id(connection).map_err(CommandError::database)?;
     let queued: Vec<(String, String, String, String)> = {
         let mut statement = connection
@@ -219,10 +228,14 @@ fn push(connection: &Connection, api: &Api, token: &str) -> Result<usize, Comman
     }
 
     if !items.is_empty() {
+        let mut body = json!({ "items": items });
+        if let Some(workspace) = workspace {
+            body["p_workspace"] = json!(workspace);
+        }
         api.post_json(
             "/rest/v1/rpc/sync_push",
             Some(token),
-            &json!({ "items": items }),
+            &body,
         )?;
     }
 
@@ -304,6 +317,7 @@ fn pull(
     connection: &mut Connection,
     api: &Api,
     token: &str,
+    workspace: Option<&str>,
 ) -> Result<(usize, Vec<String>), CommandError> {
     let mut cursor = state::get(connection, state::KEY_CURSOR).unwrap_or_default();
     let mut total = 0;
@@ -313,6 +327,12 @@ fn pull(
             "/rest/v1/sync_records?select=entity,record_id,payload,deleted,updated_at,server_updated_at\
              &order=server_updated_at.asc&limit={PULL_PAGE}"
         );
+        // A workspace-scoped account only ever sees that workspace's rows; the
+        // personal workspace is the default so solo users need no filter.
+        if let Some(workspace) = workspace {
+            path.push_str("&workspace_id=eq.");
+            path.push_str(&encode_query_value(workspace));
+        }
         if !cursor.is_empty() {
             path.push_str("&server_updated_at=gt.");
             path.push_str(&encode_query_value(&cursor));

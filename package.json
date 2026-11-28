@@ -1,6 +1,6 @@
 {
   "name": "resa",
-  "version": "0.2.34",
+  "version": "0.2.35",
   "private": true,
   "type": "module",
   "description": "RESA — your local-first personal workspace for Windows, bringing schedules, tasks, notes, time and desktop tools together.",

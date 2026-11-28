@@ -1,0 +1,76 @@
+# RESA sync stack — self-hosted, Supabase-compatible.
+#
+# One origin on :8000 serves both halves the app expects:
+#   /auth/v1/*  -> GoTrue   (sign up, sign in, refresh)
+#   /rest/v1/*  -> PostgREST (sync_records, sync_push)
+#
+# Everything here is plain Postgres + two small services, so it runs on a
+# 4 GB box. Put Caddy or a reverse proxy with a real certificate in front of
+# :8000 for the desktop app, which only accepts https endpoints.
+#
+# Image prefix: Docker Hub is blocked from some networks (403). Set
+# REGISTRY=docker.iranserver.com/ in .env to pull through a mirror.
+services:
+  db:
+    image: ${REGISTRY:-}postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./sql/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth:
+    image: ${REGISTRY:-}supabase/gotrue:v2.170.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      PORT: "9999"
+      API_EXTERNAL_URL: ${PUBLIC_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${AUTH_DB_PASSWORD}@db:5432/postgres?search_path=auth&sslmode=disable
+      GOTRUE_SITE_URL: ${PUBLIC_URL:-http://localhost:8000}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: ${MAILER_AUTOCONFIRM:-true}
+      GOTRUE_PASSWORD_MIN_LENGTH: "8"
+
+  rest:
+    image: ${REGISTRY:-}postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${AUTH_DB_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_SERVER_PORT: "3000"
+      PGRST_LOG_LEVEL: info
+
+  gateway:
+    image: ${REGISTRY:-}nginx:alpine
+    restart: unless-stopped
+    depends_on: [auth, rest]
+    ports:
+      - "${GATEWAY_PORT:-8000}:80"
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  db-data:

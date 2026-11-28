@@ -69,6 +69,11 @@ export type Task = {
   archivedAt?: string | null;
   // The phone-book contact this task is assigned to, if any.
   assigneeContactId?: string | null;
+  // The account this task was handed to inside a shared workspace, and who
+  // handed it over. Empty in a solo workspace.
+  assigneeUserId?: string | null;
+  delegatedBy?: string | null;
+  delegatedAt?: string | null;
   // The one-line note explaining why the task left the board; written from the archive.
   archiveReason?: string | null;
   createdAt: string;
