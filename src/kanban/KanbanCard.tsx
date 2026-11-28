@@ -111,7 +111,7 @@ export function KanbanCard({
           {assigneeName ? (
             <span className="kanban-card__assignee" title={assigneeName}>
               <UserCircle aria-hidden="true" />
-              {assigneeName}
+              <span className="kanban-card__assignee-name">{assigneeName}</span>
             </span>
           ) : null}
           {attachmentCount > 0 ? (
@@ -126,7 +126,7 @@ export function KanbanCard({
           {tags.map((tag) => (
             <span key={tag.id} className="kanban-tag" style={{ color: tag.color }}>
               <span className="kanban-tag__hash" aria-hidden="true">#</span>
-              {tag.name}
+              <span className="kanban-tag__name">{tag.name}</span>
             </span>
           ))}
         </div>

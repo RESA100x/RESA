@@ -88,8 +88,12 @@ export function DateDetailDialog({
                 className="date-detail-dialog__event"
                 onClick={(clickEvent) => onEditEvent(event, clickEvent.currentTarget)}
               >
-                <span className="date-detail-dialog__time">{event.allDay ? t('calendar.allDay') : event.startAt.slice(11, 16)}</span>
-                {event.startTz ? <span className="date-detail-dialog__tz">({event.startTz})</span> : null}
+                {/* The zone belongs to the time cell: as its own grid child it
+                    pushed the category into a second row. */}
+                <span className="date-detail-dialog__time">
+                  {event.allDay ? t('calendar.allDay') : event.startAt.slice(11, 16)}
+                  {event.startTz ? <span className="date-detail-dialog__tz">({event.startTz})</span> : null}
+                </span>
                 <span className="date-detail-dialog__event-copy">
                   <strong>{event.title}</strong>
                 </span>
