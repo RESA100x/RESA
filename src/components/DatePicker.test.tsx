@@ -227,4 +227,28 @@ describe('DatePicker', () => {
       setLanguage('zh');
     }
   });
+
+  it('anchors the panel to the viewport so a scrolling dialog cannot clip it', () => {
+    render(<Harness initiallyOpen />);
+    const dialog = screen.getByRole('dialog', { name: '选择开始日期' });
+    // jsdom reports a zero rect for the trigger, so the panel must fall back to
+    // the viewport gap instead of the trigger's (nonexistent) position.
+    expect(dialog.style.position).toBe('fixed');
+    expect(dialog.style.left).toBe('8px');
+    expect(dialog.style.width).toBe(`${Math.min(320, window.innerWidth - 16)}px`);
+    expect(dialog.style.top).toBe('8px');
+  });
+
+  it('leaves the phone bottom sheet to CSS instead of inline positioning', () => {
+    document.documentElement.classList.add('is-mobile-shell');
+    try {
+      render(<Harness initiallyOpen />);
+      const dialog = screen.getByRole('dialog', { name: '选择开始日期' });
+      expect(dialog.style.position).toBe('');
+      expect(dialog.style.left).toBe('');
+      expect(dialog.style.top).toBe('');
+    } finally {
+      document.documentElement.classList.remove('is-mobile-shell');
+    }
+  });
 });

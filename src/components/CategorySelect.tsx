@@ -112,6 +112,10 @@ export function CategorySelect<T extends CategoryLike = Category>({
     function dismiss(event: PointerEvent) {
       const target = event.target as Node;
       if (rootRef.current?.contains(target) || popupRef.current?.contains(target)) return;
+      // The colour picker draws its palette in a portal on <body>. A click
+      // there belongs to the editor that opened it, not to the page behind the
+      // dropdown, so it must not close (and reset) the create form.
+      if (target instanceof Element && target.closest('[data-color-picker-popover]')) return;
       close(false);
     }
     document.addEventListener('pointerdown', dismiss);

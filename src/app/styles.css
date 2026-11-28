@@ -708,7 +708,20 @@ body:has(.screen-status-island-root),
 .calendar-list-item:hover { border-color: var(--color-primary); background: var(--bg-subtle); }
 .calendar-list-item__time { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
 .calendar-list-item__title { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: 0.95rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.calendar-list-item__category { padding: 4px 8px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; color: var(--selected-color-fg, var(--text-secondary)); background: var(--selected-color-bg, var(--bg-subtle)); }
+.calendar-list-item__category {
+  /* One line, ellipsised: a long category name used to wrap inside the auto
+     grid column and stretch the whole row to three lines. */
+  max-width: 132px;
+  padding: 4px 8px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  color: var(--selected-color-fg, var(--text-secondary));
+  background: var(--selected-color-bg, var(--bg-subtle));
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .side-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, .85fr); gap: 24px; }
 .panel-body { min-height: 0; flex: 1; padding: 20px 24px 24px; overflow: auto; }
 .matrix-body { display: flex; flex-direction: column; }
@@ -1215,8 +1228,11 @@ body:has(.screen-status-island-root),
 .date-picker__trigger[aria-expanded="true"] { border-color: var(--color-primary); }
 .date-picker__trigger:focus-visible { outline: 0; }
 .date-picker__popup {
-  position: absolute;
-  z-index: 70;
+  /* The panel is anchored to the trigger's viewport rect through inline styles
+     (see DatePicker): fixed positioning keeps it out of the modal body's
+     scroll clipping, and the inline left/top keep it inside the viewport. */
+  position: fixed;
+  z-index: 110;
   top: calc(100% + 8px);
   left: 0;
   box-sizing: border-box;

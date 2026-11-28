@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronLeft, ChevronRight, type AppIcon } from '../components/icons';
-import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { buildMonthGrid, effectiveWeekStart, formatChineseDate, toIsoDate } from '../lib/date';
 import { t, formatNumber, isRtl } from '../i18n';
 import {
@@ -74,6 +74,15 @@ function pageStart(year: number) {
 }
 
 /**
+ * The phone shell turns the calendar into a bottom sheet through
+ * `html.is-mobile-shell .date-picker__popup`. Inline positioning would beat
+ * that rule, so the measuring code stays out of the way there.
+ */
+function usesSheetLayout() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('is-mobile-shell');
+}
+
+/**
  * A date field with a calendar.
  *
  * The calendar is a *range* picker as much as a month picker: a production date
@@ -97,6 +106,7 @@ export function DatePicker({
 }: DatePickerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const yearInputRef = useRef<HTMLInputElement>(null);
   const initialDate = parseIsoDate(value, today);
   const [visibleMonth, setVisibleMonth] = useState(() => displayMonthOf(initialDate));
@@ -104,6 +114,11 @@ export function DatePicker({
   const [panel, setPanel] = useState<'days' | 'months' | 'years'>('days');
   const [yearPage, setYearPage] = useState(() => pageStart(displayMonthOf(initialDate).year));
   const [yearDraft, setYearDraft] = useState('');
+  // The calendar is positioned against the viewport instead of the field: the
+  // event form lives in a scrolling modal body, and an absolutely positioned
+  // panel was clipped by that scroll container (and pushed off the right edge
+  // in right-to-left layouts, where `left: 0` points the wrong way).
+  const [popupStyle, setPopupStyle] = useState<CSSProperties>(() => (usesSheetLayout() ? {} : { visibility: 'hidden' }));
   const cursorDateRef = useRef(initialDate);
   const shouldRestoreFocusRef = useRef(false);
   // Keyboard moves re-render the grid, which replaces the focused button. The
@@ -154,6 +169,50 @@ export function DatePicker({
       triggerRef.current?.focus();
     }
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (usesSheetLayout()) {
+      setPopupStyle({});
+      return;
+    }
+    const GAP = 8;
+    // Roughly the height of the day panel; only used to decide whether to flip
+    // the calendar above the field.
+    const PANEL_HEIGHT = 380;
+    function measure() {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(320, window.innerWidth - GAP * 2);
+      const left = Math.min(Math.max(GAP, rect.left), Math.max(GAP, window.innerWidth - width - GAP));
+      const spaceBelow = window.innerHeight - rect.bottom - GAP * 2;
+      const spaceAbove = rect.top - GAP * 2;
+      const above = spaceBelow < PANEL_HEIGHT && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(200, Math.min(above ? spaceAbove : spaceBelow, window.innerHeight - GAP * 2));
+      setPopupStyle({
+        position: 'fixed',
+        left: `${left}px`,
+        width: `${width}px`,
+        maxHeight: `${maxHeight}px`,
+        overflowY: 'auto',
+        ...(above
+          ? { bottom: `${window.innerHeight - rect.top + GAP}px`, top: 'auto' }
+          : { top: `${rect.bottom + GAP}px`, bottom: 'auto' })
+      });
+    }
+    measure();
+    function handleScroll(event: Event) {
+      // Scrolling inside the calendar itself must not re-anchor it.
+      if (popupRef.current?.contains(event.target as Node)) return;
+      measure();
+    }
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [open, panel]);
 
   useLayoutEffect(() => {
     if (!open || panel !== 'days' || !pendingFocusRef.current) return;
@@ -280,7 +339,14 @@ export function DatePicker({
         <CalendarDays aria-hidden="true" />
       </button>
       {open ? (
-        <div id={dialogId} role="dialog" aria-label={t('datePicker.select', { label })} className="date-picker__popup">
+        <div
+          ref={popupRef}
+          id={dialogId}
+          role="dialog"
+          aria-label={t('datePicker.select', { label })}
+          className="date-picker__popup"
+          style={popupStyle}
+        >
           {panel === 'days' ? (
             <>
               <div className="date-picker__header date-picker__header--days">

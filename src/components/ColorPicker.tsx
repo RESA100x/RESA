@@ -278,6 +278,9 @@ export function ColorPicker({ legend, name, value, presets, recentColors, disabl
     <div
       ref={popoverRef}
       className="color-picker__popover"
+      // Lets hosts that live inside another popup (the category editor) tell a
+      // click in this portal apart from a click on the page behind it.
+      data-color-picker-popover=""
       data-sticker-popup={stickerPopup ? '' : undefined}
       role="dialog"
       aria-label={t('colorPicker.custom')}

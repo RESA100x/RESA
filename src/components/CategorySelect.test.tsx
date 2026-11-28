@@ -73,4 +73,26 @@ describe('CategorySelect selection records', () => {
     await waitFor(() => expect(p.onChange).toHaveBeenCalledWith('', null));
     expect(p.onDelete).toHaveBeenCalledWith(category.id);
   });
+
+  it('keeps the create form open while the portalled colour picker is used', () => {
+    const p = props();
+    render(<CategorySelect {...p} />);
+    openSelector();
+    fireEvent.click(screen.getByRole('button', { name: '新增分类' }));
+    const nameField = screen.getByPlaceholderText('分类名称');
+    fireEvent.change(nameField, { target: { value: '新分类' } });
+
+    // The palette lives in a portal on <body>, outside the dropdown element.
+    const palette = document.createElement('div');
+    palette.setAttribute('data-color-picker-popover', '');
+    document.body.appendChild(palette);
+    try {
+      fireEvent.pointerDown(palette);
+    } finally {
+      palette.remove();
+    }
+
+    expect(screen.getByPlaceholderText('分类名称')).toHaveValue('新分类');
+    expect(p.onChange).not.toHaveBeenCalled();
+  });
 });
